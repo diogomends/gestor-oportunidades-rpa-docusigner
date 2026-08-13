@@ -1,0 +1,11 @@
+{
+  "pkg": {
+    "assets": [
+      "config.json.example"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
+  }
+}

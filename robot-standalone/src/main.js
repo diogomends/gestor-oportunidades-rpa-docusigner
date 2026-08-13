@@ -1,0 +1,53 @@
+import { loadConfig } from "./config.js";
+import { ApiClient } from "./api-client.js";
+import { JobRunner } from "./job-runner.js";
+import { Scheduler } from "./scheduler.js";
+
+async function bootstrap() {
+  console.log("==================================================");
+  console.log("🤖 Robô RPA DocuSigner - Gestor de Oportunidades");
+  console.log("==================================================");
+
+  const config = loadConfig();
+  console.log(`[Main] ID da Instância: ${config.ROBOT_ID}`);
+  console.log(`[Main] Conectando a: ${config.API_URL}`);
+  console.log(`[Main] Modo Navegador: ${config.HEADLESS ? "Headless (sem janela)" : "Headed (com janela)"}`);
+
+  const api = new ApiClient(config.API_URL, config.ROBOT_ID);
+
+  try {
+    // 1. Autenticação na API central
+    console.log(`[Main] Autenticando com usuário ${config.ROBOT_EMAIL}...`);
+    await api.authenticate(config.ROBOT_EMAIL, config.ROBOT_PASS);
+
+    // 2. Busca configuração inicial
+    const systemConfig = await api.getConfig();
+    console.log(`[Main] Configurações obtidas. Robô habilitado: ${systemConfig.enabled ? "SIM" : "NÃO"}`);
+
+    // 3. Heartbeat inicial
+    await api.sendHeartbeat("active", null, 0);
+
+    // 4. Iniciar runner e scheduler
+    const runner = new JobRunner(api, { headless: config.HEADLESS });
+    const scheduler = new Scheduler(api, runner, systemConfig, config.POLL_INTERVAL_SECONDS);
+
+    process.on("SIGINT", () => {
+      console.log("\n[Main] Encerrando robô com segurança...");
+      scheduler.stop();
+      process.exit(0);
+    });
+
+    process.on("SIGTERM", () => {
+      console.log("\n[Main] Encerrando robô...");
+      scheduler.stop();
+      process.exit(0);
+    });
+
+    await scheduler.start();
+  } catch (error) {
+    console.error("[Main] Erro fatal na inicialização:", error.message);
+    process.exit(1);
+  }
+}
+
+bootstrap();

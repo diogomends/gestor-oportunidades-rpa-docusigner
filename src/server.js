@@ -5,11 +5,12 @@ import app from "./app.js";
 import connectDB, { connectContractsDB } from "./config/database.js";
 import robotScheduler from "./modules/robot-docusign/services/robotScheduler.js";
 
-// Schemas registration
+import "./models/User.js";
 import "./models/Contract.js";
 import "./models/SystemConfig.js";
 import "./modules/robot-docusign/models/RobotJob.js";
 import "./modules/robot-docusign/models/RobotSession.js";
+import "./modules/robot-docusign/models/RobotInstance.js";
 
 const PORT = process.env.PORT || 3111;
 

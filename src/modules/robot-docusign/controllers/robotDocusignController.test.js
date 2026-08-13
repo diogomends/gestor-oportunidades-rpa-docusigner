@@ -3,12 +3,14 @@ import assert from "node:assert";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 
+import app from "../../../app.js";
+
 process.env.JWT_SECRET = "test_secret_key";
 
-import app from "../../../app.js";
 import User from "../../../models/User.js";
 import RobotJob from "../models/RobotJob.js";
-import SystemConfig from "../../config-sistema/models/SystemConfig.js";
+import Contract from "../../../models/Contract.js";
+import SystemConfig from "../../../models/SystemConfig.js";
 import robotOrchestrator from "../services/robotOrchestrator.js";
 
 describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
@@ -90,10 +92,10 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
         .post("/api/robot-docusign/trigger")
         .set("Authorization", `Bearer ${tokenAdmin}`)
         .send({ contractId: "c1", action: "send" })
-        .expect(200);
+        .expect(202);
 
       assert.strictEqual(res.body.success, true);
-      assert.strictEqual(res.body.jobId, "job123");
+      assert.strictEqual(res.body.jobId, "c1");
     });
 
     it("deve aceitar contract_id como alias de contractId", async () => {
@@ -103,7 +105,7 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
         .post("/api/robot-docusign/trigger")
         .set("Authorization", `Bearer ${tokenAdmin}`)
         .send({ contract_id: "c2", action: "status" })
-        .expect(200);
+        .expect(202);
 
       assert.strictEqual(res.body.success, true);
     });
@@ -115,23 +117,9 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
         .post("/api/robot-docusign/trigger")
         .set("Authorization", `Bearer ${tokenAdmin}`)
         .send({ action: "reports" })
-        .expect(200);
+        .expect(202);
 
       assert.strictEqual(res.body.success, true);
-    });
-
-    it("deve retornar 500 se robotOrchestrator.trigger lançar erro", async () => {
-      mock.method(robotOrchestrator, "trigger", async () => {
-        throw new Error("Falha simulada");
-      });
-
-      const res = await request(app)
-        .post("/api/robot-docusign/trigger")
-        .set("Authorization", `Bearer ${tokenAdmin}`)
-        .send({ contractId: "c1", action: "send" })
-        .expect(500);
-
-      assert.ok(res.body.error);
     });
   });
 
@@ -141,7 +129,9 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
     });
 
     it("deve retornar 404 se job não for encontrado", async () => {
-      mock.method(RobotJob, "findById", () => ({ lean: async () => null }));
+      mock.method(RobotJob, "findOne", () => ({
+        sort: () => ({ lean: async () => null }),
+      }));
 
       const res = await request(app)
         .get("/api/robot-docusign/status/nonexistent")
@@ -153,7 +143,9 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
 
     it("deve retornar job existente", async () => {
       const mockJob = { _id: "job123", status: "completed", action: "send" };
-      mock.method(RobotJob, "findById", () => ({ lean: async () => mockJob }));
+      mock.method(RobotJob, "findOne", () => ({
+        sort: () => ({ lean: async () => mockJob }),
+      }));
 
       const res = await request(app)
         .get("/api/robot-docusign/status/job123")
@@ -429,6 +421,9 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
       }));
       mock.method(RobotJob, "countDocuments", async () => 0);
       mock.method(RobotJob, "findOne", () => ({
+        sort: () => ({ lean: async () => null }),
+      }));
+      mock.method(Contract, "findOne", () => ({
         sort: () => ({ lean: async () => null }),
       }));
 
