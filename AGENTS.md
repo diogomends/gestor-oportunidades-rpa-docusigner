@@ -1,5 +1,15 @@
 # AGENTS.md — Gestor de Oportunidades (CRM Funil de Vendas)
 
+## Projeto Relacionado
+
+Este projeto (`gestor-oportunidades-rpa-docusigner`) **interage com** o projeto `gestor-oportunidades` localizado em `C:\www\producao\servidor-unity-rce\gestor-oportunidades`. Essa referência é obrigatória em todas as decisões:
+
+- Dados compartilhados (usuários, oportunidades, contratos, configurações) vivem em ambos os projetos — sempre consulte o repositório `gestor-oportunidades` antes de alterar schemas, models ou fluxos que impactem dados cruzados.
+- APIs, rotas ou módulos consumidos pelo `gestor-oportunidades` devem ser considerados contratos públicos neste projeto.
+- Antes de criar ou modificar funcionalidades que envolvam dados exportados/importados entre os dois sistemas, verifique a estrutura vigente no projeto irmão.
+
+---
+
 Antes de qualquer ação, faça **no máximo 10 perguntas** para esclarecer o contexto, escopo, restrições e preferências do usuário. Só depois comece a executar.
 
 ## Regras Obrigatórias
