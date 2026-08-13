@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { getContractsConnection } from "../../../config/database.js";
+import { getContractsConnection } from "../config/database.js";
 
 const contractSchema = new mongoose.Schema(
   {

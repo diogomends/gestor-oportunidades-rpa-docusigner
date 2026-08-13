@@ -1,0 +1,8 @@
+{
+  "API_URL": "http://localhost:3111",
+  "ROBOT_ID": "agent-01",
+  "ROBOT_EMAIL": "robot@gestordeoportunidades.com.br",
+  "ROBOT_PASS": "SUA_SENHA_AQUI",
+  "HEADLESS": true,
+  "POLL_INTERVAL_SECONDS": 15
+}

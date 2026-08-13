@@ -110,6 +110,22 @@ const robotJobSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+
+    // Controle de Concorrência e Lock Multi-Instância
+    locked_by: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    lock_expires_at: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    instance_metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -16,9 +16,14 @@ import {
   streamJobProgress,
 } from "./controllers/robotDocusignController.js";
 
+import instanceRoutes from "./routes/robotInstanceRoutes.js";
+
 const router = express.Router();
 
-// Todas as rotas exigem autenticação
+// Sub-roteador de instâncias do robô (com seu próprio controle de auth pública + protegida)
+router.use("/instance", instanceRoutes);
+
+// Todas as rotas legadas abaixo exigem autenticação
 router.use(protect);
 
 router.post("/trigger", triggerJob);
