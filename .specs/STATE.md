@@ -317,6 +317,16 @@ Navegação de documentação através de `public/manual-usuario.html` alimentad
 
 - **Teste de regressão do módulo robotDocusign**: Criado suite de testes de integração com `supertest` cobrindo os 9 endpoints do controller (`trigger`, `status`, `jobs`, `metrics`, `logs`, `config`, `test-login`, `queue`). 31 cenários validando autenticação, autorização, validação, sucesso e tratamento de erros. Arquivo: `src/modules/robot-docusign/controllers/robotDocusignController.test.js`.
 
+### [5.14.0] - 2026-08-13
+
+#### Adicionado
+
+- **Robô RPA DocuSign Multi-Instância e Executável Standalone Protegido**:
+  - **Concorrência Atômica**: Extensão do modelo `RobotJob` com campos `locked_by`, `lock_expires_at` e `instance_metadata`, permitindo processamento concorrente seguro em até 3 robôs paralelos sem duplicidade.
+  - **Monitoramento de Instâncias**: Novo modelo `RobotInstance` e endpoints `/api/robot-docusign/instance/*` com autenticação JWT de 30 dias, heartbeat e download temporário de PDFs.
+  - **Projeto Standalone**: Módulo `robot-standalone/` com arquitetura baseada em `ApiClient`, `Scheduler` (polling resiliente) e `JobRunner` (Playwright com destruição garantida de PDFs em `finally`).
+  - **Pipeline de Build Protegido**: Script `build/build.js` integrando `esbuild` (CJS bundling), `javascript-obfuscator` (ofuscação de fluxo e strings), `bytenode` (compilação para bytecode V8 nativo `.jsc`) e `@yao-pkg/pkg` (geração do `.exe` standalone para Windows).
+
 ### [5.13.0] - 2026-08-07
 
 #### Alterado
