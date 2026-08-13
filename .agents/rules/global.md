@@ -1,0 +1,17 @@
+---
+trigger: always_on
+---
+
+# Regra Global de Resposta e Execução
+
+- **Formato de Resposta**: Ao responder perguntas, verifique se deve utilizar "Sim" ou "Não".
+- **Explicação em caso de "Não"**: Se a resposta for "Não", forneça a explicação de acordo com o nível de complexidade necessário:
+  - **Complexidade Baixa**: explicação em até 25 palavras.
+  - **Complexidade Média**: explicação em até 50 palavras.
+  - **Complexidade Alta**: explicação em até 150 palavras.
+- **Sub-agentes e Distribuição de Carga**: Em todas as tarefas, sempre que for possível, utilize sub-agentes paralelos para distribuir a carga de trabalho, realizar pesquisas/investigações simultâneas e evitar execuções sequenciais desnecessárias.
+- **Verificação de Especificações (.specs/)**: Antes de responder a qualquer pergunta, solicitação de ajuste, verificação de erro ou refatoração (bem como planejamento, fix ou nova feature), consulte obrigatoriamente o diretório `.specs/` para verificar se existem especificações ou diretrizes lá definidas.
+- **Aplicação Continuada de PonyTail e SOLID**: Em qualquer resposta, análise, refatoração ou implementação, aplique rigorosamente os princípios **SOLID** (arquitetura limpa, responsabilidade única) e a prática do **PonyTail** (eliminação de sobre-engenharia, simplicidade e revisão constante).
+- não rodar testes sem ser solicitado
+- verificar se há comando de teste em makefile
+- autorizado rodar testes se for de skill instaladas

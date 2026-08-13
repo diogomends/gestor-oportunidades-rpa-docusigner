@@ -1,0 +1,493 @@
+# Robot-DocuSigner — Especificação
+
+## Problem Statement
+
+A integração atual com DocuSign utiliza API oficial (JWT Grant), porém restrições internas da empresa impedem a finalização da integração API no curto prazo. O **Robot-DocuSigner** é uma alternativa via automação de navegador (Playwright) que executa as mesmas operações da API — envio de contratos, acompanhamento de status, download de PDFs assinados e extração de relatórios — acessando diretamente a UI web da DocuSign como um humano faria.
+
+O robot opera como um serviço de contingência/bridge: enquanto a API não é ativado, o robot é o modo primário. Quando a API estiver disponível, o sistema permite alternar entre modos (Robot vs API) via toggle no config-sistema, sem alterar o fluxo do usuário.
+
+## Visão Geral
+
+| Aspecto | Decisão |
+|---------|---------|
+| Engine | Playwright (headless) — já presente no projeto |
+| Autenticação | Credenciais (email/senha) armazenadas em SystemConfig |
+| Execução | DigitalOcean Functions (serverless), a cada 5min (7h-19h) + trigger manual |
+| Storage sessão | MongoDB (1 documento sobrescrito por login, sem crescimento) |
+| Seletores UI | JSON separado no módulo (`selectors/docusign-ui.json`) |
+| Anti-detecção | Delay randômico entre ações |
+| Status tracking | RobotJob model separado (não contamina Contract) |
+| Contratos alvo | Status `gerado` (PDFs prontos para envio) |
+| Modo de operação | Um contrato por execução |
+| Retry | 3 tentativas, delay exponencial (2s → 4s → 8s) |
+| Logs | Detalhado por passo com timestamp |
+
+## Requisitos Funcionais
+
+### [REQ-001] Modelo RobotJob
+
+- **Localização**: `src/modules/robot-docusign/models/RobotJob.js`
+- **Database**: `crm_contracts` (via `getContractsConnection()`)
+- **Campos**:
+  - `contractId`: ObjectId (ref: Contract) — obrigatório
+  - `status`: enum `["pending", "running", "success", "failed"]` — default `pending`
+  - `mode`: enum `["robot", "api"]` — qual modo executou
+  - `steps`: Array de `{ name, status, timestamp, duration, error }` — log por passo
+  - `retryCount`: Number — default 0, máx 3
+  - `lastError`: String — mensagem do último erro
+  - `envelopeId`: String — ID do envelope na DocuSign (preenchido após sucesso)
+  - `signedDocPath`: String — caminho do PDF assinado (preenchido após download)
+  - `startedAt`: Date
+  - `completedAt`: Date
+- **Índices**: `{ contractId: 1, status: 1 }`, `{ createdAt: -1 }`
+- **Criterios de Aceite**:
+  1. WHEN um job é criado THEN o status SHALL ser `pending`
+  2. WHEN a automação inicia THEN o status SHALL mudar para `running` e `startedAt` SHALL ser registrado
+  3. WHEN um passo é executado THEN um item SHALL ser adicionado ao array `steps` com `name`, `status`, `timestamp` e `duration`
+  4. WHEN a automação completa com sucesso THEN o status SHALL ser `success`, `completedAt` SHALL ser registrado e `envelopeId` SHALL ser preenchido
+  5. WHEN a automação falha após 3 tentativas THEN o status SHALL ser `failed` e `lastError` SHALL conter a mensagem de erro
+
+### [REQ-002] Extensão do SystemConfig
+
+- **Key**: `robot_docusign`
+- **Localização**: `src/modules/config-sistema/controllers/systemConfigController.js` (nova seção)
+- **Estrutura do `value`**:
+  ```js
+  {
+    enabled: false,                    // Toggle geral do robot
+    operations: {
+      send: true,                      // Enviar contratos
+      statusCheck: true,               // Consultar status
+      download: true,                  // Baixar PDFs assinados
+      reports: true,                   // Extrair relatórios
+      resend: true                     // Reenviar convites
+    },
+    credentials: {
+      email: "",                       // Email DocuSign
+      password: ""                     // Senha DocuSign (armazenar com criptografia)
+    },
+    schedule: {
+      intervalMinutes: 5,             // Intervalo entre execuções
+      startHour: "07:00",             // Horário início
+      endHour: "19:00",               // Horário fim
+      activeDays: [1, 2, 3, 4, 5]    // Dias da semana (0=dom, 1=seg...)
+    },
+    retry: {
+      maxAttempts: 3,                 // Máximo de tentativas
+      baseDelayMs: 2000              // Delay base para exponencial
+    },
+    antiDetection: {
+      minDelayMs: 1000,              // Delay mínimo entre ações
+      maxDelayMs: 3000               // Delay máximo entre ações
+    }
+  }
+  ```
+- **Validação Zod**: Todos os campos `optional()` com defaults
+- **Endpoint**: `GET/PUT /api/system-config/robot-docusign`
+- **Autorização**: `protect` + `authorize("admin")`
+- **Criterios de Aceite**:
+  1. WHEN admin acessa config-sistema THEN o card do robot SHALL exibir todos os campos configuráveis
+  2. WHEN admin salva config THEN o valor SHALL ser persistido via upsert (padrão SystemConfig)
+  3. WHEN `enabled` é `false` THEN o robot NÃO SHALL executar nenhuma automação
+  4. WHEN horário atual está fora de `startHour`/`endHour` THEN o robot NÃO SHALL processar (exceto trigger manual)
+  5. WHEN credenciais estão vazias THEN o sistema SHALL exibir aviso e bloquear ativação
+
+### [REQ-003] Serviço de Sessão (robotSession.js)
+
+- **Localização**: `src/modules/robot-docusign/services/robotSession.js`
+- **Responsabilidade**: Gerenciar login, cookies e persistência de sessão
+- **Fluxo**:
+  1. Buscar sessão salva no MongoDB (`robot_sessions` collection)
+  2. Se sessão existe e não expirou → reutilizar cookies no browser
+  3. Se sessão expirou ou não existe → fazer login fresh via Playwright
+  4. Após login → salvar cookies no MongoDB (sobrescrever documento anterior)
+- **Collection MongoDB**: `robot_sessions` (database `crm_contracts`)
+  - `{ _id, cookies: Mixed, localStorage: Mixed, expiresAt: Date, createdAt: Date }`
+- **Criterios de Aceite**:
+  1. WHEN sessão válida existe THEN o login SHALL ser pulado (economia de tempo)
+  2. WHEN sessão expirou THEN o robot SHALL fazer login fresh automaticamente
+  3. WHEN login falha THEN o robot SHALL retornar erro com mensagem descritiva
+  4. WHEN sessão é salva THEN apenas 1 documento SHALL existir (sobrescrito)
+
+### [REQ-004] Serviço de Automação (robotBrowser.js)
+
+- **Localização**: `src/modules/robot-docusign/services/robotBrowser.js`
+- **Responsabilidade**: Core da automação Playwright — todas as ações na UI DocuSign
+- **Operações**:
+  - `sendEnvelope(contract)`: Criar envelope, upload PDFs, preencher signatário, enviar
+  - `checkStatus(envelopeId)`: Consultar status do envelope na UI
+  - `downloadSigned(contractId, envelopeId)`: Baixar PDF assinado
+  - `resendEnvelope(envelopeId)`: Reenviar convite de assinatura
+  - `extractReports(filters)`: Extrair dados de relatórios da UI
+- **Seletores**: Carregados de `selectors/docusign-ui.json` via `robotSelectors.js`
+- **Anti-detecção**: Delay randômico entre cada ação (configurável via SystemConfig)
+- **Criterios de Aceite**:
+  1. WHEN `sendEnvelope` é chamado THEN o robot SHALL: navegar para "New Envelope" → upload 3 PDFs → preencher nome/email/CPF → posicionar SignHere → enviar
+  2. WHEN upload de PDF falha THEN o robot SHALL retry até 3 vezes antes de reportar erro
+  3. WHEN elemento UI não é encontradoTHEN o robot SHALL aguardar até `timeout` (10s) antes de falhar
+  4. WHEN ação é executada THEN um delay randômico SHALL ser aplicado antes da próxima ação
+  5. WHEN browser é fechado THEN todos os recursos Playwright SHALL ser liberados (finally block)
+
+### [REQ-005] Orquestrador (robotOrchestrator.js)
+
+- **Localização**: `src/modules/robot-docusign/services/robotOrchestrator.js`
+- **Responsabilidade**: Decidir Robot vs API, orquestrar execução, gerenciar retry
+- **Fluxo**:
+  1. Verificar se robot está habilitado no SystemConfig
+  2. Se habilitado → verificar horário (7h-19h) e dia da semana
+  3. Buscar contratos com status `gerado` (pending)
+  4. Criar RobotJob com status `pending`
+  5. Executar operação (robotBrowser)
+  6. Em caso de falha → retry com delay exponencial (até 3x)
+  7. Atualizar RobotJob e Contract status
+- **Criterios de Aceite**:
+  1. WHEN robot está desabilitado THEN o orquestrador SHALL retornar `{ mode: "disabled" }`
+  2. WHEN horário inválido e trigger manual THEN o orquestrador SHALL executar (ignorar horário)
+  3. WHEN horário inválido e agendamento THEN o orquestrador SHALL pular execução
+  4. WHEN contrato não tem PDFs gerados THEN o orquestrador SHALL marcar job como `failed` com erro descritivo
+  5. WHEN retry é executado THEN o `retryCount` SHALL ser incrementado e `steps` SHALL registrar cada tentativa
+
+### [REQ-006] Controller API
+
+- **Localização**: `src/modules/robot-docusign/controllers/robotDocusignController.js`
+- **Endpoints**:
+
+| Método | Path | Auth | Descrição |
+|--------|------|------|-----------|
+| `POST` | `/api/robot-docusign/trigger/:contractId` | protect + admin | Trigger manual para 1 contrato |
+| `POST` | `/api/robot-docusign/trigger-batch` | protect + admin | Trigger para múltiplos (body: `{ contractIds: [] }`) |
+| `GET` | `/api/robot-docusign/status/:jobId` | protect | Status de uma execução |
+| `GET` | `/api/robot-docusign/jobs` | protect | Lista de jobs (query: `?status=&page=&limit=`) |
+| `GET` | `/api/robot-docusign/metrics` | protect + admin | Métricas agregadas (enviados/dia, taxa sucesso, erros) |
+| `GET` | `/api/robot-docusign/logs/:jobId` | protect | Logs detalhados de um job |
+| `GET` | `/api/robot-docusign/config` | protect + admin | Buscar config do robot |
+| `PUT` | `/api/robot-docusign/config` | protect + admin | Atualizar config do robot |
+| `POST` | `/api/robot-docusign/test-login` | protect + admin | Testar credenciais na DocuSign |
+| `GET` | `/api/robot-docusign/queue` | protect | Fila de contratos pendentes |
+
+- **Criterios de Aceite**:
+  1. WHEN `trigger/:contractId` é chamado THEN um RobotJob SHALL ser criado e a execução SHALL iniciar
+  2. WHEN `trigger-batch` é chamado THEN cada contrato SHALL gerar um RobotJob independente
+  3. WHEN `metrics` é chamado THEN o sistema SHALL retornar: total enviados hoje, taxa sucesso %, top erros
+  4. WHEN `test-login` é chamado THEN o sistema SHALL tentar logar e retornar success/failure
+  5. WHEN autenticação falha THEN todos os endpoints SHALL retornar HTTP 401/403
+
+### [REQ-007] Rotas
+
+- **Localização**: `src/modules/robot-docusign/routes.js`
+- **Montagem**: `app.use("/api/robot-docusign", robotDocusignRoutes)` em `src/app.js`
+- **Criterios de Aceite**:
+  1. WHEN o módulo é carregado THEN todas as rotas SHALL estar disponíveis em `/api/robot-docusign/*`
+  2. WHEN proteção está ativa THEN todas as rotas SHALL requerer token JWT válido
+
+### [REQ-008] Seletores UI
+
+- **Localização**: `src/modules/robot-docusign/selectors/docusign-ui.json`
+- **Formato**: JSON com seções para cada área da UI
+  ```json
+  {
+    "login": { "email": "...", "password": "...", "submitButton": "..." },
+    "envelope": { "newButton": "...", "uploadArea": "...", "recipientName": "...", "sendButton": "..." },
+    "status": { "envelopeList": "...", "statusBadge": "..." },
+    "download": { "downloadButton": "...", "menuActions": "..." }
+  }
+  ```
+- **Service**: `robotSelectors.js` carrega o JSON e expõe seletores; fallback para defaults hardcoded
+- **Criterios de Aceite**:
+  1. WHEN o JSON é atualizado THEN as mudanças SHALL refletir sem redeploy
+  2. WHEN um seletor não é encontrado no JSON THEN o sistema SHALL usar o fallback default
+  3. WHEN a UI da DocuSign muda THEN apenas o JSON precisa ser atualizado
+
+### [REQ-009] Integração Frontend — Step 6
+
+- **Arquivos modificados**:
+  - `public/modules/contratos/contratos.html` — indicador de modo no step 6
+  - `public/modules/contratos/contratos.js` — lógica toggle Robot/API
+  - `public/modules/contratos/services/docusignService.js` — chamar robot ao invés de API quando toggle ativo
+- **Comportamento**:
+  - Badge indicador no step 6: "🤖 Robot Ativo" (verde) / "🔗 API Ativa" (azul) / "⏳ Processando..." (amarelo)
+  - Botão "ENVIAR PARA ASSINATURA" → `robotOrchestrator.decide()` → chama Robot ou API conforme toggle
+  - Toast de notificação em tempo real do status da automação
+- **Criterios de Aceite**:
+  1. WHEN robot está habilitado THEN o badge SHALL exibir "Robot Ativo" e o botão SHALL acionar o robot
+  2. WHEN robot está desabilitado THEN o badge SHALL exibir "API Ativa" e o botão SHALL chamar a API
+  3. WHEN robot está processando THEN o botão SHALL ficar disabled com texto "Processando..."
+  4. WHEN processamento completa THEN um toast SHALL exibir success/failure
+
+### [REQ-010] Integração Frontend — Config-Sistema
+
+- **Arquivo**: `public/modules/config-sistema/config-sistema.html` (novo card)
+- **Conteúdo do card**:
+  - Toggle geral: Robot Ligado/Desligado
+  - Seção de operações: toggles individuais (envio, status, download, relatórios, reenvio)
+  - Credenciais: campos email/senha (obscured)
+  - Agendamento: intervalo (valores numéricos "5", "10", "15", "30" minutos), horário início/fim, dias da semana
+  - Retry: máx tentativas, delay base
+  - Anti-detecção: delay mínimo/máximo
+  - Log de execuções: últimas 50 com status
+  - Métricas: contratos enviados hoje, taxa sucesso, último erro
+- **Criterios de Aceite**:
+  1. WHEN admin acessa config-sistema THEN o card do robot SHALL exibir todas as configurações
+  2. WHEN admin altera qualquer campo (toggle, select ou input) THEN a config SHALL ser salva imediatamente (auto-save exclusivo, sem botão manual de salvar)
+  3. WHEN credenciais são salvas THEN elas SHALL ser criptografadas antes de persistir
+  4. WHEN robot está em execução THEN o toggle geral SHALL ficar disabled
+
+### [REQ-011] Agendamento (DO Functions)
+
+- **Endpoint**: HTTP Function acionada por cron externo (DO cron ou GitHub Actions)
+- **Fluxo**:
+  1. Function recebe request HTTP
+  2. Verifica config `robot_docusign.enabled` no SystemConfig
+  3. Verifica horário e dia da semana
+  4. Se válido → busca próximo contrato com status `gerado`
+  5. Processa um contrato via `robotOrchestrator`
+  6. Retorna resultado (success/failure + jobId)
+- **Criterios de Aceite**:
+  1. WHEN cron aciona function THEN a function SHALL processar no máximo 1 contrato
+  2. WHEN nenhum contrato pendente THEN a function SHALL retornar `{ processed: 0 }`
+  3. WHEN robot está desabilitado THEN a function SHALL retornar `{ disabled: true }`
+
+### [REQ-012] Download de PDFs Assinados
+
+- **Fluxo**: Quando robot detecta status `completed` para um envelope
+  1. Navegar na UI DocuSign para o envelope
+  2. Clicar em "Download" → "Combined Document"
+  3. Salvar PDF em `uploads/{cnpj}_{razao}/contrato_assinado_{envelopeId}.pdf`
+  4. Atualizar `RobotJob.signedDocPath` e `Contract.status` → `assinado`
+- **Criterios de Aceite**:
+  1. WHEN download completa THEN o PDF SHALL ser salvo na pasta do contrato
+  2. WHEN PDF já existe THEN o robot SHALL sobrescrever (versão mais recente)
+  3. WHEN download falha THEN o robot SHALL retry (parte do fluxo normal de retry)
+
+## Estrutura de Arquivos
+
+```
+src/modules/robot-docusign/
+├── index.js                              # Barrel export
+├── routes.js                             # Rotas Express
+├── models/
+│   └── RobotJob.js                       # Schema RobotJob
+├── services/
+│   ├── robotOrchestrator.js              # Orquestrador principal
+│   ├── robotBrowser.js                   # Core Playwright (automação)
+│   ├── robotSession.js                   # Gerenciamento de sessão
+│   └── robotSelectors.js                 # Loader de seletores JSON
+├── selectors/
+│   └── docusign-ui.json                  # Seletores CSS/XPath da UI DocuSign
+└── controllers/
+    └── robotDocusignController.js        # Endpoints API
+
+public/modules/contratos/
+├── contratos.html                        # Modificação: indicador modo no step 6
+├── contratos.js                          # Modificação: lógica toggle Robot/API
+└── services/
+    └── docusignService.js                # Modificação: chamar robot quando toggle ativo
+
+public/modules/config-sistema/
+├── config-sistema.html                   # Modificação: novo card robot-docusign
+└── config-sistema.js                     # Modificação: handlers do card robot
+```
+
+## Restrições & Preservação (Impact Protector)
+
+### Modulos Legados Preservados (INTOCÁVEIS)
+
+| Modulo | Caminho | Motivo |
+|--------|---------|--------|
+| contract | `src/modules/contract/` | CRUD de contratos — sem alteração |
+| docusign (API) | `src/modules/docusign/` | Integração API existente — mantida como fallback |
+| gerador-pdf-html | `src/modules/gerador-pdf-html/` | Geração de PDF — sem alteração |
+| client-docs | `src/modules/client-docs/` | Portal de docs do cliente — sem alteração |
+| config-sistema | `src/modules/config-sistema/` | Apenas extensão (nova key `robot_docusign`) |
+
+### Frontend Preservado
+
+| Arquivo | O que NÃO muda |
+|---------|----------------|
+| `contratos.html` | Step 6 existente preservado — apenas ADICIONA badge e adjust no botão |
+| `contratos.js` | Funções existentes mantidas — apenas ADICIONA lógica de decisão Robot/API |
+| `docusignService.js` | Métodos existentes mantidos — apenas ADICIONA wrapper para robot |
+| `config-sistema.html` | Cards existentes preservados — apenas ADICIONA novo card |
+
+### API Preservada
+
+| Endpoint | Status |
+|----------|--------|
+| `POST /api/docusign/send/:contractId` | Mantido (chamado quando modo API) |
+| `GET /api/docusign/status/:contractId` | Mantido |
+| `POST /api/docusign/webhook` | Mantido |
+| Todos os endpoints docusign existentes | Mantidos |
+
+## Assumptions & Open Questions
+
+| Assunção / Decisão | Default Escolhido | Justificativa | Confirmado? |
+|--------------------|--------------------|---------------|-------------|
+| Playwright já está instalado no projeto | Sim | Usado pelo gerador-pdf-html | ✅ |
+| MongoDB pode armazenar sessões | Sim | 1 doc sobrescrito, sem crescimento | ✅ |
+| DO Functions suporta Playwright headless | Verificar | Limites de memória/tempo em serverless | ❓ |
+| DocuSign não bloqueia automação | Verificar | Risk: detecção de bot | ❓ |
+| PDFs estão em formato acessível para upload | Sim | São gerados pelo Playwright, SVG/PDF | ✅ |
+| SystemConfig aceita nova key `robot_docusign` | Sim | Padrão key-value genérico | ✅ |
+| Um contrato por execução é suficiente | Sim | Evita sobrecarga e facilita debug | ✅ |
+
+## Edge Cases
+
+- WHEN DocuSign muda a UI (novo layout/seletores) THEN o robot SHALL falhar graciosamente e logar erro descritivo; correção = atualizar `docusign-ui.json`
+- WHEN sessão expira no meio de uma execução THEN o robot SHALL tentar relogar uma vez antes de falhar
+- WHEN contract não tem PDFs gerados THEN o robot SHALL marcar job como `failed` com erro "PDFs não gerados"
+- WHEN timeout do Playwright (30s padrão) THEN o robot SHALL retry com tentativa incremental
+- WHEN múltiplos jobs estão running para o mesmo contract THEN o sistema SHALL bloquear (job duplicado)
+- WHEN DO Functions atinge timeout (30s default) THEN a execução SHALL ser retomada ou o job SHALL ser marcado como failed
+- WHEN credenciais DocuSign estão incorretas THEN `test-login` SHALL retornar erro claro e robot SHALL não executar
+
+## Requirement Traceability
+
+| Req ID | User Story | Fase | Status |
+|--------|-----------|------|--------|
+| REQ-001 | US-001 | 1 - Model | Done |
+| REQ-002 | US-002 | 2 - Config | Done |
+| REQ-003 | US-003 | 3 - Session | Done |
+| REQ-004 | US-004 | 4 - Browser Core | Done |
+| REQ-005 | US-005 | 5 - Orchestrator | Done |
+| REQ-006 | US-006 | 6 - Controller | Done |
+| REQ-007 | US-006 | 6 - Routes | Done |
+| REQ-008 | US-007 | 3 - Selectors | Done |
+| REQ-009 | US-008 | 7 - Frontend Step6 | Done |
+| REQ-010 | US-009 | 8 - Frontend Config | Done |
+| REQ-011 | US-010 | 9 - Scheduling | Done |
+| REQ-012 | US-004 | 4 - Download | Done |
+
+## Variações da Implementação & Notas Técnicas
+
+- **Trigger de Contrato**: O endpoint `POST /api/robot-docusign/trigger` recebe `contractId` / `contract_id` no body da requisição.
+- **Trigger em Lote**: Adicionado `POST /api/robot-docusign/trigger-batch` (Zod `{ contractIds: z.array(z.string()).min(1) }`) que executa os disparos sequencialmente.
+- **Painel de Interface**: Tela/painel dedicada construída no frontend para acompanhamento de jobs, métricas e configurações do Robô DocuSign.
+- **Agendamento (Scheduler)**: Processamento via `POST /api/robot-docusign/process-pending`. Ao processar, se não houver `RobotJob` em fila, busca automaticamente o `Contract` mais antigo com `status: "gerado"` e dispara o envio.
+- **Criptografia de Credenciais**: Senhas de acesso à DocuSign são criptografadas com `encryptText` (AES-256-CBC) nos endpoints de gravação e decifradas na leitura com `decryptText`.
+- **Status do Contrato e Download do PDF**: No envio bem-sucedido, altera `Contract.status = "enviado"`; no download bem-sucedido, altera `Contract.status = "assinado"` e salva o arquivo em `uploads/{cnpj}_{razao}/contrato_assinado_{envelopeId}.pdf`, definindo `job.signedDocPath`.
+
+## User Stories
+
+### US-001: RobotJob Model
+
+**User Story**: Como sistema, quero rastrear cada execução do robot com status, logs e timestamps, para que eu saiba o que aconteceu com cada contrato.
+
+**Acceptance Criteria**:
+1. WHEN um job é criado THEN SHALL ter status `pending`
+2. WHEN execução inicia THEN SHALL mudar para `running`
+3. WHEN passo é executado THEN SHALL registrar no array `steps`
+4. WHEN completa THEN SHALL ter status `success` ou `failed`
+
+---
+
+### US-002: Configuração do Robot
+
+**User Story**: Como admin, quero configurar o robot no config-sistema (credenciais, horários, operações), para que eu possa controlar o comportamento sem deploy.
+
+**Acceptance Criteria**:
+1. WHEN acesso config-sistema THEN vejo card do robot
+2. WHEN alterno toggle THEN config é salva
+3. WHEN salvo credenciais THEN são criptografadas
+4. WHEN robot está rodando THEN toggle fica disabled
+
+---
+
+### US-003: Sessão Persistente
+
+**User Story**: Como robot, quero reutilizar sessões salvas no MongoDB, para que eu não precise logar a cada execução.
+
+**Acceptance Criteria**:
+1. WHEN sessão válida existe THEN pulo login
+2. WHEN expirou THEN reloga
+3. WHEN login falha THEN reporto erro
+
+---
+
+### US-004: Envio de Contratos via UI
+
+**User Story**: Como robot, quero criar envelopes na UI DocuSign, fazer upload dos PDFs e enviar para assinatura, para que contratos sejam processados sem a API.
+
+**Acceptance Criteria**:
+1. WHEN envio é acionado THEN crio envelope → upload → preencho → envio
+2. WHEN upload falha THEN retry 3x
+3. WHEN elemento não encontrado THEN aguardo 10s antes de falher
+4. WHEN completo THEN registr envelopeId e atualizo status
+
+---
+
+### US-005: Orquestração e Retry
+
+**User Story**: Como orquestrador, quero decidir Robot vs API e gerenciar retry com delay exponencial, para que falhas sejam tratadas automaticamente.
+
+**Acceptance Criteria**:
+1. WHEN robot desabilitado THEN retorno `disabled`
+2. WHEN horário inválido e agendamento THEN pulo
+3. WHEN retry THEN incremento retryCount com delay 2s→4s→8s
+
+---
+
+### US-006: API Endpoints
+
+**User Story**: Como frontend, quero endpoints para trigger manual, status, logs, config e métricas, para que eu possa gerenciar o robot via UI.
+
+**Acceptance Criteria**:
+1. WHEN chamo trigger THEN job é criado e execução inicia
+2. WHEN chamo metrics THEN recebo agregados
+3. WHEN autenticação falha THEN retorno 401/403
+
+---
+
+### US-007: Seletores UI
+
+**User Story**: Como maintainer, quero seletores em JSON separado, para que eu possa atualizar quando a UI DocuSign mudar sem fazer deploy.
+
+**Acceptance Criteria**:
+1. WHEN JSON é atualizado THEN reflete sem redeploy
+2. WHEN seletor não existe THEN uso fallback default
+
+---
+
+### US-008: Integração Step 6
+
+**User Story**: Como usuário, quero ver no step 6 se o modo é Robot ou API, e que o botão "Enviar" funcione conforme o modo configurado.
+
+**Acceptance Criteria**:
+1. WHEN robot ativo THEN badge verde "Robot Ativo"
+2. WHEN API ativa THEN badge azul "API Ativa"
+3. WHEN processando THEN botão disabled com "Processando..."
+4. WHEN completo THEN toast success/failure
+
+---
+
+### US-009: Config-Sistema Card
+
+**User Story**: como admin, quero um painel completo no config-sistema para gerenciar todas as configurações do robot.
+
+**Acceptance Criteria**:
+1. WHEN acesso card THEN vejo toggles, credenciais, agendamento, retry, logs
+2. WHEN salvo THEN persiste via SystemConfig
+3. WHEN robot executando THEN config fica read-only
+
+---
+
+### US-010: Agendamento Serverless
+
+**User Story**: como sistema, quero que o robot execute automaticamente a cada 5 minutos das 7h-19h via DO Function.
+
+**Acceptance Criteria**:
+1. WHEN cron aciono THEN processo 1 contrato
+2. WHEN nenhum pendente THEN retorno `processed: 0`
+3. WHEN desabilitado THEN retorno `disabled: true`
+
+## Success Criteria
+
+- [ ] Robot consegue fazer login na DocuSign via Playwright headless
+- [ ] Robot cria envelope, upload de 3 PDFs e envia para assinatura
+- [ ] Robot consulta status e atualiza Contract
+- [ ] Robot baixa PDF assinado e salva no servidor
+- [ ] Toggle Robot/API funciona no step 6
+- [ ] Config-sistema permite gerenciar todas as configurações
+- [ ] Retry com delay exponencial funciona (3 tentativas)
+- [ ] Logs detalhados por passo são registrados
+- [ ] Agendamento automático funciona (5min, 7h-19h)
+- [ ] Trigger manual funciona para qualquer contrato com status `gerado`

@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "promote_threshold": 2,
+  "window_days": 45,
+  "quarantine_threshold": 2,
+  "next_id": 3,
+  "lessons": [
+    {
+      "id": "L-001",
+      "key": "surviving_mutant::m dulo novo sem testes mutantes sobrevivem antes de mover c digo de produ o para m dulo novo crie ao menos 1 teste por ac que o exercite caso contr rio a refatora o quebra silenciosamente",
+      "text": "Módulo novo sem testes = mutantes sobrevivem. Antes de mover código de produção para módulo novo, crie ao menos 1 teste por AC que o exercite. Caso contrário a refatoração quebra silenciosamente.",
+      "signal": "surviving_mutant",
+      "scope": "notificacoes-internas,testing",
+      "status": "candidate",
+      "features": [
+        "notificacoes-internas"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation: mutated mailService guard clause 'if (!t) return;', 0 tests killed it (notificacoes-internas,testing)"
+      ],
+      "created": "2026-07-18T16:42:22Z",
+      "last_seen": "2026-07-18T16:42:22Z"
+    },
+    {
+      "id": "L-002",
+      "key": "spec_precision_gap::assert the full spec defined contract including projections like select senha even when it pre exists in the diff not just the values the mock happens to return",
+      "text": "Assert the full spec-defined contract (including projections like select('-senha')) even when it pre-exists in the diff, not just the values the mock happens to return",
+      "signal": "spec_precision_gap",
+      "scope": "middleware",
+      "status": "candidate",
+      "features": [
+        "auth-middleware"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "AC3 (tests/auth-middleware-orphan-user.test.js:85-87) (middleware)"
+      ],
+      "created": "2026-08-06T15:37:32Z",
+      "last_seen": "2026-08-06T15:37:32Z"
+    }
+  ]
+}
