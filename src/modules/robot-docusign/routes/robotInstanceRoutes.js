@@ -7,6 +7,7 @@ import {
   updateJobStatus,
   registerHeartbeat,
   downloadContractPdf,
+  getAllInstances,
 } from "../controllers/robotInstanceController.js";
 
 const router = express.Router();
@@ -17,6 +18,7 @@ router.post("/auth", authenticateInstance);
 // 2. Rotas protegidas por JWT
 router.use(protect);
 
+router.get("/instances", getAllInstances);
 router.get("/config", getInstanceConfig);
 router.get("/next-job", getNextJob);
 router.patch("/job/:jobId/status", updateJobStatus);

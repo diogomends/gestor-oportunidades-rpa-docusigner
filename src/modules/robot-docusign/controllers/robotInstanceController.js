@@ -503,6 +503,34 @@ export const downloadContractPdf = async (req, res) => {
   }
 };
 
+/**
+ * Lista todas as instâncias registradas do robô.
+ */
+export const getAllInstances = async (req, res) => {
+  try {
+    const instances = await RobotInstance.find({})
+      .sort({ last_heartbeat: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      instances: instances.map((inst) => ({
+        instance_id: inst.instance_id,
+        status: inst.status,
+        last_heartbeat: inst.last_heartbeat,
+        current_job_id: inst.current_job_id || null,
+        jobs_processed_today: inst.jobs_processed_today || 0,
+        machine_info: inst.machine_info || {},
+        createdAt: inst.createdAt,
+        updatedAt: inst.updatedAt,
+      })),
+    });
+  } catch (error) {
+    console.error("[robotInstanceController] Erro ao listar instâncias:", error);
+    return res.status(500).json({ error: "Erro ao listar instâncias" });
+  }
+};
+
 export default {
   authenticateInstance,
   getInstanceConfig,
@@ -510,4 +538,5 @@ export default {
   updateJobStatus,
   registerHeartbeat,
   downloadContractPdf,
+  getAllInstances,
 };
