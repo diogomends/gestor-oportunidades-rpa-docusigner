@@ -61,7 +61,7 @@ cp .env.example .env
 | `make test` | Roda testes nativos |
 | `make test-headed` | Roda o robô standalone com navegador visível (`HEADLESS=false`) |
 | `make test-headed-ps` | Idem, mas via PowerShell (para Windows CMD) |
-| `make build-robot` | Gera o executável `robot-docusigner.exe` |
+| `make build-robot` | Gera executável(is) .exe. Use IDS="id1,id2" para multi-robot e HEADLESS=false para modo headed |
 | `make install` | Instala dependências de tudo (servidor + standalone) |
 | `make clean` | Limpa pastas de build anteriores |
 
@@ -136,6 +136,21 @@ npm run build
 
 O executável protegido será gerado em `robot-standalone/dist/robot-docusigner.exe`.
 
+#### Build Multi-Robot
+
+Para gerar vários executáveis de uma vez, passe a lista de IDs e o modo headless:
+
+```bash
+make build-robot IDS="agent-01,agent-02,agent-03" HEADLESS=true
+```
+
+| Parâmetro | Obrigatório | Padrão | Descrição |
+|-----------|-------------|--------|-----------|
+| `IDS` | Não | (single) | Lista separada por vírgula de IDs dos robôs |
+| `HEADLESS` | Não | `true` | `true` = sem janela, `false` = com janela visível |
+
+**Resultado:** Um `.exe` + `config.json` por ID, cada um com o `ROBOT_ID` e `HEADLESS` já configurados no `config.json`.
+
 **Pipeline de Build:**
 
 | Etapa | Ferramenta | O que faz |
@@ -145,7 +160,7 @@ O executável protegido será gerado em `robot-standalone/dist/robot-docusigner.
 | 3 | **bytenode** | Compilação para bytecode V8 (`.jsc`) |
 | 4 | **@yao-pkg/pkg** | Empacotamento como binário Windows `.exe` |
 
-**Distribuição:** Copie a pasta `robot-standalone/dist/` para a máquina do agente, execute `setup.bat` para instalar Chromium e criar `config.json`, preencha as credenciais e execute `robot-docusigner.exe`.
+**Distribuição:** Copie a subpasta do agente (ex: `dist/agent-01/`) para a máquina alvo, execute `setup.bat` para instalar Chromium e execute o `.exe`.
 
 ## API REST
 

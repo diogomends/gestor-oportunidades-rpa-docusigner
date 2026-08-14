@@ -18,8 +18,35 @@ Este módulo contém a aplicação autônoma empacotada em `.exe` para distribui
 4. Execute `robot-docusigner.exe`.
 
 ## Como Gerar Novo Build do Executável (.exe)
+
+### Modo Single (um executável)
 Na raiz do projeto ou dentro de `robot-standalone`:
 ```bash
-npm run build
+make build-robot
+# ou diretamente:
+cd robot-standalone && npm run build
 ```
-O executável protegido será gerado em `robot-standalone/dist/robot-docusigner.exe`.
+
+### Modo Multi-Robot (N executáveis com IDs pré-configurados)
+```bash
+# Cria 3 exes com headless=true (padrão)
+make build-robot IDS="agent-01,agent-02,agent-03"
+
+# Cria 2 exes com janela visível
+make build-robot IDS="agent-01,agent-02" HEADLESS=false
+```
+
+Cada ID gera uma subpasta em `dist/` com o `.exe` e `config.json`:
+```
+dist/
+├── agent-01/
+│   ├── robot-agent-01.exe
+│   └── config.json
+├── agent-02/
+│   ├── robot-agent-02.exe
+│   └── config.json
+└── agent-03/
+    ├── robot-agent-03.exe
+    └── config.json
+```
+
