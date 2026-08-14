@@ -151,6 +151,50 @@ export async function processPendingJobs(options = {}) {
   }
 }
 
+let timerId = null;
+
+/**
+ * Starts the periodic job scheduler for DocuSign Robot.
+ * @param {number} [intervalMs=30000] - Polling interval in milliseconds.
+ * @returns {NodeJS.Timeout} The timer instance.
+ */
+export function start(intervalMs = 30000) {
+  if (timerId) {
+    console.log("[robotScheduler] Scheduler is already running.");
+    return timerId;
+  }
+
+  console.log(`[robotScheduler] Starting scheduler loop (interval: ${intervalMs}ms)...`);
+
+  setTimeout(() => {
+    processPendingJobs().catch((err) => {
+      console.error("[robotScheduler] Error processing pending jobs on boot:", err);
+    });
+  }, 1000);
+
+  timerId = setInterval(() => {
+    processPendingJobs().catch((err) => {
+      console.error("[robotScheduler] Error in scheduler loop:", err);
+    });
+  }, intervalMs);
+
+  return timerId;
+}
+
+/**
+ * Stops the periodic job scheduler for DocuSign Robot.
+ */
+export function stop() {
+  if (timerId) {
+    clearInterval(timerId);
+    timerId = null;
+    console.log("[robotScheduler] Scheduler stopped successfully.");
+  }
+}
+
 export default {
   processPendingJobs,
+  start,
+  stop,
 };
+
