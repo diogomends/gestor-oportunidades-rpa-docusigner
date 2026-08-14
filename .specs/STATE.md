@@ -86,6 +86,13 @@ Navegação de documentação através de `public/manual-usuario.html` alimentad
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
+### [5.36.0] - 2026-08-14
+
+#### Corrigido
+
+- **Implementação dos Métodos start() e stop() no robotScheduler**:
+  - `src/modules/robot-docusign/services/robotScheduler.js`: Adicionadas as funções exportadas `start(intervalMs)` e `stop()` para inicialização e controle do loop periódico de agendamento de jobs do robô DocuSign, corrigindo o erro `TypeError: robotScheduler.start is not a function` na inicialização do servidor em `src/server.js`.
+
 ### [5.35.0] - 2026-08-13
 
 #### Adicionado
