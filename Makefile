@@ -8,26 +8,30 @@ dev:
 test:
 	npm test
 
-# Instala dependências do servidor e do standalone
+# Instala dependencias do servidor e do standalone
 install:
 	npm install
 	cd robot-standalone && npm install
 
-# Instala apenas dependências do standalone
+# Instala apenas dependencias do standalone
 install-robot:
 	cd robot-standalone && npm install
 
-# Testa o robô standalone com navegador visível (HEADLESS=false) — sh/bash
+# Testa o robo standalone com navegador visivel (HEADLESS=false) — sh/bash
 test-headed:
 	cd robot-standalone && HEADLESS=false node src/main.js
 
-# Testa o robô standalone com navegador visível — PowerShell
+# Testa o robo standalone com navegador visivel — PowerShell
 test-headed-ps:
-	powershell -Command "$$env:HEADLESS='false'; cd robot-standalone; node src/main.js"
+	cd robot-standalone; $$env:HEADLESS="false"; node src/main.js
 
-# Gera o executável .exe do robô standalone
+# Gera executavel(is) .exe do robo standalone
+# Uso:
+#   make build-robot                              → modo single (comportamento original)
+#   make build-robot IDS="id1,id2,id3"            → cria 3 exes, headless=true (padrao)
+#   make build-robot IDS="id1,id2" HEADLESS=false  → cria 2 exes com janela visivel
 build-robot:
-	cd robot-standalone && npm run build
+	cd robot-standalone && npm run build -- --ids "$(IDS)" --headless "$(HEADLESS)"
 
 # Limpa pastas de build anteriores (PowerShell)
 clean:
