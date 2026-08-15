@@ -1,5 +1,6 @@
 import express from "express";
 import { protect } from "../../../middlewares/authMiddleware.js";
+import { authorize } from "../../../middlewares/roleMiddleware.js";
 import {
   authenticateInstance,
   getInstanceConfig,
@@ -18,7 +19,7 @@ router.post("/auth", authenticateInstance);
 // 2. Rotas protegidas por JWT
 router.use(protect);
 
-router.get("/instances", getAllInstances);
+router.get("/instances", authorize("admin"), getAllInstances);
 router.get("/config", getInstanceConfig);
 router.get("/next-job", getNextJob);
 router.patch("/job/:jobId/status", updateJobStatus);

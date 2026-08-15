@@ -22,6 +22,7 @@ const router = express.Router();
 
 // Sub-roteador de instâncias do robô (com seu próprio controle de auth pública + protegida)
 router.use("/instance", instanceRoutes);
+router.use(instanceRoutes);
 
 // Todas as rotas legadas abaixo exigem autenticação
 router.use(protect);
