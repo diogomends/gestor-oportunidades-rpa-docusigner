@@ -23,7 +23,7 @@ test-headed:
 
 # Testa o robo standalone com navegador visivel — PowerShell
 test-headed-ps:
-	cd robot-standalone; $$env:HEADLESS="false"; node src/main.js
+	powershell -Command "cd robot-standalone; $$env:HEADLESS='false'; node src/main.js"
 
 # Gera executavel(is) .exe do robo standalone
 # Uso:
