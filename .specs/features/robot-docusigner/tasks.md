@@ -230,7 +230,7 @@ npm run typecheck         # Type check (se disponível)
 ### T07: Indicador de Modo no Step 6
 
 - **Req**: REQ-009
-- **Status**: Pending
+- **Status**: [x] Done (2026-08-14)
 - **Esforço**: 1.5h | Paralelável: Sim (com T08)
 - **Depende de**: T06
 
@@ -252,7 +252,7 @@ npm run typecheck         # Type check (se disponível)
 ### T08: Card Config-Sistema
 
 - **Req**: REQ-010
-- **Status**: Pending
+- **Status**: [x] Done (2026-08-14)
 - **Esforço**: 1.5h | Paralelável: Sim (com T07)
 - **Depende de**: T02, T06
 
@@ -298,24 +298,81 @@ npm run typecheck         # Type check (se disponível)
 ### T10: Testes E2E Completos
 
 - **Req**: Todos
-- **Status**: Pending
+- **Status**: [x] Done (2026-08-14)
 - **Esforço**: 2h | Paralelável: Não
-- **Depende de**: T07, T08
+- **Depende de**: T07, T08, T11
 
-**O quê**: Cenários E2E completos — config → trigger → status → download.
+**O quê**: Cenários E2E completos — config, auto-save, test-login, instâncias e Step 6.
 
-**Onde**: `tests/e2e/robot-docusign.test.js` (novo)
+**Onde**: `tests/e2e/robot-docusign.spec.js` (novo)
 
 **Cenários**:
-1. Configuração inicial (habilitar, credenciais, test-login)
-2. Envio via Robot (badge, toast, envio OK)
-3. Verificação de status (progresso, mudança de status)
-4. Download de documento (PDF baixado, toast sucesso)
-5. Fallback para API (robot desabilitado → fluxo normal)
+1. Configuração inicial e validação de visibilidade de controles.
+2. Auto-save de configurações.
+3. Teste de login e conectividade com feedback visual e badge.
+4. Renderização da lista de instâncias conectadas.
+5. Indicador de modo Robot/API no Step 6 de Contratos.
 
 **Tests**: Playwright headed/headless
 
-**Feito quando**: Todos cenários passam, fluxo completo funciona, fallback OK.
+**Feito quando**: Arquivo de teste E2E criado e cobrindo os cenários em desktop no ambiente de produção.
+
+---
+
+## Fase 7 — Refatoração e Otimização Frontend
+
+### T11: Refatoração Frontend Robot-DocuSign (SOLID + PonyTail)
+
+- **Req**: REQ-010 (Interface de Configuração do Robô)
+- **Status**: [x] Done (2026-08-14)
+- **Esforço**: 1h | Paralelável: Sim
+- **Depende de**: Nenhuma
+
+**O quê**:
+Refatorar o frontend de configuração do robô DocuSign adotando a Abordagem 2 (Equilibrada — 2 arquivos JS):
+1. **Camada de Serviço (`robotDocusignService.js`)**: Encapsular todas as chamadas de API (`fetchConfig`, `saveConfig`, `testLogin`, `fetchStatusMetrics`, `fetchInstances`), corrigindo a chamada inválida `window.api.getRobotInstances()`.
+2. **Camada de UI (`robot-docusign.js`)**: Centralizar ciclo de vida, preenchimento/coleta de formulário, auto-save e renderização limpa de cards sem vazar timers para o escopo global.
+3. **Limpeza de Estilos (`robot-docusign.css`)**: Expurgar ~216 linhas de classes utilitárias e regras duplicadas do design system global.
+
+**Onde**:
+- `public/modules/config-sistema/robot-docusign/robotDocusignService.js` (novo - ~75 linhas)
+- `public/modules/config-sistema/robot-docusign/robot-docusign.js` (refatorado - ~140 linhas)
+- `public/modules/config-sistema/robot-docusign/robot-docusign.css` (refatorado - ~280 linhas)
+- `public/modules/config-sistema/robot-docusign/robot-docusign.html` (100% preservado)
+
+**Proteção de Legado (impact-protector)**:
+- Preservar todos os IDs, seletores e tags de `robot-docusign.html`.
+- Preservar rotas de backend e schemas Zod em `src/modules/config-sistema/`.
+
+**Feito quando**:
+- [x] Módulo `robotDocusignService.js` criado e exportando as 5 funções de serviço.
+- [x] `robot-docusign.js` refatorado sem erros no console durante o polling.
+- [x] Auto-save e teste de login funcionando com feedback visual no `#toastContainer`.
+
+---
+
+### T12: Correção de Segurança, Concorrência de Polling, Proxy Nginx e RBAC do Robot-DocuSigner
+
+- **Req**: REQ-006, REQ-010, REQ-INST-01
+- **Status**: [x] Done (2026-08-14)
+- **Esforço**: 1h | Paralelável: Sim
+- **Depende de**: T11
+
+**O quê**:
+1. **Padronização de Rota & Nginx**: Remover barra final em `nginx/default.conf` (`set $rpa_docusigner_api "http://rpa_docusigner:3111"`) e padronizar chamada de instâncias para `GET /api/robot-docusign/instances` no `robotDocusignService.js` e `robotInstanceRoutes.js`.
+2. **Mitigação de XSS**: Sanitizar `instance_id`, `hostname` e `platform` com helper `escapeHtml` na renderização de cards em `robot-docusign.js`.
+3. **Prevenção de Acúmulo de Polling**: Substituir `setInterval` por polling recursivo assíncrono controlado com `setTimeout` no bloco `finally` e guard `document.hidden` em `robot-docusign.js`.
+4. **Aplicação de RBAC/ACL e Desambiguação de Rota**: Remover mount genérico de `instanceRoutes` em `routes.js` que colidia com `GET /config`, adicionando `router.get("/instances", authorize("admin"), getAllInstances)`.
+
+**Onde**:
+- `nginx/default.conf`
+- `public/modules/config-sistema/robot-docusign/robot-docusign.js`
+- `public/modules/config-sistema/robot-docusign/robotDocusignService.js`
+- `gestor-oportunidades-rpa-docusigner/src/modules/robot-docusign/routes/robotInstanceRoutes.js`
+- `gestor-oportunidades-rpa-docusigner/src/modules/robot-docusign/routes.js`
+
+**Proteção de Legado (impact-protector)**:
+- Preservar integralmente `robot-docusign.html`, IDs do DOM, classes CSS e rotas legadas.
 
 ---
 

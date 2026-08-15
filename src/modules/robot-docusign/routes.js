@@ -16,16 +16,18 @@ import {
   streamJobProgress,
 } from "./controllers/robotDocusignController.js";
 
+import { getAllInstances } from "./controllers/robotInstanceController.js";
 import instanceRoutes from "./routes/robotInstanceRoutes.js";
 
 const router = express.Router();
 
-// Sub-roteador de instâncias do robô (com seu próprio controle de auth pública + protegida)
+// Sub-roteador de instâncias do robô (com seu próprio controle de auth pública + protegida sob /instance)
 router.use("/instance", instanceRoutes);
-router.use(instanceRoutes);
 
-// Todas as rotas legadas abaixo exigem autenticação
+// Todas as rotas administrativas e operacionais abaixo exigem autenticação
 router.use(protect);
+
+router.get("/instances", authorize("admin"), getAllInstances);
 
 router.post("/trigger", triggerJob);
 router.post("/trigger-batch", authorize("admin"), triggerBatch);
