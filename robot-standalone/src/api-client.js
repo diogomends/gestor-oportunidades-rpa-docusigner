@@ -14,24 +14,34 @@ export class ApiClient {
   }
 
   /**
-   * Autentica na API e armazena o token JWT.
+   * Autentica na API via Chave de API (X-Robot-Key) e armazena o token JWT.
    */
-  async authenticate(email, password) {
+  async authenticate(robotKey) {
+    if (!robotKey) {
+      throw new Error("Chave de API (robotKey) não fornecida para autenticação.");
+    }
+
     const url = `${this.baseUrl}/api/robot-docusign/instance/auth`;
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Robot-Key": robotKey,
+    };
+
+    const payload = {
+      instance_id: this.instanceId,
+      robot_key: robotKey,
+      machine_info: {
+        hostname: os.hostname(),
+        platform: os.platform(),
+        arch: os.arch(),
+        app_version: "1.0.0",
+      },
+    };
+
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-        instance_id: this.instanceId,
-        machine_info: {
-          hostname: os.hostname(),
-          platform: os.platform(),
-          arch: os.arch(),
-          app_version: "1.0.0",
-        },
-      }),
+      headers,
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -43,7 +53,8 @@ export class ApiClient {
     this.token = data.token;
     // Expira em ~29 dias para segurança
     this.tokenExpiresAt = Date.now() + 29 * 24 * 60 * 60 * 1000;
-    console.log(`[API] Autenticado com sucesso como ${data.user?.nome} (${data.user?.cargo})`);
+    const userDesc = data.user?.nome ? `${data.user.nome} (${data.user.cargo || "Robô"})` : "Service Account";
+    console.log(`[API] Autenticado com sucesso via Chave de API como ${userDesc}`);
     return data;
   }
 

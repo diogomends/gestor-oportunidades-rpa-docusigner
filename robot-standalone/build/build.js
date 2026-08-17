@@ -12,13 +12,15 @@ const OBF_DIR = path.join(ROOT_DIR, "dist-obf");
 const JSC_DIR = path.join(ROOT_DIR, "dist-jsc");
 
 /**
- * Lê o arquivo .env na raiz do projeto.
+ * Lê o arquivo .env.dev ou .env na raiz do projeto.
  */
 function loadRootEnv() {
+  const envDevPath = path.resolve(ROOT_DIR, "..", ".env.dev");
   const envPath = path.resolve(ROOT_DIR, "..", ".env");
+  const pathToLoad = fs.existsSync(envDevPath) ? envDevPath : (fs.existsSync(envPath) ? envPath : null);
   const env = {};
-  if (fs.existsSync(envPath)) {
-    const content = fs.readFileSync(envPath, "utf-8");
+  if (pathToLoad) {
+    const content = fs.readFileSync(pathToLoad, "utf-8");
     for (const line of content.split("\n")) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith("#")) continue;
@@ -43,11 +45,9 @@ function parseArgs() {
   const rawArgs = process.argv.slice(2);
   const result = {
     ids: [],
-    emails: [],
-    passwords: [],
-    email: "",
-    pass: "",
-    headless: true,
+    keys: [],
+    key: "",
+    headless: null,
     apiUrl: "",
   };
 
@@ -72,19 +72,12 @@ function parseArgs() {
 
     if (arg === "--ids" && nextVal) {
       result.ids = nextVal.split(",").map((s) => s.trim()).filter(Boolean);
-    } else if ((arg === "--emails" || arg === "--email" || arg === "--ROBOT_EMAIL") && nextVal) {
+    } else if ((arg === "--keys" || arg === "--key" || arg === "--robot-key" || arg === "--robot-keys" || arg === "--ROBOT_KEY") && nextVal) {
       if (nextVal.includes(",")) {
-        result.emails = nextVal.split(",").map((s) => s.trim()).filter(Boolean);
+        result.keys = nextVal.split(",").map((s) => s.trim()).filter(Boolean);
       } else {
-        result.email = nextVal;
-        result.emails.push(nextVal);
-      }
-    } else if ((arg === "--passwords" || arg === "--pass" || arg === "--password" || arg === "--ROBOT_PASS") && nextVal) {
-      if (nextVal.includes(",")) {
-        result.passwords = nextVal.split(",").map((s) => s.trim()).filter(Boolean);
-      } else {
-        result.pass = nextVal;
-        result.passwords.push(nextVal);
+        result.key = nextVal;
+        result.keys.push(nextVal);
       }
     } else if (arg === "--headless" && nextVal) {
       const low = nextVal.toLowerCase();
@@ -97,38 +90,77 @@ function parseArgs() {
 }
 
 const rootEnv = loadRootEnv();
-const { ids, emails, passwords, email, pass, headless, apiUrl } = parseArgs();
-const multiBuild = ids.length > 0;
+const { ids, keys, key, headless: argHeadless, apiUrl } = parseArgs();
 
-// URL de produção obtida do .env raiz ou parâmetro
-const targetApiUrl = (apiUrl || process.env.API_URL || rootEnv.URI_PROD || "http://localhost:3111").replace(/\/$/, "");
+// URL de produção obtida do .env.dev / .env raiz ou parâmetro
+const targetApiUrl = (apiUrl || process.env.API_URL || rootEnv.API_URL || rootEnv.URI_PROD || "http://localhost:3111").replace(/\/$/, "");
+
+// Headless resolvido com fallback para rootEnv.HEADLESS ou true
+const isHeadless = argHeadless !== null
+  ? argHeadless
+  : (process.env.HEADLESS !== undefined
+      ? !(process.env.HEADLESS === "false" || process.env.HEADLESS === "0")
+      : (rootEnv.HEADLESS !== undefined
+          ? !(rootEnv.HEADLESS === "false" || rootEnv.HEADLESS === "0")
+          : true));
+
+// Coleta lista de chaves disponíveis (CLI > ROBOT_API_KEYS > [ROBOT_API_KEY_1, 2, 3] > ROBOT_API_KEY)
+let resolvedKeys = [];
+if (keys.length > 0) {
+  resolvedKeys = keys;
+} else if (key) {
+  resolvedKeys = [key];
+} else if (rootEnv.ROBOT_API_KEYS || process.env.ROBOT_API_KEYS) {
+  resolvedKeys = (rootEnv.ROBOT_API_KEYS || process.env.ROBOT_API_KEYS).split(",").map((s) => s.trim()).filter(Boolean);
+} else {
+  const envKey1 = process.env.ROBOT_API_KEY_1 || rootEnv.ROBOT_API_KEY_1 || process.env.ROBOT_API_KEY || rootEnv.ROBOT_API_KEY || "";
+  const envKey2 = process.env.ROBOT_API_KEY_2 || rootEnv.ROBOT_API_KEY_2 || "";
+  const envKey3 = process.env.ROBOT_API_KEY_3 || rootEnv.ROBOT_API_KEY_3 || "";
+
+  resolvedKeys = [envKey1, envKey2, envKey3].filter(Boolean);
+}
+
+// Se nenhuma chave foi encontrada, mantém placeholder vazio para single build
+if (resolvedKeys.length === 0) {
+  resolvedKeys = [""];
+}
+
+// Determina se é multi-build (mais de 1 ID ou mais de 1 chave)
+const multiBuild = ids.length > 1 || (ids.length === 0 && resolvedKeys.length > 1);
 
 // Monta lista de alvos de build
-const targets = multiBuild
-  ? ids.map((id, index) => ({
-      id,
-      email: emails[index] || emails[0] || email || "robot@gestordeoportunidades.com.br",
-      pass: passwords[index] || passwords[0] || pass || "",
-      headless,
-    }))
-  : [
-      {
-        id: "robot-docusigner",
-        email: email || emails[0] || "robot@gestordeoportunidades.com.br",
-        pass: pass || passwords[0] || "",
-        headless,
-      },
-    ];
+let targets = [];
+if (ids.length > 0) {
+  targets = ids.map((id, index) => ({
+    id,
+    key: resolvedKeys[index] || resolvedKeys[0] || "",
+    headless: isHeadless,
+  }));
+} else if (resolvedKeys.length > 1) {
+  targets = resolvedKeys.map((k, index) => ({
+    id: `robot-0${index + 1}`,
+    key: k,
+    headless: isHeadless,
+  }));
+} else {
+  targets = [
+    {
+      id: "robot-docusigner",
+      key: resolvedKeys[0] || "",
+      headless: isHeadless,
+    },
+  ];
+}
 
 // ── Limpeza ──
 console.log("==================================================");
 console.log(" Iniciando Pipeline de Build Protegido do Robo");
 console.log(` Servidor Central (API_URL): ${targetApiUrl}`);
-if (multiBuild) {
-  console.log(` Modo: MULTI-ROBOT | Qtd: ${targets.length} | Headless: ${headless}`);
-  targets.forEach((t, i) => console.log(`   [${i + 1}] ID: ${t.id} | Email: ${t.email}`));
+if (targets.length > 1) {
+  console.log(` Modo: MULTI-ROBOT | Qtd: ${targets.length} | Headless: ${isHeadless}`);
+  targets.forEach((t, i) => console.log(`   [${i + 1}] ID: ${t.id} | Key: ${t.key ? t.key.substring(0, 10) + "..." : "(não informada)"}`));
 } else {
-  console.log(` Modo: SINGLE-ROBOT | Email: ${targets[0].email} | Headless: ${headless}`);
+  console.log(` Modo: SINGLE-ROBOT | ID: ${targets[0].id} | Key: ${targets[0].key ? targets[0].key.substring(0, 10) + "..." : "(não informada)"} | Headless: ${isHeadless}`);
 }
 console.log("==================================================");
 
@@ -156,8 +188,7 @@ async function runBuild() {
       const defineArgs = [
         `--define:process.env.API_URL='"${targetApiUrl}"'`,
         `--define:process.env.ROBOT_ID='"${target.id}"'`,
-        `--define:process.env.ROBOT_EMAIL='"${target.email}"'`,
-        `--define:process.env.ROBOT_PASS='"${target.pass}"'`,
+        `--define:process.env.ROBOT_KEY='"${target.key || ""}"'`,
         `--define:process.env.HEADLESS="${target.headless}"`,
       ].join(" ");
 
@@ -233,10 +264,10 @@ if (fs.existsSync(jscPath)) {
     console.log(` Build concluido com sucesso! ${targets.length} executavel(is) gerado(s) em ${DIST_DIR}`);
     if (multiBuild) {
       for (const target of targets) {
-        console.log(`   - ${target.id}/robot-${target.id}.exe (Credenciais embutidas)`);
+        console.log(`   - ${target.id}/robot-${target.id}.exe (Chave de acesso embutida)`);
       }
     } else {
-      console.log(`   - robot-docusigner.exe (Credenciais embutidas)`);
+      console.log(`   - robot-docusigner.exe (Chave de acesso embutida)`);
     }
     console.log(" Zero arquivos json expostos no disco de distribuicao.");
     console.log("==================================================");

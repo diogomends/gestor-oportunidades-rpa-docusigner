@@ -21,39 +21,38 @@ Cada build gera **dois arquivos que devem ser distribuídos juntos, na mesma pas
 
 ## Instalação na Máquina do Agente
 1. Copie a subpasta completa de `dist/<id>/` (com o `.exe` E o `.jsc`) para a máquina alvo.
-2. Execute `setup.bat` apenas para instalar o navegador Chromium do Playwright (não é mais necessário gerar/editar `config.json` — as credenciais, `ROBOT_ID`, `HEADLESS` e `API_URL` já vêm embutidas no bytecode no momento do build).
+2. Execute `setup.bat` apenas para instalar o navegador Chromium do Playwright (não é mais necessário gerar/editar `config.json` — a chave de API (`ROBOT_KEY`), `ROBOT_ID`, `HEADLESS` e `API_URL` já vêm embutidas no bytecode no momento do build).
 3. Execute `robot-<id>.exe`.
 
 ## Como Gerar Novo Build do Executável (.exe)
 
 ### Modo Single (um executável)
-Na raiz do projeto ou dentro de `robot-standalone`:
+Na raiz do projeto:
 ```bash
+# Lê ROBOT_KEY e HEADLESS do .env.dev / .env:
 make build-robot
-# ou diretamente:
-cd robot-standalone && npm run build
+
+# Ou passando explicitamente:
+make build-robot KEY="rpa_sec_sua_chave" HEADLESS=true
 ```
 
-### Modo Multi-Robot (N executáveis com IDs pré-configurados)
+### Modo Multi-Robot (N executáveis com chaves individuais)
 ```bash
-# Cria 3 exes com headless=true (padrão)
-make build-robot IDS="agent-01,agent-02,agent-03"
+# Cria 2 executáveis com chaves individuais
+make build-robot IDS="agent-01,agent-02" KEYS="rpa_sec_chave1,rpa_sec_chave2" HEADLESS=true
 
-# Cria 2 exes com janela visível
-make build-robot IDS="agent-01,agent-02" HEADLESS=false
+# Cria com janela visível
+make build-robot IDS="agent-01,agent-02" KEYS="rpa_sec_chave1,rpa_sec_chave2" HEADLESS=false
 ```
 
-Cada ID gera uma subpasta em `dist/` com o `.exe` e o `.jsc` correspondente (as credenciais já estão embutidas no bytecode, sem `config.json` em texto plano):
+Cada ID gera uma subpasta em `dist/` com o `.exe` e o `.jsc` correspondente (a chave e configurações já estão embutidas no bytecode, sem `config.json` em texto plano):
 ```
 dist/
 ├── agent-01/
 │   ├── robot-agent-01.exe
 │   └── main-agent-01.jsc
-├── agent-02/
-│   ├── robot-agent-02.exe
-│   └── main-agent-02.jsc
-└── agent-03/
-    ├── robot-agent-03.exe
-    └── main-agent-03.jsc
+└── agent-02/
+    ├── robot-agent-02.exe
+    └── main-agent-02.jsc
 ```
 
