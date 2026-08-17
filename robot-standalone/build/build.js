@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-const ROOT_DIR = path.resolve(process.cwd(), "robot-standalone");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = path.resolve(__dirname, "..");
 const DIST_DIR = path.join(ROOT_DIR, "dist");
 const BUNDLE_DIR = path.join(ROOT_DIR, "dist-bundle");
 const OBF_DIR = path.join(ROOT_DIR, "dist-obf");
