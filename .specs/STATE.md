@@ -62,6 +62,7 @@ Navegação de documentação através de `public/manual-usuario.html` alimentad
 
 ### AD-013: Executáveis Standalone com Credenciais Embutidas em Bytecode V8 (2026-08-17)
 Eliminação de arquivos `config.json` em texto plano na distribuição dos executáveis clientes. Credenciais sequenciais do CRM (`ROBOT_EMAIL`, `ROBOT_PASS`), identificador da máquina (`ROBOT_ID`), flags (`HEADLESS`) e endpoint de produção (`URI_PROD` do `.env`) são injetados em tempo de compilação via `esbuild --define`, ofuscados com `javascript-obfuscator`, compilados em bytecode V8 nativo (`.jsc` via `bytenode`) e empacotados com `@yao-pkg/pkg`.
+**Distribuição**: cada build gera 2 arquivos inseparáveis — o `.exe` (loader que carrega o bytecode) e o `main-<id>.jsc` (bytecode). Ambos devem ser copiados juntos para a mesma pasta na máquina alvo; o `.exe` aborta se o `.jsc` não estiver ao lado (fallback `__dirname`).
 
 
 
