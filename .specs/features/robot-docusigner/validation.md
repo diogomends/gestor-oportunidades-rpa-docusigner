@@ -35,5 +35,22 @@
   - [x] Carregamento completo do painel de configuração com todos os seletores e badges presentes.
   - [x] Disparo e feedback de auto-save via interface.
   - [x] Acionamento de teste de login com estado visual de loading e toast de feedback.
-  - [x] Renderização da lista de instâncias com suporte a estados vazios e cards ativos.
-  - [x] Validação do container de indicador de modo no Step 6 de contratos.
+---
+
+## 4. Validação Fase 8 — Tasks T13 & T14: Integração e Desacoplamento com Gestor de Oportunidades
+
+- **Data**: 2026-08-17
+- **Arquivos Implementados e Atualizados**:
+  - `src/services/gestorApiClient.js`: Cliente HTTP com métodos `validateApiKey()`, `fetchPendingContracts()` e `updateContractStatus()`, com timeout de 10s via `AbortSignal.timeout(10000)` e retries exponenciais para resiliência de rede.
+  - `src/services/gestorApiClient.test.js`: Suíte de testes unitários nativos com `node:test` e mocks isolados para todas as operações do cliente.
+  - `src/modules/robot-docusign/services/robotScheduler.js`: Consulta desacoplada de contratos pendentes via `gestorApiClient.fetchPendingContracts` com fallback para Mongoose.
+  - `src/modules/robot-docusign/services/robotOrchestrator.js`: Atualização desacoplada de status de contratos pós-envio/download via `gestorApiClient.updateContractStatus` com fallback para Mongoose.
+  - `src/server.js`: Guard de validação de chave no bootstrap antes da inicialização do scheduler e do listener HTTP.
+  - `.specs/features/robot-docusigner/tasks.md` & `SPEC.md`: Status das tasks legadas, matriz de testes e rastreabilidade de requisitos sincronizados.
+- **Critérios de Aceite**:
+  - [x] Header `x-robot-key` propagado nas requisições HTTP para a API Central.
+  - [x] Timeout de 10s e retries com backoff exponencial ativos no cliente HTTP.
+  - [x] Falhas de rede ou retorno `HTTP != 200` tratadas graciosamente sem travar o processo.
+  - [x] Guard de inicialização em `server.js` interrompe a subida (`process.exit(1)`) caso a chave esteja revogada ou inválida.
+  - [x] Sincronização de status do contrato via HTTP funcionando com fallback direto no banco de contingência.
+

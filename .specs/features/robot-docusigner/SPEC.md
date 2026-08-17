@@ -356,6 +356,9 @@ public/modules/config-sistema/
 | REQ-010 | US-009 | 8 - Frontend Config | Done |
 | REQ-011 | US-010 | 9 - Scheduling | Done |
 | REQ-012 | US-004 | 4 - Download | Done |
+| REQ-ROBOT-KEY-01 | US-011 | 8 - Service Account Auth | Done |
+| REQ-ROBOT-KEY-02 | US-011 | 8 - Contracts HTTP Client | Done |
+| REQ-ROBOT-KEY-03 | US-011 | 8 - Bootstrap Guard | Done |
 
 ## Variações da Implementação & Notas Técnicas
 
@@ -470,24 +473,31 @@ public/modules/config-sistema/
 
 ---
 
-### US-010: Agendamento Serverless
+---
 
-**User Story**: como sistema, quero que o robot execute automaticamente a cada 5 minutos das 7h-19h via DO Function.
+### US-011: Integração com Gestor de Oportunidades via Service Account (API Key)
+
+**User Story**: Como serviço robô, quero me autenticar no Gestor de Oportunidades usando uma chave de API (`x-robot-key`) e consumir contratos de toda a organização com o perfil herdado do solicitante.
 
 **Acceptance Criteria**:
-1. WHEN cron aciono THEN processo 1 contrato
-2. WHEN nenhum pendente THEN retorno `processed: 0`
-3. WHEN desabilitado THEN retorno `disabled: true`
+1. WHEN serviço inicia THEN valida a chave via `POST /api/internal/robot-keys/validate` com header `x-robot-key`
+2. WHEN chave é válida THEN obtém perfil e inicia rotinas de orquestração
+3. WHEN chave é inválida/revogada THEN encerra processo com log de advertência
+4. WHEN consulta contratos pendentes THEN envia header `x-robot-key` em `GET /api/contracts` obtendo bypass de equipe com escopo do solicitante
+5. WHEN processamento finaliza THEN atualiza contrato via `PUT /api/contracts/:id` com header `x-robot-key`
 
 ## Success Criteria
 
-- [ ] Robot consegue fazer login na DocuSign via Playwright headless
-- [ ] Robot cria envelope, upload de 3 PDFs e envia para assinatura
-- [ ] Robot consulta status e atualiza Contract
-- [ ] Robot baixa PDF assinado e salva no servidor
-- [ ] Toggle Robot/API funciona no step 6
-- [ ] Config-sistema permite gerenciar todas as configurações
-- [ ] Retry com delay exponencial funciona (3 tentativas)
-- [ ] Logs detalhados por passo são registrados
-- [ ] Agendamento automático funciona (5min, 7h-19h)
-- [ ] Trigger manual funciona para qualquer contrato com status `gerado`
+- [x] Robot consegue fazer login na DocuSign via Playwright headless
+- [x] Robot cria envelope, upload de 3 PDFs e envia para assinatura
+- [x] Robot consulta status e atualiza Contract
+- [x] Robot baixa PDF assinado e salva no servidor
+- [x] Toggle Robot/API funciona no step 6
+- [x] Config-sistema permite gerenciar todas as configurações
+- [x] Retry com delay exponencial funciona (3 tentativas)
+- [x] Logs detalhados por passo são registrados
+- [x] Agendamento automático funciona (5min, 7h-19h)
+- [x] Trigger manual funciona para qualquer contrato com status `gerado`
+- [x] Autenticação e consumo via Service Account com `x-robot-key` funcional e validada no bootstrap
+
+

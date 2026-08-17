@@ -3,6 +3,7 @@ import SystemConfig from "../../../models/SystemConfig.js";
 import robotOrchestrator from "./robotOrchestrator.js";
 import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
 import Contract from "../../../models/Contract.js";
+import gestorApiClient from "../../../services/gestorApiClient.js";
 
 /**
  * Processa até 1 contrato pendente na fila do Robô DocuSign.
@@ -78,13 +79,30 @@ export async function processPendingJobs(options = {}) {
     .lean();
 
   if (!job) {
-    // Busca 1 contrato com status 'gerado' (mais antigo)
-    const contract = await Contract.findOne({ status: "gerado" })
-      .sort({ createdAt: 1 })
-      .lean();
+    let contract = null;
+
+    // Tenta obter contrato pendente via Gestor API Client (desacoplado)
+    if (process.env.ROBOT_API_KEY) {
+      try {
+        const contracts = await gestorApiClient.fetchPendingContracts({ status: "gerado", limit: 1 });
+        if (Array.isArray(contracts) && contracts.length > 0) {
+          contract = contracts[0];
+        }
+      } catch (apiErr) {
+        console.warn("[robotScheduler] Falha ao consultar contratos via GestorApiClient, usando fallback Mongoose:", apiErr.message);
+      }
+    }
+
+    // Fallback: Busca 1 contrato com status 'gerado' no banco compartilhado
+    if (!contract) {
+      contract = await Contract.findOne({ status: "gerado" })
+        .sort({ createdAt: 1 })
+        .lean();
+    }
 
     if (contract) {
-      console.log(`[robotScheduler] Encontrado contrato com status 'gerado' (${contract._id}). Disparando executeJob...`);
+      const contractId = contract._id || contract.id;
+      console.log(`[robotScheduler] Encontrado contrato com status 'gerado' (${contractId}). Disparando executeJob...`);
       try {
         const result = await robotOrchestrator.executeJob(contract, "send", {
           ...options,
@@ -94,20 +112,21 @@ export async function processPendingJobs(options = {}) {
         return {
           success: true,
           processed: 1,
-          contractId: contract._id,
+          contractId,
           jobId: result.jobId,
           result,
         };
       } catch (error) {
-        console.error(`[robotScheduler] Erro ao executar job para contrato gerado (${contract._id}):`, error);
+        console.error(`[robotScheduler] Erro ao executar job para contrato gerado (${contractId}):`, error);
         return {
           success: false,
           processed: 1,
-          contractId: contract._id,
+          contractId,
           error: error.message,
         };
       }
     }
+
 
     console.log("[robotScheduler] Nenhum job pendente e nenhum contrato gerado para processar.");
     return {
