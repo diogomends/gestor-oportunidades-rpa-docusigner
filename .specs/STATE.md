@@ -60,6 +60,9 @@ Especificação para saneamento de datas com parsing local (`new Date(year, mont
 ### AD-012: Interface de Manual do Usuário Standalone e Adaptativa (2026-08-10)
 Navegação de documentação através de `public/manual-usuario.html` alimentada pelo módulo estático `public/modules/manual-usuario/manual-data.js`. Filtragem reativa por perfil (`vendedor`, `supervisor`, `coordenador`, `suporte`, `admin`) utilizando dados de sessão (`getUser()`) com busca instantânea em tempo real e atalhos na Sidebar e Header do CRM.
 
+### AD-013: Executáveis Standalone com Credenciais Embutidas em Bytecode V8 (2026-08-17)
+Eliminação de arquivos `config.json` em texto plano na distribuição dos executáveis clientes. Credenciais sequenciais do CRM (`ROBOT_EMAIL`, `ROBOT_PASS`), identificador da máquina (`ROBOT_ID`), flags (`HEADLESS`) e endpoint de produção (`URI_PROD` do `.env`) são injetados em tempo de compilação via `esbuild --define`, ofuscados com `javascript-obfuscator`, compilados em bytecode V8 nativo (`.jsc` via `bytenode`) e empacotados com `@yao-pkg/pkg`.
+
 
 
 ## Dependências Externas

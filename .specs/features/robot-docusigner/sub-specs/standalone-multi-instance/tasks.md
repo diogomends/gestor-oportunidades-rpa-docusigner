@@ -7,3 +7,4 @@
 - [x] **T-SMI-05**: Projeto autônomo `robot-standalone/` estruturado com `ApiClient`, `Scheduler`, `JobRunner` e `docusign.js`.
 - [x] **T-SMI-06**: Pipeline de build protegido `build/build.js` com `esbuild`, `javascript-obfuscator`, `bytenode` e `@yao-pkg/pkg`.
 - [x] **T-SMI-07**: Script de setup do ambiente do cliente `setup.bat` e documentação de distribuição.
+- [x] **T-SMI-08**: Injeção de credenciais sequenciais e URI_PROD em tempo de build com esbuild define, eliminando arquivos JSON expostos no cliente.

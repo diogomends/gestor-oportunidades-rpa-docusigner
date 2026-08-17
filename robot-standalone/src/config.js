@@ -2,12 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Carrega a configuração da máquina a partir de config.json ou variáveis de ambiente.
+ * Carrega a configuração da máquina a partir de constantes embutidas no build,
+ * variáveis de ambiente ou config.json opcional.
  *
  * @returns {Object} Configuração estruturada.
  */
 export function loadConfig() {
-  // Procura config.json no diretório do executável ou no cwd
+  // Procura config.json opcional no diretório do executável ou no cwd (para dev/debug)
   const execDir = path.dirname(process.execPath || process.argv[1]);
   const possiblePaths = [
     path.join(process.cwd(), "config.json"),
@@ -21,7 +22,7 @@ export function loadConfig() {
       try {
         const raw = fs.readFileSync(p, "utf-8");
         fileConfig = JSON.parse(raw);
-        console.log(`[Config] Configuração carregada de: ${p}`);
+        console.log(`[Config] Configuração sobrescrita via: ${p}`);
         break;
       } catch (e) {
         console.warn(`[Config] Erro ao ler ${p}:`, e.message);
@@ -32,9 +33,9 @@ export function loadConfig() {
   const config = {
     API_URL: (process.env.API_URL || fileConfig.API_URL || "http://localhost:3111").replace(/\/$/, ""),
     ROBOT_ID: process.env.ROBOT_ID || fileConfig.ROBOT_ID || `robot-${Math.random().toString(36).substring(2, 7)}`,
-    ROBOT_EMAIL: process.env.ROBOT_EMAIL || fileConfig.ROBOT_EMAIL || "robot@sistema.com",
+    ROBOT_EMAIL: process.env.ROBOT_EMAIL || fileConfig.ROBOT_EMAIL || "robot@gestordeoportunidades.com.br",
     ROBOT_PASS: process.env.ROBOT_PASS || fileConfig.ROBOT_PASS || "",
-    HEADLESS: process.env.HEADLESS !== undefined ? process.env.HEADLESS === "true" : (fileConfig.HEADLESS !== false),
+    HEADLESS: process.env.HEADLESS !== undefined ? (process.env.HEADLESS === "true" || process.env.HEADLESS === true) : (fileConfig.HEADLESS !== false),
     POLL_INTERVAL_SECONDS: parseInt(process.env.POLL_INTERVAL_SECONDS || fileConfig.POLL_INTERVAL_SECONDS || "15", 10),
   };
 
@@ -42,3 +43,4 @@ export function loadConfig() {
 }
 
 export default { loadConfig };
+
