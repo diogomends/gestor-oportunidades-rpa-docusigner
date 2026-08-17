@@ -63,7 +63,7 @@ test-headed-ps:
 #   make build-robot EMAIL="user@crm.com" PASS="pass"
 #   make build-robot IDS="id1,id2" EMAILS="e1,e2" PASSWORDS="p1,p2" HEADLESS=false
 build-robot:
-	cd robot-standalone && npm run build -- --ids "$(IDS)" --emails "$(EMAILS)" --passwords "$(PASSWORDS)" --email "$(EMAIL)" --pass "$(PASS)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
+	cd robot-standalone && node build/build.js --ids "$(IDS)" --emails "$(EMAILS)" --passwords "$(PASSWORDS)" --email "$(EMAIL)" --pass "$(PASS)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
 
 # Limpa pastas de build anteriores (PowerShell)
 clean:
