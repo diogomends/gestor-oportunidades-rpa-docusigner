@@ -92,8 +92,11 @@ Todas sob prefixo `/api/robot-docusign`:
 | `DOCUSIGN_BASE_PATH`    | Não         | na.docusign.net |
 | `USUARIO_DOCUSIGNER`    | Não         | —           |
 | `SENHA_DOCUSIGNER`      | Não         | —           |
+| `GESTOR_API_URL`        | Sim         | `http://localhost:3000/api` |
+| `ROBOT_API_KEY`         | Sim         | —           |
 
 Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback.
+
 
 ## Convenções de Código
 
