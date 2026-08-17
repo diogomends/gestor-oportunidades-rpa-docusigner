@@ -4,8 +4,8 @@ tmp/
 logs/
 *.log
 .DS_Store
-
-# Build outputs
+.git
+.gitignore
 robot-standalone/dist/
 robot-standalone/dist-bundle/
 robot-standalone/dist-jsc/

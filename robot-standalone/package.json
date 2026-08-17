@@ -12,9 +12,9 @@
     "playwright": "^1.47.0"
   },
   "devDependencies": {
-    "@yao-pkg/pkg": "^5.14.1",
-    "bytenode": "^1.5.5",
+    "@yao-pkg/pkg": "^5.16.1",
+    "bytenode": "^1.6.0",
     "esbuild": "^0.23.0",
-    "javascript-obfuscator": "^4.1.1"
+    "javascript-obfuscator": "^4.2.2"
   }
 }
