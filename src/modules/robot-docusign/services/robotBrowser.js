@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import robotSelectors, { getSelectors } from "./robotSelectors.js";
-import { loginAndSaveSession, invalidateSession, captureDebugScreenshot } from "./robotSession.js";
+import robotSession from "./robotSession.js";
 
 /**
  * Obtém os seletores atualizados do robô.
@@ -33,14 +33,14 @@ async function ensureAuthenticated(page, targetUrl, envelopeData = {}, selectors
     const creds = envelopeData.credentials;
     if (creds?.email && creds?.password) {
       const ctx = typeof page.context === "function" ? page.context() : null;
-      await loginAndSaveSession(page, ctx, creds, selectors.login || {});
+      await robotSession.loginAndSaveSession(page, ctx, creds, selectors.login || {});
       if (typeof page.goto === "function") {
         await page.goto(targetUrl, { waitUntil: "networkidle", timeout: 30000 });
       }
       currentUrl = typeof page.url === "function" ? page.url() : "";
       if (currentUrl.includes("account.docusign.com") || currentUrl.includes("/oauth/") || currentUrl.includes("/login") || currentUrl.includes("/password")) {
-        await captureDebugScreenshot(page, "login-failed");
-        await invalidateSession(creds.email).catch(() => {});
+        await robotSession.captureDebugScreenshot(page, "login-failed");
+        await robotSession.invalidateSession(creds.email).catch(() => {});
         throw new Error(
           `Falha na autenticação do robô DocuSign: A navegação permaneceu na tela de login/OAuth (${currentUrl}) após a tentativa de login.`
         );
@@ -68,7 +68,7 @@ async function guardedAction(action, page, email) {
   } catch (err) {
     const url = typeof page.url === "function" ? page.url() : "";
     if (url.includes("account.docusign.com") || url.includes("/oauth/") || url.includes("/login")) {
-      if (email) await invalidateSession(email).catch(() => {});
+      if (email) await robotSession.invalidateSession(email).catch(() => {});
       throw new Error(
         `Redirecionado para OAuth durante interação com a página de envio (${url}). Sessão invalidada — o robô realizará novo login na próxima tentativa.`
       );

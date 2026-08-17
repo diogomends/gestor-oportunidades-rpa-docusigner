@@ -90,7 +90,7 @@ cp .env.example .env
 | `make test` | Roda testes nativos |
 | `make test-headed` | Roda o robô standalone com navegador visível (`HEADLESS=false`) |
 | `make test-headed-ps` | Idem, mas via PowerShell (para Windows CMD) |
-| `make build-robot` | Gera executável(is) .exe. Use IDS="id1,id2" para multi-robot e HEADLESS=false para modo headed |
+| `make build-robot` | Gera executável .exe. Use KEY="rf_sec_xxx" para chave específica e HEADLESS=false para modo headed |
 | `make install` | Instala dependências de tudo (servidor + standalone) |
 | `make clean` | Limpa pastas de build anteriores |
 
@@ -165,20 +165,17 @@ npm run build
 
 O executável protegido será gerado em `robot-standalone/dist/robot-docusigner.exe`.
 
-#### Build Multi-Robot
-
-Para gerar vários executáveis de uma vez, passe a lista de IDs e o modo headless:
-
-```bash
-make build-robot IDS="agent-01,agent-02,agent-03" HEADLESS=true
-```
+#### Parâmetros de Build
 
 | Parâmetro | Obrigatório | Padrão | Descrição |
 |-----------|-------------|--------|-----------|
-| `IDS` | Não | (single) | Lista separada por vírgula de IDs dos robôs |
+| `KEY` | Não* | (lê do `.env.dev`/`.env`) | Chave de API do robô (`ROBOT_KEY`) |
 | `HEADLESS` | Não | `true` | `true` = sem janela, `false` = com janela visível |
+| `API_URL` | Não | (lê do `.env.dev`/`.env`) | URL do servidor central |
 
-**Resultado:** Um `.exe` + `.jsc` por ID, cada um com o `ROBOT_ID`, `HEADLESS` e credenciais já embutidos no bytecode (sem `config.json` em texto plano).
+> *`KEY` é obrigatória se não houver `ROBOT_KEY` no `.env.dev` ou `.env`.
+
+**Resultado:** Um `.exe` + `.jsc` com a chave, HEADLESS e API_URL embutidos no bytecode (sem `config.json` em texto plano).
 
 **Pipeline de Build:**
 
@@ -189,7 +186,7 @@ make build-robot IDS="agent-01,agent-02,agent-03" HEADLESS=true
 | 3 | **bytenode** | Compilação para bytecode V8 (`.jsc`) |
 | 4 | **@yao-pkg/pkg** | Empacotamento como binário Windows `.exe` |
 
-**Distribuição:** Copie a subpasta completa do agente (ex: `dist/agent-01/` com o `.exe` E o `.jsc`) para a máquina alvo — os dois arquivos devem ficar na mesma pasta, pois o `.exe` é um loader que carrega o `.jsc`. Execute `setup.bat` apenas para instalar o Chromium.
+**Distribuição:** Copie `dist/robot-docusigner.exe` e `dist/main-robot-docusigner.jsc` para a máquina alvo — os dois arquivos devem ficar na mesma pasta, pois o `.exe` é um loader que carrega o `.jsc`. Execute `setup.bat` apenas para instalar o Chromium.
 
 ## API REST
 

@@ -61,7 +61,7 @@ test-headed-ps:
 #   make build-robot KEY="rf_sec_xxxx"
 #   make build-robot KEY="rf_sec_xxxx" HEADLESS=false
 build-robot:
-	cd robot-standalone && node build/build.js --key "$(KEY)" --robot-key "$(ROBOT_KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
+	cd robot-standalone && node build/build.js --key "$(KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
 
 # Limpa pastas de build anteriores (PowerShell)
 clean:
