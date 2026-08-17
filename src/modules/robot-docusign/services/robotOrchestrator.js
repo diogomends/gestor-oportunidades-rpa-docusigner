@@ -7,6 +7,42 @@ import robotSession from "./robotSession.js";
 import docusignService from "../../../services/docusignService.js";
 import Contract from "../../../models/Contract.js";
 import { decryptText } from "../../../utils/crypto.js";
+import gestorApiClient from "../../../services/gestorApiClient.js";
+
+/**
+ * Atualiza o status do contrato de forma desacoplada via GestorApiClient com fallback para Mongoose.
+ * @param {string} contractId
+ * @param {string} status
+ * @param {Object} [extraPayload={}]
+ */
+async function syncContractStatus(contractId, status, extraPayload = {}) {
+  if (!contractId) return;
+
+  // 1. Tenta atualizar via GestorApiClient (HTTP desacoplado)
+  if (process.env.ROBOT_API_KEY) {
+    try {
+      await gestorApiClient.updateContractStatus(contractId, {
+        status,
+        ...extraPayload,
+      });
+      return;
+    } catch (apiErr) {
+      console.warn(`[robotOrchestrator] Falha ao atualizar contrato ${contractId} via GestorApiClient: ${apiErr.message}. Tentando fallback direto Mongoose.`);
+    }
+  }
+
+  // 2. Fallback direto via Mongoose caso o cliente HTTP não esteja configurado ou falhe
+  try {
+    const c = await Contract.findById(contractId);
+    if (c) {
+      c.status = status;
+      if (extraPayload.envelopeId) c.envelopeId = extraPayload.envelopeId;
+      await c.save();
+    }
+  } catch (cErr) {
+    console.error(`[robotOrchestrator] Erro ao atualizar status do contrato para ${status} via Mongoose:`, cErr.message);
+  }
+}
 
 /**
  * Instância global do EventEmitter para o Robô DocuSign emitir progresso dos jobs.
@@ -319,25 +355,9 @@ export async function executeJob(contractOrId, action = "send", options = {}) {
       }
 
       if (action === "send" && contractId) {
-        try {
-          const c = await Contract.findById(contractId);
-          if (c) {
-            c.status = "enviado";
-            await c.save();
-          }
-        } catch (cErr) {
-          console.error("[robotOrchestrator] Erro ao atualizar status do contrato para enviado:", cErr.message);
-        }
+        await syncContractStatus(contractId, "enviado", { envelopeId: job.envelopeId });
       } else if (action === "download" && contractId) {
-        try {
-          const c = await Contract.findById(contractId);
-          if (c) {
-            c.status = "assinado";
-            await c.save();
-          }
-        } catch (cErr) {
-          console.error("[robotOrchestrator] Erro ao atualizar status do contrato para assinado:", cErr.message);
-        }
+        await syncContractStatus(contractId, "assinado");
         const cnpj = (contractObj?.client?.cnpj || "").replace(/\D/g, "");
         const razao = (contractObj?.client?.razaoSocial || "empresa").replace(/[^a-zA-Z0-9]/g, "_");
         const envId = job.envelopeId || options.envelopeId || contractObj?.envelopeId || contractObj?.docusign_envelope_id || "doc";
@@ -439,25 +459,9 @@ export async function executeJob(contractOrId, action = "send", options = {}) {
         }
 
         if (action === "send" && contractId) {
-          try {
-            const c = await Contract.findById(contractId);
-            if (c) {
-              c.status = "enviado";
-              await c.save();
-            }
-          } catch (cErr) {
-            console.error("[robotOrchestrator] Erro ao atualizar status do contrato para enviado:", cErr.message);
-          }
+          await syncContractStatus(contractId, "enviado", { envelopeId: job.envelopeId });
         } else if (action === "download" && contractId) {
-          try {
-            const c = await Contract.findById(contractId);
-            if (c) {
-              c.status = "assinado";
-              await c.save();
-            }
-          } catch (cErr) {
-            console.error("[robotOrchestrator] Erro ao atualizar status do contrato para assinado:", cErr.message);
-          }
+          await syncContractStatus(contractId, "assinado");
           const cnpj = (contractObj?.client?.cnpj || "").replace(/\D/g, "");
           const razao = (contractObj?.client?.razaoSocial || "empresa").replace(/[^a-zA-Z0-9]/g, "_");
           const envId = job.envelopeId || options.envelopeId || contractObj?.envelopeId || contractObj?.docusign_envelope_id || "doc";
@@ -473,6 +477,7 @@ export async function executeJob(contractOrId, action = "send", options = {}) {
 
         await job.save();
         emitProgress(job);
+
 
         return {
           success: true,

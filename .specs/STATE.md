@@ -91,6 +91,15 @@ Eliminação de arquivos `config.json` em texto plano na distribuição dos exec
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
+### [5.45.0] - 2026-08-17
+
+#### Adicionado
+
+- **Integração com Gestor de Oportunidades via Robot API Key (Fase 8: T13 & T14)**:
+  - `src/services/gestorApiClient.js`: Criado cliente HTTP nativo com autenticação via header `x-robot-key` contendo os métodos `validateApiKey()`, `fetchPendingContracts()` e `updateContractStatus()`.
+  - `src/server.js`: Adicionado guard no bootstrap do servidor para verificar a validade da `ROBOT_API_KEY` antes de iniciar o agendador de tarefas e o listener HTTP, garantindo encerramento gracioso com erro informativo caso a chave seja inválida.
+  - `.env.example`: Adicionadas as variáveis `GESTOR_API_URL` e `ROBOT_API_KEY`.
+
 ### [5.44.0] - 2026-08-17
 
 #### Adicionado
@@ -375,6 +384,16 @@ Eliminação de arquivos `config.json` em texto plano na distribuição dos exec
   - Centralização de todas as 9 métricas do Dashboard e gráfico sparkline no endpoint backend `GET /api/kpis` (`src/modules/kpis/`).
   - Frontend transformado em componente puro de visualização (`public/js/features/dashboard/components/kpi-cards.js`).
   - Exclusão do arquivo legado `update-kpis.js`.
+
+### [5.40.0] - 2026-08-17
+
+#### Adicionado
+
+- **Integração HTTP Desacoplada com Gestor de Oportunidades (T13/T14)**:
+  - `src/services/gestorApiClient.js` configurado com `AbortSignal.timeout(10000)` e retries exponenciais para resiliência de rede.
+  - Sincronização desacoplada de status de contratos em `robotScheduler.js` e `robotOrchestrator.js` utilizando o cliente HTTP com fallback para Mongoose.
+  - Suíte de testes unitários nativos (`src/services/gestorApiClient.test.js`) cobrindo cenários de sucesso, erro de autenticação, timeout e formato de retornos.
+  - Sincronização completa de rastreabilidade de requisitos e matriz de testes em `SPEC.md` e `tasks.md`.
 
 ### [5.39.0] - 2026-08-12
 

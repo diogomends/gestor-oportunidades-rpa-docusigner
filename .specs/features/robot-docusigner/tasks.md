@@ -36,6 +36,9 @@ npm run typecheck         # Type check (se disponível)
 | REQ-010 | T09 | — | — | ✅ Config card |
 | REQ-011 | T10 | ✅ Agendamento | ✅ DO Function mock | — |
 | REQ-012 | T04 | ✅ Download flow | ✅ Save to disk | — |
+| REQ-ROBOT-KEY-01 | T13 | ✅ gestorApiClient (validateApiKey) | ✅ Robot API Key auth | — |
+| REQ-ROBOT-KEY-02 | T13 | ✅ gestorApiClient (contracts CRUD) | ✅ Contracts HTTP bypass | — |
+| REQ-ROBOT-KEY-03 | T14 | ✅ server bootstrap guard | ✅ Process exit on invalid | — |
 
 ---
 
@@ -44,7 +47,7 @@ npm run typecheck         # Type check (se disponível)
 ### T01: Modelo RobotJob
 
 - **Req**: REQ-001
-- **Status**: Pending
+- **Status**: [x] Done (2026-08-11)
 - **Esforço**: 1h | Paralelável: Sim
 - **Depende de**: Nenhuma
 
@@ -112,7 +115,7 @@ npm run typecheck         # Type check (se disponível)
 ### T03: Serviço de Sessão
 
 - **Req**: REQ-003
-- **Status**: Pending
+- **Status**: [x] Done (2026-08-11)
 - **Esforço**: 2h | Paralelável: Sim
 - **Depende de**: Nenhuma
 
@@ -135,7 +138,7 @@ npm run typecheck         # Type check (se disponível)
 ### T04: Serviço de Automação (Browser Core)
 
 - **Req**: REQ-004, REQ-008, REQ-012
-- **Status**: Pending
+- **Status**: [x] Done (2026-08-11)
 - **Esforço**: 4h | Paralelável: Não (depende de T03)
 - **Depende de**: T03
 
@@ -166,7 +169,7 @@ npm run typecheck         # Type check (se disponível)
 ### T05: Orquestrador
 
 - **Req**: REQ-005
-- **Status**: Pending
+- **Status**: [x] Done (2026-08-11)
 - **Esforço**: 2h | Paralelável: Não
 - **Depende de**: T01, T03, T04
 
@@ -275,7 +278,7 @@ npm run typecheck         # Type check (se disponível)
 ### T09: DO Function + Cron
 
 - **Req**: REQ-011
-- **Status**: Pending
+- **Status**: [x] Done (2026-08-11)
 - **Esforço**: 1h | Paralelável: Não
 - **Depende de**: T06
 
@@ -419,6 +422,54 @@ T04 ─────┘                   ├──→ T08 (Frontend Config)
 
 ---
 
+---
+
+## Fase 8 — Integração com Gestor de Oportunidades (Robot Profile)
+
+### T13: Criação do Cliente HTTP do Gestor (`gestorApiClient.js`)
+
+- **Req**: REQ-ROBOT-KEY-01, REQ-ROBOT-KEY-02
+- **Status**: [x] Done (2026-08-17)
+- **Esforço**: 1h | Paralelável: Sim
+- **Depende de**: Nenhuma
+
+**O quê**:
+Criar `src/services/gestorApiClient.js` para comunicar com o Gestor de Oportunidades através do header `x-robot-key`.
+- `validateApiKey()`: Chama `POST /api/internal/robot-keys/validate` para checar validade da chave configurada e obter dados do perfil (cargo, nome, active).
+- `fetchPendingContracts()`: Chama `GET /api/contracts` com query params (ex: `status: "pending_signature"`).
+- `updateContractStatus(contractId, payload)`: Chama `PUT /api/contracts/:id` atualizando envelope_id e status pós-processamento no DocuSign.
+
+**Onde**:
+- `src/services/gestorApiClient.js` (novo)
+- `.env.example` (adicionar `GESTOR_API_URL` e `ROBOT_API_KEY`)
+
+**Feito quando**:
+- [x] `gestorApiClient.js` criado com suporte a `baseURL` e header `x-robot-key: process.env.ROBOT_API_KEY`.
+- [x] Funções `validateApiKey`, `fetchPendingContracts` e `updateContractStatus` exportadas.
+- [x] Falhas de validação de rede tratadas retornando `{ valid: false }` graciosamente.
+
+---
+
+### T14: Guard de Validação de Chave no Bootstrap
+
+- **Req**: REQ-ROBOT-KEY-03
+- **Status**: [x] Done (2026-08-17)
+- **Esforço**: 0.5h | Paralelável: Não
+- **Depende de**: T13
+
+**O quê**:
+Adicionar guard no bootstrap do servidor (`src/server.js`) para verificar a validade da `ROBOT_API_KEY` antes de iniciar workers, o scheduler e o listener HTTP. Se inválida ou revogada, aborta a inicialização com mensagem informativa.
+
+**Onde**:
+- `src/server.js` (modificar)
+
+**Feito quando**:
+- [x] `validateApiKey()` chamada durante o bootstrap da aplicação.
+- [x] Se `valid === true`: prossegue com inicialização do scheduler e `app.listen()`.
+- [x] Se `valid === false`: log de erro "Chave de API do robô inválida ou revogada. Verifique o painel do Gestor." e encerra com `process.exit(1)`.
+
+---
+
 ## Riscos Identificados
 
 | Risco | Impacto | Mitigação |
@@ -428,3 +479,5 @@ T04 ─────┘                   ├──→ T08 (Frontend Config)
 | Seletores UI mudam frequentemente | Médio | JSON separado facilita atualização; monitorar |
 | Sessão expira rapidamente | Médio | Testar duração real; ajustar intervalo de re-login |
 | Timeout DO Functions (30s) | Médio | Processar 1 contrato; monitoring de duração |
+| Gestor offline na inicialização do robô | Médio | Log claro e retry ou exit defensivo com indicação de causa |
+
