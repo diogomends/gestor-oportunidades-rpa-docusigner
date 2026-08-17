@@ -86,6 +86,26 @@ Navegação de documentação através de `public/manual-usuario.html` alimentad
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
+### [5.43.0] - 2026-08-14
+
+#### Adicionado / Corrigido
+
+- **Monitoramento de Instâncias do Robô (fleet monitoring)**:
+  - `src/modules/robot-docusign/routes/robotInstanceRoutes.js`: Adicionada rota `GET /instances` para listar instâncias ativas do robô (fleet monitoring).
+  - `src/modules/robot-docusign/routes/robotInstanceRoutes.js`: Adicionado middleware `authorize("admin")` nas rotas de instância para restringir acesso a administradores.
+  - `src/modules/robot-docusign/index.js`: Eliminada colisão de mount genérico `instanceRoutes` — rotas de instância agora usam paths explícitos (`/instance/*` e `/instances`).
+  - `src/modules/robot-docusign/routes/robotInstanceRoutes.js`: Suporte a rotas diretas (`/instances`, `/instance/:id/heartbeat`, `/instance/:id/pdfs/:filename`) além das rotas com prefixo `/api/robot-docusign`.
+
+#### Alterado
+
+- **Build Multi-Robot e Makefile**:
+  - `Makefile`: Alvos `test-headed-ps` e `fetch-robot-debug-images` atualizados para suportar múltiplos robôs e PowerShell no Windows.
+  - `build/build.js`: Atualizado para suportar build multi-robot com opções headless e executáveis standalone.
+
+- **Documentação e Specs**:
+  - Documentação de build multi-robot e opções headless atualizada.
+  - Specs duplicadas do `gestor-oportunidades` removidas deste repositório.
+
 ### [5.36.0] - 2026-08-14
 
 #### Corrigido
@@ -318,13 +338,13 @@ Navegação de documentação através de `public/manual-usuario.html` alimentad
   - Removido botão de salvamento manual `btnSaveConfig` e handler do evento `submit` em `public/modules/config-sistema/robot-docusign/`, padronizando o salvamento exclusivamente via auto-save.
   - Normalizados os valores das `<option>` do `<select id="scheduleInterval">` para inteiros puros (`"5"`, `"10"`, `"15"`, `"30"`), alinhando `loadConfig()` / `saveConfig()` e prevenindo recarregamento da página via `onsubmit="return false;"` e `e.preventDefault()`.
 
-### [5.14.0] - 2026-08-11
+### [5.37.0] - 2026-08-11
 
 #### Adicionado
 
 - **Teste de regressão do módulo robotDocusign**: Criado suite de testes de integração com `supertest` cobrindo os 9 endpoints do controller (`trigger`, `status`, `jobs`, `metrics`, `logs`, `config`, `test-login`, `queue`). 31 cenários validando autenticação, autorização, validação, sucesso e tratamento de erros. Arquivo: `src/modules/robot-docusign/controllers/robotDocusignController.test.js`.
 
-### [5.14.0] - 2026-08-13
+### [5.38.0] - 2026-08-13
 
 #### Adicionado
 
@@ -343,7 +363,7 @@ Navegação de documentação através de `public/manual-usuario.html` alimentad
   - Frontend transformado em componente puro de visualização (`public/js/features/dashboard/components/kpi-cards.js`).
   - Exclusão do arquivo legado `update-kpis.js`.
 
-### [5.13.0] - 2026-08-12
+### [5.39.0] - 2026-08-12
 
 #### Corrigido
 
