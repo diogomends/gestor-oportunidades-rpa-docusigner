@@ -1,38 +1,50 @@
-# STATE.md — CRM Funil de Vendas
+# STATE.md — Gestor de Oportunidades RPA DocuSigner
 
 ## Visão Geral
-Sistema Node.js com arquitetura modular híbrida. Backend Express + Frontend HTML/JS Vanilla, comunicando via REST API autenticada por JWT.
+Projeto composto por **2 componentes independentes** no mesmo repositório:
 
-## Diagrama de Módulos
+1. **Servidor Central** (`src/`) — API Express + MongoDB que orquestra jobs, autentica robôs via JWT/API Key e monitora instâncias. Roteiro de produção na porta 3111.
+2. **Robô Standalone** (`robot-standalone/`) — Executável `.exe` que roda nas máquinas dos vendedores/agentes, faz polling autenticado no servidor e executa automação Playwright no DocuSign.
+
+## Diagrama de Arquitetura
+
 ```mermaid
-graph TD
-    A[Frontend: JS Vanilla] -->|API REST| B[Backend: Express]
-    B --> C[Mongoose: MongoDB]
-    
-    subgraph "Módulos de Domínio"
-        D[Auth & Security]
-        E[User & Team Management]
-        F[Opportunity & Kanban]
-        G[Import & Excel Parsing]
-        H[Commissions & Campaigns]
-        I[Goals & Analytics]
+graph LR
+    subgraph "SERVIDOR CENTRAL (produção)"
+        A[API Express] -->|porta 3111| B[MongoDB]
+        A --> C[RobotScheduler]
+        A --> D[RobotOrchestrator]
+        A --> E[RobotInstance Monitor]
     end
-    
-    B --> D
-    B --> E
-    B --> F
-    B --> G
-    B --> H
-    B --> I
+
+    subgraph "ROBÔ STANDALONE (.exe local)"
+        F[ApiClient HTTP] --> G[JobRunner Playwright]
+        F --> H[Scheduler + Heartbeat]
+    end
+
+    F -->|polling + auth JWT| A
+    G -->|reporta status| A
+
+    style A fill:#4a9eff,color:#fff
+    style F fill:#ff6b6b,color:#fff
 ```
 
-## Fluxo de Dados Principal (Importação à Venda)
-1. **Importação:** Arquivo Excel enviado para `/api/import-profiles/upload`.
-2. **Processamento:** Parser `XLSX` converte dados e valida contra Perfil de Mapeamento.
-3. **Persistência:** Oportunidades criadas no MongoDB vinculadas a equipe/vendedor.
-4. **Visualização:** Vendedor visualiza no Kanban (`/sales-kanban.html`).
-5. **Ciclo de Vida:** Oportunidades mudam de fase até o fechamento.
-6. **Auditoria:** Toda alteração de fase registrada (via `updated_at`), criador original (`created_by`) preservado.
+### Fluxo de Dados
+1. **Servidor** recebe job via API (`POST /trigger`) ou scheduler automático.
+2. **Robô standalone** faz polling autenticado (`GET /queue`) e busca jobs pendentes.
+3. **Robô** executa a automação Playwright no DocuSign (login, envio, download).
+4. **Robô** reporta progresso/status via heartbeat e endpoints de sessão.
+5. **Servidor** atualiza status do job no MongoDB e notifica frontends via SSE.
+
+## Fluxo de Dados Principal (RPA DocuSign)
+1. **Disparo:** Job criado via API (`POST /api/robot-docusign/trigger`) ou automaticamente pelo scheduler.
+2. **Fila:** Job registrado no MongoDB com status `pending`.
+3. **Polling:** Robô standalone faz polling autenticado e resgata jobs pendentes.
+4. **Execução:** Playwright automatiza login, envio e download no DocuSign.
+5. **Progresso:** Robô reporta status via heartbeat e endpoints de instância.
+6. **Conclusão:** Servidor atualiza job (`completed`/`failed`) e notifica via SSE.
+
+> **Nota:** Este repositório é o serviço RPA. O CRM frontend (`gestor-oportunidades`) é um projeto separado que consome a API deste servidor.
 
 ## Decisões de Design (ADRs)
 
@@ -67,9 +79,13 @@ Eliminação de arquivos `config.json` em texto plano na distribuição dos exec
 ### AD-014: Autenticação Dual da Instância — API Key e Credenciais Legadas (2026-08-17)
 `POST /api/robot-docusign/instance/auth` aceita dois fluxos: (1) **API Key** via header `X-Robot-Key` ou campo `robot_key` — a chave é hasheada com SHA-256 e comparada contra a coleção `robot_api_keys` (banco `crm_acl`, conectado via `getAclDb()`), herdando cargo/permissões do usuário criador (`created_by`); (2) **legado** via `email`/`senha`. O token JWT emitido inclui `isRobot: true`, dura 30 dias, registra/atualiza a `RobotInstance` e grava `last_used_at`/`last_used_ip` na chave.
 
+### AD-015: Dois Componentes num Mesmo Repositório (2026-08-17)
+Projeto dividido em **Servidor Central** (`src/`) e **Robô Standalone** (`robot-standalone/`) no mesmo repositório. O servidor roda em produção (porta 3111) e gerencia a fila de jobs, autenticação e monitoramento. O robô é empacotado como `.exe` via pipeline de 4 etapas (esbuild → obfuscator → bytenode → pkg) e distribuído para as máquinas dos agentes. Comunicação via HTTP (polling + heartbeat). O robô standalone tem zero dependências de servidor — apenas Playwright.
+
 ## Dependências Externas
-- **MongoDB Atlas/Local:** Persistência de dados.
-- **Node.js:** Runtime do servidor.
+- **MongoDB Atlas/Local:** Persistência de dados (servidor central).
+- **Node.js:** Runtime do servidor e do robô standalone.
+- **Playwright + Chromium:** Automação de navegador no DocuSign (robô standalone).
 - **Docker:** Orquestração de containers e ambiente de produção Ubuntu.
 - **NGINX:** Servidor reverso para balanceamento e segurança em produção.
 

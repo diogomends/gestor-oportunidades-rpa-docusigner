@@ -22,6 +22,42 @@ O robot opera como um serviço de contingência/bridge: enquanto a API não é a
 | Retry | 3 tentativas, delay exponencial (2s → 4s → 8s) |
 | Logs | Detalhado por passo com timestamp |
 
+## Arquitetura de 2 Componentes
+
+O projeto é dividido em **2 componentes independentes** no mesmo repositório:
+
+| Componente | Diretório | Onde roda | Responsabilidade |
+|------------|-----------|-----------|------------------|
+| **Servidor Central** | `src/` | Servidor de produção (porta 3111) | API REST, fila de jobs, autenticação JWT/API Key, monitoramento de instâncias, orquestração |
+| **Robô Standalone** | `robot-standalone/` | Máquinas dos vendedores/agentes (`.exe`) | Polling autenticado, execução Playwright, download de PDFs, heartbeat |
+
+```
+┌─────────────────────────────────┐         ┌──────────────────────────────────┐
+│   SERVIDOR CENTRAL (produção)   │         │   ROBÔ STANDALONE (.exe local)   │
+│   src/ → node src/server.js     │         │   robot-standalone/ → .exe       │
+│                                 │  HTTP   │                                  │
+│  ┌───────────────────────────┐  │◄───────►│  ┌────────────────────────────┐  │
+│  │ API REST (porta 3111)     │  │ polling │  │ Scheduler (polling fila)   │  │
+│  │ - JWT auth + API Keys     │  │ +auth   │  │ - heartbeat com servidor   │  │
+│  │ - Fila de jobs MongoDB    │  │         │  │ - execução Playwright       │  │
+│  │ - Orquestração de jobs    │  │         │  │ - download de PDFs         │  │
+│  │ - Monitoramento instâncias│  │         │  │ - obfuscação/bytecode      │  │
+│  └───────────────────────────┘  │         │  └────────────────────────────┘  │
+│                                 │         │                                  │
+│  MongoDB: db_crm_funil          │         │  Zero dependências de servidor   │
+│            crm_contracts        │         │  (apenas Playwright)             │
+└─────────────────────────────────┘         └──────────────────────────────────┘
+```
+
+**Fluxo resumido:**
+1. Servidor recebe job via API (`POST /trigger`) ou scheduler automático.
+2. Robô standalone faz polling autenticado (`GET /instance/next-job`) e busca jobs pendentes.
+3. Robô executa automação Playwright no DocuSign (login, envio, download).
+4. Robô reporta progresso/status via heartbeat e endpoints de instância.
+5. Servidor atualiza status do job no MongoDB e notifica frontends via SSE.
+
+**Comunicação:** HTTP autenticada via JWT (emitido pelo servidor via `POST /instance/auth`). O robô standalone tem zero dependências de servidor — apenas Playwright.
+
 ## Requisitos Funcionais
 
 ### [REQ-001] Modelo RobotJob
