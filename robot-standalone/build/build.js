@@ -44,8 +44,6 @@ function loadRootEnv() {
 function parseArgs() {
   const rawArgs = process.argv.slice(2);
   const result = {
-    ids: [],
-    keys: [],
     key: "",
     headless: null,
     apiUrl: "",
@@ -70,15 +68,8 @@ function parseArgs() {
       nextVal = cleanArgs[++i].trim();
     }
 
-    if (arg === "--ids" && nextVal) {
-      result.ids = nextVal.split(",").map((s) => s.trim()).filter(Boolean);
-    } else if ((arg === "--keys" || arg === "--key" || arg === "--robot-key" || arg === "--robot-keys" || arg === "--ROBOT_KEY") && nextVal) {
-      if (nextVal.includes(",")) {
-        result.keys = nextVal.split(",").map((s) => s.trim()).filter(Boolean);
-      } else {
-        result.key = nextVal;
-        result.keys.push(nextVal);
-      }
+    if ((arg === "--key" || arg === "--robot-key" || arg === "--keys" || arg === "--ROBOT_KEY") && nextVal) {
+      result.key = nextVal;
     } else if (arg === "--headless" && nextVal) {
       const low = nextVal.toLowerCase();
       result.headless = !(low === "false" || low === "0" || low === "no" || low === "off");
@@ -90,9 +81,21 @@ function parseArgs() {
 }
 
 const rootEnv = loadRootEnv();
-const { ids, keys, key, headless: argHeadless, apiUrl } = parseArgs();
+const { key, headless: argHeadless, apiUrl } = parseArgs();
 
-// URL de produção obtida do .env.dev / .env raiz ou parâmetro
+// Chave do robô (CLI > ROBOT_KEY > ROBOT_API_KEY > ROBOT_API_KEY_1 no .env.dev/.env)
+const resolvedKey = key || process.env.ROBOT_KEY || process.env.ROBOT_API_KEY || rootEnv.ROBOT_KEY || rootEnv.ROBOT_API_KEY || rootEnv.ROBOT_API_KEY_1 || "";
+
+if (!resolvedKey) {
+  console.error("==================================================");
+  console.error(" [ERRO] A chave do robô (--key) é obrigatória para o build.");
+  console.error(" Exemplo de uso:");
+  console.error('   node build/build.js --key "rf_sec_sua_chave"');
+  console.error("==================================================");
+  process.exit(1);
+}
+
+// URL de produção obtida do parâmetro, .env.dev / .env raiz ou fallback padrão
 const targetApiUrl = (apiUrl || process.env.API_URL || rootEnv.API_URL || rootEnv.URI_PROD || "http://localhost:3111").replace(/\/$/, "");
 
 // Headless resolvido com fallback para rootEnv.HEADLESS ou true
@@ -104,64 +107,12 @@ const isHeadless = argHeadless !== null
           ? !(rootEnv.HEADLESS === "false" || rootEnv.HEADLESS === "0")
           : true));
 
-// Coleta lista de chaves disponíveis (CLI > ROBOT_API_KEYS > [ROBOT_API_KEY_1, 2, 3] > ROBOT_API_KEY)
-let resolvedKeys = [];
-if (keys.length > 0) {
-  resolvedKeys = keys;
-} else if (key) {
-  resolvedKeys = [key];
-} else if (rootEnv.ROBOT_API_KEYS || process.env.ROBOT_API_KEYS) {
-  resolvedKeys = (rootEnv.ROBOT_API_KEYS || process.env.ROBOT_API_KEYS).split(",").map((s) => s.trim()).filter(Boolean);
-} else {
-  const envKey1 = process.env.ROBOT_API_KEY_1 || rootEnv.ROBOT_API_KEY_1 || process.env.ROBOT_API_KEY || rootEnv.ROBOT_API_KEY || "";
-  const envKey2 = process.env.ROBOT_API_KEY_2 || rootEnv.ROBOT_API_KEY_2 || "";
-  const envKey3 = process.env.ROBOT_API_KEY_3 || rootEnv.ROBOT_API_KEY_3 || "";
-
-  resolvedKeys = [envKey1, envKey2, envKey3].filter(Boolean);
-}
-
-// Se nenhuma chave foi encontrada, mantém placeholder vazio para single build
-if (resolvedKeys.length === 0) {
-  resolvedKeys = [""];
-}
-
-// Determina se é multi-build (mais de 1 ID ou mais de 1 chave)
-const multiBuild = ids.length > 1 || (ids.length === 0 && resolvedKeys.length > 1);
-
-// Monta lista de alvos de build
-let targets = [];
-if (ids.length > 0) {
-  targets = ids.map((id, index) => ({
-    id,
-    key: resolvedKeys[index] || resolvedKeys[0] || "",
-    headless: isHeadless,
-  }));
-} else if (resolvedKeys.length > 1) {
-  targets = resolvedKeys.map((k, index) => ({
-    id: `robot-0${index + 1}`,
-    key: k,
-    headless: isHeadless,
-  }));
-} else {
-  targets = [
-    {
-      id: "robot-docusigner",
-      key: resolvedKeys[0] || "",
-      headless: isHeadless,
-    },
-  ];
-}
-
 // ── Limpeza ──
 console.log("==================================================");
-console.log(" Iniciando Pipeline de Build Protegido do Robo");
+console.log(" Iniciando Pipeline de Build Protegido do Robô");
 console.log(` Servidor Central (API_URL): ${targetApiUrl}`);
-if (targets.length > 1) {
-  console.log(` Modo: MULTI-ROBOT | Qtd: ${targets.length} | Headless: ${isHeadless}`);
-  targets.forEach((t, i) => console.log(`   [${i + 1}] ID: ${t.id} | Key: ${t.key ? t.key.substring(0, 10) + "..." : "(não informada)"}`));
-} else {
-  console.log(` Modo: SINGLE-ROBOT | ID: ${targets[0].id} | Key: ${targets[0].key ? targets[0].key.substring(0, 10) + "..." : "(não informada)"} | Headless: ${isHeadless}`);
-}
+console.log(` Chave do Robô (KEY):        ${resolvedKey.substring(0, 10)}...`);
+console.log(` Modo Headless:              ${isHeadless}`);
 console.log("==================================================");
 
 for (const dir of [DIST_DIR, BUNDLE_DIR, OBF_DIR, JSC_DIR]) {
@@ -174,55 +125,51 @@ for (const dir of [DIST_DIR, BUNDLE_DIR, OBF_DIR, JSC_DIR]) {
 async function runBuild() {
   try {
     const entryFile = path.join(ROOT_DIR, "src", "main.js");
+    const bundleName = "robot-docusigner";
 
-    for (let idx = 0; idx < targets.length; idx++) {
-      const target = targets[idx];
-      const prefix = `[${idx + 1}/${targets.length}] (${target.id})`;
+    console.log(`\n--- Compilando executável standalone ---`);
 
-      console.log(`\n--- ${prefix} Compilando executavel embutido ---`);
+    // ── Etapa 1: Bundle com esbuild (Injeção de Defines em tempo de compilação) ──
+    console.log(` 1/4 Empacotando com esbuild (ESM -> CJS + Defines)...`);
+    const bundleOut = path.join(BUNDLE_DIR, `main-${bundleName}.cjs`);
 
-      // ── Etapa 1: Bundle com esbuild (Injeção de Defines em tempo de compilação) ──
-      console.log(` ${prefix} 1/4 Empacotando com esbuild (ESM -> CJS + Defines)...`);
-      const bundleOut = path.join(BUNDLE_DIR, `main-${target.id}.cjs`);
+    const defineArgs = [
+      `--define:process.env.API_URL='"${targetApiUrl}"'`,
+      `--define:process.env.ROBOT_KEY='"${resolvedKey}"'`,
+      `--define:process.env.HEADLESS="${isHeadless}"`,
+    ].join(" ");
 
-      const defineArgs = [
-        `--define:process.env.API_URL='"${targetApiUrl}"'`,
-        `--define:process.env.ROBOT_ID='"${target.id}"'`,
-        `--define:process.env.ROBOT_KEY='"${target.key || ""}"'`,
-        `--define:process.env.HEADLESS="${target.headless}"`,
-      ].join(" ");
+    execSync(
+      `npx esbuild "${entryFile}" --bundle --platform=node --format=cjs --target=node18 --external:playwright --external:bytenode ${defineArgs} --outfile="${bundleOut}"`,
+      { stdio: "inherit", cwd: ROOT_DIR }
+    );
 
-      execSync(
-        `npx esbuild "${entryFile}" --bundle --platform=node --format=cjs --target=node18 --external:playwright --external:bytenode ${defineArgs} --outfile="${bundleOut}"`,
-        { stdio: "inherit", cwd: ROOT_DIR }
-      );
+    // ── Etapa 2: Ofuscação ──
+    console.log(` 2/4 Ofuscando código-fonte...`);
+    const obfOut = path.join(OBF_DIR, `main-${bundleName}.cjs`);
 
-      // ── Etapa 2: Ofuscação ──
-      console.log(` ${prefix} 2/4 Ofuscando codigo-fonte...`);
-      const obfOut = path.join(OBF_DIR, `main-${target.id}.cjs`);
+    execSync(
+      `npx javascript-obfuscator "${bundleOut}" --output "${obfOut}" --compact true --control-flow-flattening true --dead-code-injection false --string-array true --string-array-encoding base64`,
+      { stdio: "inherit", cwd: ROOT_DIR }
+    );
 
-      execSync(
-        `npx javascript-obfuscator "${bundleOut}" --output "${obfOut}" --compact true --control-flow-flattening true --dead-code-injection false --string-array true --string-array-encoding base64`,
-        { stdio: "inherit", cwd: ROOT_DIR }
-      );
+    // ── Etapa 3: Bytecode V8 ──
+    console.log(` 3/4 Compilando para Bytecode V8 (.jsc)...`);
+    const jscOut = path.join(JSC_DIR, `main-${bundleName}.jsc`);
 
-      // ── Etapa 3: Bytecode V8 ──
-      console.log(` ${prefix} 3/4 Compilando para Bytecode V8 (.jsc)...`);
-      const jscOut = path.join(JSC_DIR, `main-${target.id}.jsc`);
+    await bytenode.compileFile({
+      filename: obfOut,
+      output: jscOut,
+      compileAsModule: true,
+    });
 
-      await bytenode.compileFile({
-        filename: obfOut,
-        output: jscOut,
-        compileAsModule: true,
-      });
-
-      // Loader que carrega o .jsc
-      const loaderContent = `
+    // Loader que carrega o .jsc
+    const loaderContent = `
 const bytenode = require('bytenode');
 const path = require('path');
 const fs = require('fs');
 
-const jscFilename = 'main-${target.id}.jsc';
+const jscFilename = 'main-${bundleName}.jsc';
 const localJsc = path.join(__dirname, jscFilename);
 const externalJsc = path.join(path.dirname(process.execPath), jscFilename);
 const jscPath = fs.existsSync(localJsc) ? localJsc : externalJsc;
@@ -230,46 +177,33 @@ const jscPath = fs.existsSync(localJsc) ? localJsc : externalJsc;
 if (fs.existsSync(jscPath)) {
   require(jscPath);
 } else {
-  console.error('[Loader] Arquivo bytecode ' + jscFilename + ' nao encontrado!');
+  console.error('[Loader] Arquivo bytecode ' + jscFilename + ' não encontrado!');
   process.exit(1);
 }
 `;
-      const loaderFile = path.join(JSC_DIR, `index-${target.id}.cjs`);
-      fs.writeFileSync(loaderFile, loaderContent, "utf-8");
+    const loaderFile = path.join(JSC_DIR, `index-${bundleName}.cjs`);
+    fs.writeFileSync(loaderFile, loaderContent, "utf-8");
 
-      // ── Etapa 4: Gerar executavel com @yao-pkg/pkg ──
-      console.log(` ${prefix} 4/4 Empacotando binario .exe...`);
+    // ── Etapa 4: Gerar executável com @yao-pkg/pkg ──
+    console.log(` 4/4 Empacotando binário .exe...`);
 
-      let targetDir = DIST_DIR;
-      let exeOut = path.join(DIST_DIR, "robot-docusigner.exe");
+    const exeOut = path.join(DIST_DIR, "robot-docusigner.exe");
 
-      if (multiBuild) {
-        targetDir = path.join(DIST_DIR, target.id);
-        fs.mkdirSync(targetDir, { recursive: true });
-        exeOut = path.join(targetDir, `robot-${target.id}.exe`);
-      }
+    // Copia o arquivo .jsc para a pasta de distribuição ao lado do .exe
+    fs.copyFileSync(jscOut, path.join(DIST_DIR, `main-${bundleName}.jsc`));
 
-      // Copia o arquivo .jsc para a pasta de distribuicao ao lado do .exe
-      fs.copyFileSync(jscOut, path.join(targetDir, `main-${target.id}.jsc`));
+    execSync(
+      `npx @yao-pkg/pkg "${loaderFile}" --target node18-win-x64 --output "${exeOut}"`,
+      { stdio: "inherit", cwd: ROOT_DIR }
+    );
 
-      execSync(
-        `npx @yao-pkg/pkg "${loaderFile}" --target node18-win-x64 --output "${exeOut}"`,
-        { stdio: "inherit", cwd: ROOT_DIR }
-      );
-
-      console.log(` -> OK: ${exeOut}`);
-    }
+    console.log(` -> OK: ${exeOut}`);
 
     console.log("\n==================================================");
-    console.log(` Build concluido com sucesso! ${targets.length} executavel(is) gerado(s) em ${DIST_DIR}`);
-    if (multiBuild) {
-      for (const target of targets) {
-        console.log(`   - ${target.id}/robot-${target.id}.exe (Chave de acesso embutida)`);
-      }
-    } else {
-      console.log(`   - robot-docusigner.exe (Chave de acesso embutida)`);
-    }
-    console.log(" Zero arquivos json expostos no disco de distribuicao.");
+    console.log(` Build concluído com sucesso em ${DIST_DIR}:`);
+    console.log(`   - dist/robot-docusigner.exe (Loader)`);
+    console.log(`   - dist/main-robot-docusigner.jsc (Bytecode com chave embutida)`);
+    console.log(" Zero arquivos json expostos no disco de distribuição.");
     console.log("==================================================");
   } catch (error) {
     console.error("\n Erro durante o pipeline de build:", error.message);

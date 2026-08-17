@@ -14,45 +14,34 @@ Cada build gera **dois arquivos que devem ser distribuídos juntos, na mesma pas
 
 | Arquivo | Função |
 |---------|--------|
-| `robot-<id>.exe` | Binário Windows (loader). NÃO contém o código — é apenas o runtime Node embutido que carrega o bytecode. |
-| `main-<id>.jsc` | Bytecode V8 nativo (código ofuscado/compilado). O `.exe` procura este arquivo ao lado dele (ou no `__dirname`) e aborta com erro se não encontrar. |
+| `robot-docusigner.exe` | Binário Windows (loader). NÃO contém o código — é apenas o runtime Node embutido que carrega o bytecode. |
+| `main-robot-docusigner.jsc` | Bytecode V8 nativo (código ofuscado/compilado com chave embutida). O `.exe` procura este arquivo ao lado dele (ou no `__dirname`) e aborta com erro se não encontrar. |
 
 > **IMPORTANTE**: nunca distribua o `.exe` sem o `.jsc` correspondente.
 
 ## Instalação na Máquina do Agente
-1. Copie a subpasta completa de `dist/<id>/` (com o `.exe` E o `.jsc`) para a máquina alvo.
-2. Execute `setup.bat` apenas para instalar o navegador Chromium do Playwright (não é mais necessário gerar/editar `config.json` — a chave de API (`ROBOT_KEY`), `ROBOT_ID`, `HEADLESS` e `API_URL` já vêm embutidas no bytecode no momento do build).
-3. Execute `robot-<id>.exe`.
+1. Copie os arquivos da pasta `dist/` (`robot-docusigner.exe` E `main-robot-docusigner.jsc`) para a máquina alvo.
+2. Execute `setup.bat` apenas para instalar o navegador Chromium do Playwright (não é mais necessário gerar/editar `config.json` — a chave de API (`ROBOT_KEY`), `HEADLESS` e `API_URL` já vêm embutidas no bytecode no momento do build; a identificação da instância é realizada automaticamente pelo servidor central).
+3. Execute `robot-docusigner.exe`.
 
 ## Como Gerar Novo Build do Executável (.exe)
 
-### Modo Single (um executável)
 Na raiz do projeto:
 ```bash
-# Lê ROBOT_KEY e HEADLESS do .env.dev / .env:
+# 1. Lê ROBOT_KEY e HEADLESS do .env.dev / .env:
 make build-robot
 
-# Ou passando explicitamente:
-make build-robot KEY="rpa_sec_sua_chave" HEADLESS=true
+# 2. Ou passando chave explicitamente:
+make build-robot KEY="rf_sec_sua_chave" HEADLESS=true
+
+# 3. Ou apontando para URL de API customizada:
+make build-robot KEY="rf_sec_sua_chave" API_URL="https://crm.meudominio.com" HEADLESS=false
 ```
 
-### Modo Multi-Robot (N executáveis com chaves individuais)
-```bash
-# Cria 2 executáveis com chaves individuais
-make build-robot IDS="agent-01,agent-02" KEYS="rpa_sec_chave1,rpa_sec_chave2" HEADLESS=true
-
-# Cria com janela visível
-make build-robot IDS="agent-01,agent-02" KEYS="rpa_sec_chave1,rpa_sec_chave2" HEADLESS=false
-```
-
-Cada ID gera uma subpasta em `dist/` com o `.exe` e o `.jsc` correspondente (a chave e configurações já estão embutidas no bytecode, sem `config.json` em texto plano):
+Os arquivos gerados estarão prontos para distribuição em `dist/`:
 ```
 dist/
-├── agent-01/
-│   ├── robot-agent-01.exe
-│   └── main-agent-01.jsc
-└── agent-02/
-    ├── robot-agent-02.exe
-    └── main-agent-02.jsc
+├── robot-docusigner.exe
+└── main-robot-docusigner.jsc
 ```
 

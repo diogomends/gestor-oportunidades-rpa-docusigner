@@ -6,7 +6,7 @@ import os from "node:os";
  * Cliente HTTP para comunicação segura com a API Central do Gestor de Oportunidades.
  */
 export class ApiClient {
-  constructor(baseUrl, instanceId) {
+  constructor(baseUrl, instanceId = null) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.instanceId = instanceId;
     this.token = null;
@@ -14,7 +14,7 @@ export class ApiClient {
   }
 
   /**
-   * Autentica na API via Chave de API (X-Robot-Key) e armazena o token JWT.
+   * Autentica na API via Chave de API (X-Robot-Key) e armazena o token JWT e instance_id.
    */
   async authenticate(robotKey) {
     if (!robotKey) {
@@ -28,7 +28,7 @@ export class ApiClient {
     };
 
     const payload = {
-      instance_id: this.instanceId,
+      ...(this.instanceId ? { instance_id: this.instanceId } : {}),
       robot_key: robotKey,
       machine_info: {
         hostname: os.hostname(),
@@ -51,10 +51,13 @@ export class ApiClient {
 
     const data = await response.json();
     this.token = data.token;
+    if (data.instance_id) {
+      this.instanceId = data.instance_id;
+    }
     // Expira em ~29 dias para segurança
     this.tokenExpiresAt = Date.now() + 29 * 24 * 60 * 60 * 1000;
     const userDesc = data.user?.nome ? `${data.user.nome} (${data.user.cargo || "Robô"})` : "Service Account";
-    console.log(`[API] Autenticado com sucesso via Chave de API como ${userDesc}`);
+    console.log(`[API] Autenticado com sucesso via Chave de API como ${userDesc} (Instance ID: ${this.instanceId})`);
     return data;
   }
 
@@ -84,6 +87,9 @@ export class ApiClient {
    * Busca atomicamente o próximo job atribuído a esta instância.
    */
   async getNextJob() {
+    if (!this.instanceId) {
+      throw new Error("ID da instância não definido. Execute authenticate() primeiro.");
+    }
     const url = `${this.baseUrl}/api/robot-docusign/instance/next-job?instance_id=${encodeURIComponent(this.instanceId)}`;
     const res = await fetch(url, { headers: this.getHeaders() });
     if (!res.ok) {
@@ -96,6 +102,9 @@ export class ApiClient {
    * Atualiza o status e os steps do job.
    */
   async updateJobStatus(jobId, statusPayload) {
+    if (!this.instanceId) {
+      throw new Error("ID da instância não definido. Execute authenticate() primeiro.");
+    }
     const url = `${this.baseUrl}/api/robot-docusign/instance/job/${jobId}/status`;
     const res = await fetch(url, {
       method: "PATCH",

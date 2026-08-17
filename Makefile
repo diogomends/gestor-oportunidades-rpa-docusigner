@@ -13,27 +13,23 @@ help:
 	@echo "  install-robot   Instala apenas dependencias do standalone"
 	@echo "  test-headed     Testa o robo standalone com navegador visivel (sh/bash)"
 	@echo "  test-headed-ps  Testa o robo standalone com navegador visivel (PowerShell)"
-	@echo "  build-robot     Gera executavel(is) .exe do robo standalone com dados embutidos"
+	@echo "  build-robot     Gera executável .exe do robô standalone com chave embutida"
 	@echo "  clean           Limpa pastas de build anteriores"
 	@echo ""
-	@echo 'EXEMPLOS DE BUILD COM DADOS EMBUTIDOS:'
-	@echo '  1. Build Automatico (le de 1 a 3 chaves configuradas no .env.dev):'
-	@echo '    make build-robot'
-	@echo ''
-	@echo '  2. Single Robot (chave especifica via CLI):'
-	@echo '    make build-robot KEY="rpa_sec_xxxx" HEADLESS=true'
-	@echo ''
-	@echo '  3. Multi-Robot com chaves especificas via CLI:'
-	@echo '    make build-robot IDS="robot-01,robot-02,robot-03" \'
-	@echo '                     KEYS="rpa_sec_key1,rpa_sec_key2,rpa_sec_key3" \'
-	@echo '                     HEADLESS=true'
+	@echo "EXEMPLOS DE BUILD COM CHAVE EMBUTIDA:"
+	@echo "  1. Build Automático (lê ROBOT_KEY/ROBOT_API_KEY no .env.dev):"
+	@echo "    make build-robot"
 	@echo ""
-	@echo "Variaveis aceitas:"
-	@echo "  KEY        Chave de API do robo (padrao: le ROBOT_API_KEY_1/ROBOT_API_KEY do .env.dev)"
-	@echo "  KEYS       Chaves de API para multiplos robos separadas por virgula (padrao: le ROBOT_API_KEY_1..3)"
-	@echo "  IDS        Identificadores unicos das maquinas (padrao: robot-01..03 ou robot-docusigner)"
-	@echo "  HEADLESS   true ou false (padrao: le HEADLESS do .env.dev ou true)"
-	@echo "  API_URL    URL central customizada (padrao: le API_URL ou URI_PROD do .env.dev/.env)"
+	@echo "  2. Build com chave específica via CLI:"
+	@echo "    make build-robot KEY=\"rf_sec_xxxx\" HEADLESS=true"
+	@echo ""
+	@echo "  3. Build apontando para API específica:"
+	@echo "    make build-robot KEY=\"rf_sec_xxxx\" API_URL=\"https://crm.meudominio.com\""
+	@echo ""
+	@echo "Variáveis aceitas:"
+	@echo "  KEY        Chave de API do robô (padrão: lê ROBOT_KEY / ROBOT_API_KEY do .env.dev/.env)"
+	@echo "  HEADLESS   true ou false (padrão: lê HEADLESS do .env.dev ou true)"
+	@echo "  API_URL    URL central customizada (padrão: lê API_URL ou URI_PROD do .env.dev/.env)"
 
 # Inicia o servidor em modo desenvolvimento (nodemon)
 dev:
@@ -60,14 +56,13 @@ test-headed:
 test-headed-ps:
 	powershell -Command "cd robot-standalone; $$env:HEADLESS='false'; node src/main.js"
 
-# Gera executavel(is) .exe do robo standalone com chave de acesso embutida
+# Gera executavel .exe do robo standalone com chave de acesso embutida
 # Uso:
-#   make build-robot KEY="rpa_sec_xxxx"
-#   make build-robot IDS="id1,id2" KEYS="k1,k2" HEADLESS=false
+#   make build-robot KEY="rf_sec_xxxx"
+#   make build-robot KEY="rf_sec_xxxx" HEADLESS=false
 build-robot:
-	cd robot-standalone && node build/build.js --ids "$(IDS)" --keys "$(KEYS)" --key "$(KEY)" --robot-key "$(ROBOT_KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
+	cd robot-standalone && node build/build.js --key "$(KEY)" --robot-key "$(ROBOT_KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
 
 # Limpa pastas de build anteriores (PowerShell)
 clean:
 	powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue robot-standalone\dist, robot-standalone\dist-bundle, robot-standalone\dist-obf, robot-standalone\dist-jsc"
-
