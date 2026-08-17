@@ -149,7 +149,7 @@ make build-robot IDS="agent-01,agent-02,agent-03" HEADLESS=true
 | `IDS` | Não | (single) | Lista separada por vírgula de IDs dos robôs |
 | `HEADLESS` | Não | `true` | `true` = sem janela, `false` = com janela visível |
 
-**Resultado:** Um `.exe` + `config.json` por ID, cada um com o `ROBOT_ID` e `HEADLESS` já configurados no `config.json`.
+**Resultado:** Um `.exe` + `.jsc` por ID, cada um com o `ROBOT_ID`, `HEADLESS` e credenciais já embutidos no bytecode (sem `config.json` em texto plano).
 
 **Pipeline de Build:**
 
@@ -160,7 +160,7 @@ make build-robot IDS="agent-01,agent-02,agent-03" HEADLESS=true
 | 3 | **bytenode** | Compilação para bytecode V8 (`.jsc`) |
 | 4 | **@yao-pkg/pkg** | Empacotamento como binário Windows `.exe` |
 
-**Distribuição:** Copie a subpasta do agente (ex: `dist/agent-01/`) para a máquina alvo, execute `setup.bat` para instalar Chromium e execute o `.exe`.
+**Distribuição:** Copie a subpasta completa do agente (ex: `dist/agent-01/` com o `.exe` E o `.jsc`) para a máquina alvo — os dois arquivos devem ficar na mesma pasta, pois o `.exe` é um loader que carrega o `.jsc`. Execute `setup.bat` apenas para instalar o Chromium.
 
 ## API REST
 

@@ -26,11 +26,13 @@ O robô RPA DocuSign precisa ser distribuído e executado localmente nas máquin
 
 ### [REQ-SMI-03] Cliente Autônomo Standalone
 - Arquitetura baseada em `ApiClient`, `Scheduler`, `JobRunner` e `Browser/Playwright`.
-- Leitura de configuração de `config.json` local.
-- Setup simplificado via `setup.bat` para instalação do Chromium.
+- Configuração injetada em tempo de build (credenciais, `ROBOT_ID`, `HEADLESS`, `API_URL`); `config.json` é opcional/fallback apenas para debug.
+- Setup via `setup.bat` apenas para instalação do Chromium.
+- **Distribuição em 2 arquivos**: o `.exe` (loader) e o `.jsc` (bytecode) DEVEM ser copiados juntos para a mesma pasta na máquina alvo — o `.exe` aborta se o `.jsc` não estiver ao lado.
 
 ### [REQ-SMI-04] Pipeline de Build Protegido
 - Transpilação via `esbuild` (ESM -> CJS).
 - Ofuscação de strings e fluxo de controle via `javascript-obfuscator`.
 - Compilação para bytecode nativo V8 com `bytenode` (`.jsc`).
 - Empacotamento em binário Windows (`.exe`) via `@yao-pkg/pkg`.
+- O build copia o `.jsc` para a pasta de distribuição ao lado do `.exe`; ambos devem ser entregues juntos ao cliente.

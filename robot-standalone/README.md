@@ -8,14 +8,21 @@ Este módulo contém a aplicação autônoma empacotada em `.exe` para distribui
 - **Proteção do Código**: O código JavaScript é transpilado via esbuild, ofuscado com `javascript-obfuscator`, compilado para bytecode V8 nativo (`.jsc`) pelo `bytenode` e empacotado como binário Windows `.exe`.
 - **Privacidade de Dados**: PDFs e credenciais trafegam apenas em memória volátil e diretórios temporários (`os.tmpdir()`), sendo excluídos de forma imediata após o término do upload na DocuSign.
 
+## Distribuição — Dois Arquivos Obrigatórios
+
+Cada build gera **dois arquivos que devem ser distribuídos juntos, na mesma pasta**:
+
+| Arquivo | Função |
+|---------|--------|
+| `robot-<id>.exe` | Binário Windows (loader). NÃO contém o código — é apenas o runtime Node embutido que carrega o bytecode. |
+| `main-<id>.jsc` | Bytecode V8 nativo (código ofuscado/compilado). O `.exe` procura este arquivo ao lado dele (ou no `__dirname`) e aborta com erro se não encontrar. |
+
+> **IMPORTANTE**: nunca distribua o `.exe` sem o `.jsc` correspondente.
+
 ## Instalação na Máquina do Agente
-1. Copie a pasta `dist/` com o `robot-docusigner.exe` e `config.json.example`.
-2. Execute o arquivo `setup.bat` para instalar o navegador Chromium do Playwright e gerar o `config.json`.
-3. Edite o arquivo `config.json` preenchendo:
-   - `API_URL`: URL da API central (ex: `https://gestor.suaempresa.com.br`)
-   - `ROBOT_ID`: Identificador único da máquina (ex: `agent-01`, `agent-02`)
-   - `ROBOT_EMAIL` / `ROBOT_PASS`: Credenciais de acesso da conta de robô.
-4. Execute `robot-docusigner.exe`.
+1. Copie a subpasta completa de `dist/<id>/` (com o `.exe` E o `.jsc`) para a máquina alvo.
+2. Execute `setup.bat` apenas para instalar o navegador Chromium do Playwright (não é mais necessário gerar/editar `config.json` — as credenciais, `ROBOT_ID`, `HEADLESS` e `API_URL` já vêm embutidas no bytecode no momento do build).
+3. Execute `robot-<id>.exe`.
 
 ## Como Gerar Novo Build do Executável (.exe)
 
@@ -36,17 +43,17 @@ make build-robot IDS="agent-01,agent-02,agent-03"
 make build-robot IDS="agent-01,agent-02" HEADLESS=false
 ```
 
-Cada ID gera uma subpasta em `dist/` com o `.exe` e `config.json`:
+Cada ID gera uma subpasta em `dist/` com o `.exe` e o `.jsc` correspondente (as credenciais já estão embutidas no bytecode, sem `config.json` em texto plano):
 ```
 dist/
 ├── agent-01/
 │   ├── robot-agent-01.exe
-│   └── config.json
+│   └── main-agent-01.jsc
 ├── agent-02/
 │   ├── robot-agent-02.exe
-│   └── config.json
+│   └── main-agent-02.jsc
 └── agent-03/
     ├── robot-agent-03.exe
-    └── config.json
+    └── main-agent-03.jsc
 ```
 
