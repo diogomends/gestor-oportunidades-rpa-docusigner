@@ -16,9 +16,13 @@ async function bootstrap() {
   const api = new ApiClient(config.API_URL, config.ROBOT_ID);
 
   try {
-    // 1. Autenticação na API central
-    console.log(`[Main] Autenticando com usuário ${config.ROBOT_EMAIL}...`);
-    await api.authenticate(config.ROBOT_EMAIL, config.ROBOT_PASS);
+    // 1. Autenticação na API central via Chave de API
+    if (!config.ROBOT_KEY) {
+      throw new Error("ROBOT_KEY não configurada. Defina a chave de API do robô para autenticação.");
+    }
+
+    console.log(`[Main] Autenticando com Chave de API (X-Robot-Key: ${config.ROBOT_KEY.substring(0, 8)}...)...`);
+    await api.authenticate(config.ROBOT_KEY);
 
     // 2. Busca configuração inicial
     const systemConfig = await api.getConfig();

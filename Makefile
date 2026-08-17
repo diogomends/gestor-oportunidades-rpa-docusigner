@@ -17,21 +17,23 @@ help:
 	@echo "  clean           Limpa pastas de build anteriores"
 	@echo ""
 	@echo 'EXEMPLOS DE BUILD COM DADOS EMBUTIDOS:'
-	@echo '  1. Single Robot:'
-	@echo '    make build-robot EMAIL="robot@gestor.com.br" PASS="Senha123" HEADLESS=true'
+	@echo '  1. Build Automatico (le de 1 a 3 chaves configuradas no .env.dev):'
+	@echo '    make build-robot'
 	@echo ''
-	@echo '  2. Multi-Robot com credenciais individuais em sequencia:'
-	@echo '    make build-robot IDS="alessandra-rpa-docusigner,bianca-rpa-docusigner" \'
-	@echo '                     EMAILS="alessandra@gestor.com.br,bianca@gestor.com.br" \'
-	@echo '                     PASSWORDS="PassAlessandra123,PassBianca456" \'
+	@echo '  2. Single Robot (chave especifica via CLI):'
+	@echo '    make build-robot KEY="rpa_sec_xxxx" HEADLESS=true'
+	@echo ''
+	@echo '  3. Multi-Robot com chaves especificas via CLI:'
+	@echo '    make build-robot IDS="robot-01,robot-02,robot-03" \'
+	@echo '                     KEYS="rpa_sec_key1,rpa_sec_key2,rpa_sec_key3" \'
 	@echo '                     HEADLESS=true'
 	@echo ""
 	@echo "Variaveis aceitas:"
-	@echo "  IDS        Identificadores unicos das maquinas separados por virgula"
-	@echo "  EMAILS     E-mails de autenticacao no CRM sequenciais (ou EMAIL para único)"
-	@echo "  PASSWORDS  Senhas de autenticacao no CRM sequenciais (ou PASS para única)"
-	@echo "  HEADLESS   true (padrao) ou false = abre janela do navegador"
-	@echo "  API_URL    URL central customizada (padrao: le URI_PROD do .env)"
+	@echo "  KEY        Chave de API do robo (padrao: le ROBOT_API_KEY_1/ROBOT_API_KEY do .env.dev)"
+	@echo "  KEYS       Chaves de API para multiplos robos separadas por virgula (padrao: le ROBOT_API_KEY_1..3)"
+	@echo "  IDS        Identificadores unicos das maquinas (padrao: robot-01..03 ou robot-docusigner)"
+	@echo "  HEADLESS   true ou false (padrao: le HEADLESS do .env.dev ou true)"
+	@echo "  API_URL    URL central customizada (padrao: le API_URL ou URI_PROD do .env.dev/.env)"
 
 # Inicia o servidor em modo desenvolvimento (nodemon)
 dev:
@@ -58,12 +60,12 @@ test-headed:
 test-headed-ps:
 	powershell -Command "cd robot-standalone; $$env:HEADLESS='false'; node src/main.js"
 
-# Gera executavel(is) .exe do robo standalone com credenciais embutidas
+# Gera executavel(is) .exe do robo standalone com chave de acesso embutida
 # Uso:
-#   make build-robot EMAIL="user@crm.com" PASS="pass"
-#   make build-robot IDS="id1,id2" EMAILS="e1,e2" PASSWORDS="p1,p2" HEADLESS=false
+#   make build-robot KEY="rpa_sec_xxxx"
+#   make build-robot IDS="id1,id2" KEYS="k1,k2" HEADLESS=false
 build-robot:
-	cd robot-standalone && node build/build.js --ids "$(IDS)" --emails "$(EMAILS)" --passwords "$(PASSWORDS)" --email "$(EMAIL)" --pass "$(PASS)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
+	cd robot-standalone && node build/build.js --ids "$(IDS)" --keys "$(KEYS)" --key "$(KEY)" --robot-key "$(ROBOT_KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
 
 # Limpa pastas de build anteriores (PowerShell)
 clean:

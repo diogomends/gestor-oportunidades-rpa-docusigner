@@ -33,8 +33,7 @@ export function loadConfig() {
   const config = {
     API_URL: (process.env.API_URL || fileConfig.API_URL || "http://localhost:3111").replace(/\/$/, ""),
     ROBOT_ID: process.env.ROBOT_ID || fileConfig.ROBOT_ID || `robot-${Math.random().toString(36).substring(2, 7)}`,
-    ROBOT_EMAIL: process.env.ROBOT_EMAIL || fileConfig.ROBOT_EMAIL || "robot@gestordeoportunidades.com.br",
-    ROBOT_PASS: process.env.ROBOT_PASS || fileConfig.ROBOT_PASS || "",
+    ROBOT_KEY: process.env.ROBOT_KEY || fileConfig.ROBOT_KEY || "",
     HEADLESS: process.env.HEADLESS !== undefined ? (process.env.HEADLESS === "true" || process.env.HEADLESS === true) : (fileConfig.HEADLESS !== false),
     POLL_INTERVAL_SECONDS: parseInt(process.env.POLL_INTERVAL_SECONDS || fileConfig.POLL_INTERVAL_SECONDS || "15", 10),
   };
