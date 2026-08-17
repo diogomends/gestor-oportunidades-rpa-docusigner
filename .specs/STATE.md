@@ -85,6 +85,9 @@ Projeto dividido em **Servidor Central** (`src/`) e **Robô Standalone** (`robot
 ### AD-016: Build Simplificado e Identificação Dinâmica da Instância (2026-08-17)
 O pipeline de build do robô standalone foi simplificado para aceitar exclusivamente 3 parâmetros essenciais: `--key`, `--api-url` e `--headless`. As referências estáticas a `ROBOT_ID`, `ROBOT_EMAIL` e `ROBOT_PASS` foram eliminadas do código cliente e dos defines do `esbuild`. A identificação do robô (`instance_id`) passou a ser resolvida dinamicamente pelo servidor central na resposta da autenticação (`POST /api/robot-docusign/instance/auth`), reduzindo complexidade e risco de exposição de credenciais.
 
+### AD-017: Build Multi-Chave para Robôs Standalone (2026-08-17)
+O script de compilação `robot-standalone/build/build.js` e o comando `make build-robot` suportam geração em lote de executáveis para múltiplas instâncias. Quando `--key` não é especificado na CLI, o script varre automaticamente o `.env.dev` / `.env` coletando todas as chaves no padrão `ROBOT_API_KEY_\d+` (ordenadas por índice) e executa o pipeline isoladamente para cada chave com arquivos nomeados sequencialmente (`robot-docusigner-1.exe`, `main-robot-docusigner-1.jsc`, `robot-docusigner-2.exe`, etc.). Caso `--key` seja fornecido na CLI, mantém retrocompatibilidade gerando um único executável.
+
 ## Dependências Externas
 - **MongoDB Atlas/Local:** Persistência de dados (servidor central).
 - **Node.js:** Runtime do servidor e do robô standalone.
