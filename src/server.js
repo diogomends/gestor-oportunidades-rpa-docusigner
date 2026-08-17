@@ -22,10 +22,15 @@ const startServer = async () => {
   // Validação da API Key do Robô junto ao Gestor
   const keyValidation = await validateApiKey();
   if (!keyValidation.valid) {
-    console.error("[RPA DocuSigner] Chave de API do robô inválida ou revogada. Verifique o painel do Gestor.");
-    process.exit(1);
+    if (process.env.NODE_ENV === "production") {
+      console.error("[RPA DocuSigner] Chave de API do robô inválida ou revogada. Verifique o painel do Gestor.");
+      process.exit(1);
+    } else {
+      console.warn(`[RPA DocuSigner] [DEV] Validação da API Key não bloqueante em desenvolvimento: ${keyValidation.error || "Chave ausente ou inválida"}`);
+    }
+  } else {
+    console.log(`[RPA DocuSigner] API Key validada com sucesso (Cargo: ${keyValidation.cargo || "N/A"})`);
   }
-  console.log(`[RPA DocuSigner] API Key validada com sucesso (Cargo: ${keyValidation.cargo || "N/A"})`);
 
   // Automatic boot of RPA task scheduler
   robotScheduler.start();
