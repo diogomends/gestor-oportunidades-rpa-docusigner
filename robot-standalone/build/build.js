@@ -39,6 +39,32 @@ function loadRootEnv() {
 }
 
 /**
+ * Varre o objeto env e coleta todas as chaves que casam com o padrão ROBOT_API_KEY_\d+.
+ * Retorna array de { key, index } ordenado por índice.
+ */
+function resolveAllKeys(rootEnv) {
+  const combined = { ...rootEnv, ...process.env };
+  const list = [];
+  for (const [k, v] of Object.entries(combined)) {
+    const match = k.match(/^ROBOT_API_KEY_(\d+)$/);
+    if (match && v && typeof v === "string" && v.trim()) {
+      list.push({ key: v.trim(), index: parseInt(match[1], 10) });
+    }
+  }
+  list.sort((a, b) => a.index - b.index);
+
+  // Fallback caso não existam chaves numeradas mas exista ROBOT_KEY ou ROBOT_API_KEY
+  if (list.length === 0) {
+    const single = process.env.ROBOT_KEY || process.env.ROBOT_API_KEY || rootEnv.ROBOT_KEY || rootEnv.ROBOT_API_KEY;
+    if (single && typeof single === "string" && single.trim()) {
+      list.push({ key: single.trim(), index: 1 });
+    }
+  }
+
+  return list;
+}
+
+/**
  * Parse CLI args suportando argumentos posicionais, --flag "val" e flags vazias
  */
 function parseArgs() {
@@ -81,15 +107,22 @@ function parseArgs() {
 }
 
 const rootEnv = loadRootEnv();
-const { key, headless: argHeadless, apiUrl } = parseArgs();
+const { key: cliKey, headless: argHeadless, apiUrl } = parseArgs();
 
-// Chave do robô (CLI > ROBOT_KEY > ROBOT_API_KEY > ROBOT_API_KEY_1 no .env.dev/.env)
-const resolvedKey = key || process.env.ROBOT_KEY || process.env.ROBOT_API_KEY || rootEnv.ROBOT_KEY || rootEnv.ROBOT_API_KEY || rootEnv.ROBOT_API_KEY_1 || "";
+// Decisão de chaves: se passado via CLI, usa apenas essa chave (retrocompatibilidade, suffix 1).
+// Se não, consome todas as ROBOT_API_KEY_* do .env.dev.
+let keysToBuild = [];
+if (cliKey) {
+  keysToBuild = [{ key: cliKey, suffix: 1 }];
+} else {
+  const resolved = resolveAllKeys(rootEnv);
+  keysToBuild = resolved.map((item) => ({ key: item.key, suffix: item.index }));
+}
 
-if (!resolvedKey) {
+if (keysToBuild.length === 0) {
   console.error("==================================================");
-  console.error(" [ERRO] A chave do robô (--key) é obrigatória para o build.");
-  console.error(" Exemplo de uso:");
+  console.error(" [ERRO] Nenhuma chave do robô encontrada para o build.");
+  console.error(" Configure ROBOT_API_KEY_1 no .env.dev ou passe via CLI:");
   console.error('   node build/build.js --key "rf_sec_sua_chave"');
   console.error("==================================================");
   process.exit(1);
@@ -108,13 +141,6 @@ const isHeadless = argHeadless !== null
           : true));
 
 // ── Limpeza ──
-console.log("==================================================");
-console.log(" Iniciando Pipeline de Build Protegido do Robô");
-console.log(` Servidor Central (API_URL): ${targetApiUrl}`);
-console.log(` Chave do Robô (KEY):        ${resolvedKey.substring(0, 10)}...`);
-console.log(` Modo Headless:              ${isHeadless}`);
-console.log("==================================================");
-
 for (const dir of [DIST_DIR, BUNDLE_DIR, OBF_DIR, JSC_DIR]) {
   if (fs.existsSync(dir)) {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -122,54 +148,64 @@ for (const dir of [DIST_DIR, BUNDLE_DIR, OBF_DIR, JSC_DIR]) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-async function runBuild() {
-  try {
-    const entryFile = path.join(ROOT_DIR, "src", "main.js");
-    const bundleName = "robot-docusigner";
+console.log("==================================================");
+console.log(" Iniciando Pipeline de Build Protegido do Robô (Multi-Chave)");
+console.log(` Servidor Central (API_URL): ${targetApiUrl}`);
+console.log(` Quantidade de Chaves:       ${keysToBuild.length}`);
+console.log(` Modo Headless:              ${isHeadless}`);
+console.log("==================================================");
 
-    console.log(`\n--- Compilando executável standalone ---`);
+/**
+ * Executa o pipeline de build completo para uma chave específica
+ */
+async function buildForOneKey({ key, suffix, targetApiUrl, isHeadless }) {
+  const entryFile = path.join(ROOT_DIR, "src", "main.js");
+  const bundleSuffix = `robot-docusigner-${suffix}`;
 
-    // ── Etapa 1: Bundle com esbuild (Injeção de Defines em tempo de compilação) ──
-    console.log(` 1/4 Empacotando com esbuild (ESM -> CJS + Defines)...`);
-    const bundleOut = path.join(BUNDLE_DIR, `main-${bundleName}.cjs`);
+  console.log(`\n--- [Robô ${suffix}] Compilando executável standalone (${bundleSuffix}) ---`);
+  console.log(` Chave: ${key.substring(0, 10)}...`);
 
-    const defineArgs = [
-      `--define:process.env.API_URL='"${targetApiUrl}"'`,
-      `--define:process.env.ROBOT_KEY='"${resolvedKey}"'`,
-      `--define:process.env.HEADLESS="${isHeadless}"`,
-    ].join(" ");
+  // ── Etapa 1: Bundle com esbuild (Injeção de Defines em tempo de compilação) ──
+  console.log(` 1/4 Empacotando com esbuild (ESM -> CJS + Defines)...`);
+  const bundleOut = path.join(BUNDLE_DIR, `main-${bundleSuffix}.cjs`);
 
-    execSync(
-      `npx esbuild "${entryFile}" --bundle --platform=node --format=cjs --target=node18 --external:playwright --external:bytenode ${defineArgs} --outfile="${bundleOut}"`,
-      { stdio: "inherit", cwd: ROOT_DIR }
-    );
+  const defineArgs = [
+    `--define:process.env.API_URL='"${targetApiUrl}"'`,
+    `--define:process.env.ROBOT_KEY='"${key}"'`,
+    `--define:process.env.HEADLESS="${isHeadless}"`,
+  ].join(" ");
 
-    // ── Etapa 2: Ofuscação ──
-    console.log(` 2/4 Ofuscando código-fonte...`);
-    const obfOut = path.join(OBF_DIR, `main-${bundleName}.cjs`);
+  execSync(
+    `npx esbuild "${entryFile}" --bundle --platform=node --format=cjs --target=node18 --external:playwright --external:bytenode ${defineArgs} --outfile="${bundleOut}"`,
+    { stdio: "inherit", cwd: ROOT_DIR }
+  );
 
-    execSync(
-      `npx javascript-obfuscator "${bundleOut}" --output "${obfOut}" --compact true --control-flow-flattening true --dead-code-injection false --string-array true --string-array-encoding base64`,
-      { stdio: "inherit", cwd: ROOT_DIR }
-    );
+  // ── Etapa 2: Ofuscação ──
+  console.log(` 2/4 Ofuscando código-fonte...`);
+  const obfOut = path.join(OBF_DIR, `main-${bundleSuffix}.cjs`);
 
-    // ── Etapa 3: Bytecode V8 ──
-    console.log(` 3/4 Compilando para Bytecode V8 (.jsc)...`);
-    const jscOut = path.join(JSC_DIR, `main-${bundleName}.jsc`);
+  execSync(
+    `npx javascript-obfuscator "${bundleOut}" --output "${obfOut}" --compact true --control-flow-flattening true --dead-code-injection false --string-array true --string-array-encoding base64`,
+    { stdio: "inherit", cwd: ROOT_DIR }
+  );
 
-    await bytenode.compileFile({
-      filename: obfOut,
-      output: jscOut,
-      compileAsModule: true,
-    });
+  // ── Etapa 3: Bytecode V8 ──
+  console.log(` 3/4 Compilando para Bytecode V8 (.jsc)...`);
+  const jscOut = path.join(JSC_DIR, `main-${bundleSuffix}.jsc`);
 
-    // Loader que carrega o .jsc
-    const loaderContent = `
+  await bytenode.compileFile({
+    filename: obfOut,
+    output: jscOut,
+    compileAsModule: true,
+  });
+
+  // Loader que carrega o .jsc
+  const loaderContent = `
 const bytenode = require('bytenode');
 const path = require('path');
 const fs = require('fs');
 
-const jscFilename = 'main-${bundleName}.jsc';
+const jscFilename = 'main-${bundleSuffix}.jsc';
 const localJsc = path.join(__dirname, jscFilename);
 const externalJsc = path.join(path.dirname(process.execPath), jscFilename);
 const jscPath = fs.existsSync(localJsc) ? localJsc : externalJsc;
@@ -181,36 +217,78 @@ if (fs.existsSync(jscPath)) {
   process.exit(1);
 }
 `;
-    const loaderFile = path.join(JSC_DIR, `index-${bundleName}.cjs`);
-    fs.writeFileSync(loaderFile, loaderContent, "utf-8");
+  const loaderFile = path.join(JSC_DIR, `index-${bundleSuffix}.cjs`);
+  fs.writeFileSync(loaderFile, loaderContent, "utf-8");
 
-    // ── Etapa 4: Gerar executável com @yao-pkg/pkg ──
-    console.log(` 4/4 Empacotando binário .exe...`);
+  // ── Etapa 4: Gerar executável com @yao-pkg/pkg ──
+  console.log(` 4/4 Empacotando binário .exe...`);
 
-    const exeOut = path.join(DIST_DIR, "robot-docusigner.exe");
+  const exeOut = path.join(DIST_DIR, `${bundleSuffix}.exe`);
+  const copiedJsc = path.join(DIST_DIR, `main-${bundleSuffix}.jsc`);
 
-    // Copia o arquivo .jsc para a pasta de distribuição ao lado do .exe
-    fs.copyFileSync(jscOut, path.join(DIST_DIR, `main-${bundleName}.jsc`));
+  // Copia o arquivo .jsc para a pasta de distribuição ao lado do .exe
+  fs.copyFileSync(jscOut, copiedJsc);
 
-    execSync(
-      `npx @yao-pkg/pkg "${loaderFile}" --target node18-win-x64 --output "${exeOut}"`,
-      { stdio: "inherit", cwd: ROOT_DIR }
-    );
+  execSync(
+    `npx @yao-pkg/pkg "${loaderFile}" --target node18-win-x64 --output "${exeOut}"`,
+    { stdio: "inherit", cwd: ROOT_DIR }
+  );
 
-    console.log(` -> OK: ${exeOut}`);
-
-    console.log("\n==================================================");
-    console.log(` Build concluído com sucesso em ${DIST_DIR}:`);
-    console.log(`   - dist/robot-docusigner.exe (Loader)`);
-    console.log(`   - dist/main-robot-docusigner.jsc (Bytecode com chave embutida)`);
-    console.log(" Zero arquivos json expostos no disco de distribuição.");
-    console.log("==================================================");
-  } catch (error) {
-    console.error("\n Erro durante o pipeline de build:", error.message);
-    process.exit(1);
-  }
+  console.log(` -> OK: ${exeOut}`);
+  return { exeOut, copiedJsc };
 }
 
-runBuild();
+/**
+ * Loop principal de compilação multi-chave
+ */
+async function main() {
+  const generatedFiles = [];
+  const errors = [];
+
+  for (let i = 0; i < keysToBuild.length; i++) {
+    const item = keysToBuild[i];
+    console.log(`\n==================================================`);
+    console.log(` [${i + 1}/${keysToBuild.length}] Build ${i + 1} de ${keysToBuild.length} (Robô ${item.suffix})`);
+    console.log(`==================================================`);
+
+    try {
+      const result = await buildForOneKey({
+        key: item.key,
+        suffix: item.suffix,
+        targetApiUrl,
+        isHeadless,
+      });
+      generatedFiles.push(result.exeOut, result.copiedJsc);
+    } catch (error) {
+      console.error(`\n [ERRO] Falha no build do robô ${item.suffix}:`, error.message);
+      errors.push({ suffix: item.suffix, error: error.message });
+    }
+  }
+
+  console.log("\n==================================================");
+  console.log(` Resumo Final do Build (${generatedFiles.length / 2} de ${keysToBuild.length} concluídos com sucesso)`);
+  console.log("==================================================");
+
+  if (generatedFiles.length > 0) {
+    console.log(` Arquivos gerados em ${DIST_DIR}:`);
+    const files = fs.readdirSync(DIST_DIR);
+    for (const f of files) {
+      console.log(`   - dist/${f}`);
+    }
+    console.log(" Zero arquivos json expostos no disco de distribuição.");
+  }
+
+  if (errors.length > 0) {
+    console.error(`\n Atenção: Ocorreram erros nos seguintes robôs:`);
+    for (const err of errors) {
+      console.error(`   - Robô ${err.suffix}: ${err.error}`);
+    }
+    process.exit(1);
+  }
+
+  console.log("==================================================");
+}
+
+main();
 
 
