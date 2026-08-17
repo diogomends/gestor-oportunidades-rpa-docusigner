@@ -4,6 +4,8 @@
 > **Atualizado em**: 2026-08-11
 > **Cobertura**: 11 modelos, 2 databases
 
+> **Nota de Arquitetura**: Este projeto possui **2 componentes** — o Servidor Central (`src/`) e o Robô Standalone (`robot-standalone/`). Os modelos abaixo pertencem ao **Servidor Central**. O Robô Standalone não possui models próprios — ele se comunica com o servidor via HTTP e opera sobre os mesmos dados através dos endpoints da API.
+
 ---
 
 ## Databases
@@ -567,6 +569,7 @@ Nenhum índice explícito além de `_id`.
 
 **Database**: `crm_contracts` (conexão secundária via `getContractsConnection()`)
 **Arquivo**: `src/modules/robot-docusign/models/RobotJob.js`
+**Componente**: Servidor Central — o Robô Standalone consome esta fila via endpoints de instância (`/instance/next-job`)
 
 ### Campos — Identificação e Relacionamento
 

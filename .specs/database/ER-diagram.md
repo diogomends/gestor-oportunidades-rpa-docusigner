@@ -1,5 +1,7 @@
 # Diagrama Entidade-Relacionamento
 
+> **Nota de Arquitetura**: Todos os models abaixo pertencem ao **Servidor Central** (`src/`). O **Robô Standalone** (`robot-standalone/`) não possui models próprios — ele se comunica com o servidor via HTTP e opera sobre os mesmos dados através dos endpoints de instância (`/api/robot-docusign/instance/*`).
+
 ```mermaid
 erDiagram
     %% ===================== DB: db_crm_funil =====================

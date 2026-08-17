@@ -2,6 +2,35 @@
 
 Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA). Expõe API REST para orquestração de jobs, gerenciamento de sessões do robô e monitoramento.
 
+## Visão Geral da Arquitetura
+
+O projeto é composto por **2 componentes independentes** que vivem no mesmo repositório:
+
+| Componente | Onde roda | Função |
+|------------|-----------|--------|
+| **Servidor Central** (`src/`) | Servidor de produção (porta 3111) | API REST que orquestra jobs, gerencia sessões, autentica robôs e monitora instâncias |
+| **Robô Standalone** (`robot-standalone/`) | Máquinas dos vendedores/agentes | Executável `.exe` que faz polling na fila de jobs e executa automação Playwright de forma isolada |
+
+```
+┌─────────────────────────────────┐         ┌──────────────────────────────────┐
+│   SERVIDOR CENTRAL (produção)   │         │   ROBÔ STANDALONE (.exe local)   │
+│   src/ → node src/server.js     │         │   robot-standalone/ → .exe       │
+│                                 │  HTTP   │                                  │
+│  ┌───────────────────────────┐  │◄───────►│  ┌────────────────────────────┐  │
+│  │ API REST (porta 3111)     │  │ polling │  │ Scheduler (polling fila)   │  │
+│  │ - JWT auth + API Keys     │  │ +auth   │  │ - heartbeat com servidor   │  │
+│  │ - Fila de jobs MongoDB    │  │         │  │ - execução Playwright       │  │
+│  │ - Orquestração de jobs    │  │         │  │ - download de PDFs         │  │
+│  │ - Monitoramento instâncias│  │         │  │ - obfuscação/bytecode      │  │
+│  └───────────────────────────┘  │         │  └────────────────────────────┘  │
+│                                 │         │                                  │
+│  MongoDB: db_crm_funil          │         │  Zero dependências de servidor   │
+│            crm_contracts        │         │  (apenas Playwright)             │
+└─────────────────────────────────┘         └──────────────────────────────────┘
+```
+
+**Fluxo resumido:** O servidor expõe uma fila de jobs no MongoDB. O robô standalone (`.exe` nas máquinas dos agentes) faz polling autenticado via HTTP, busca jobs pendentes, executa a automação Playwright no DocuSign e reporta progresso/status de volta ao servidor.
+
 ## Pré-requisitos
 
 - Node.js 18+

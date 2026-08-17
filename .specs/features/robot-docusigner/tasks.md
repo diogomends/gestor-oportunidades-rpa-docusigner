@@ -1,5 +1,7 @@
 # Robot-DocuSigner — Tasks de Implementação
 
+> **Arquitetura de 2 Componentes**: Este projeto possui o **Servidor Central** (`src/`) e o **Robô Standalone** (`robot-standalone/`). As tasks abaixo cobrem ambos — Fases 1-5 e 8 referem-se ao servidor; a sub-spec `build-executor/` cobre o standalone e seu pipeline de build.
+
 ## Execution Protocol
 
 - **Runner**: `node --test` (nativo do Node 18+)

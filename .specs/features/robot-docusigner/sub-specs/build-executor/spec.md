@@ -7,6 +7,8 @@ O robô RPA DocuSign precisa ser distribuído e executado localmente nas máquin
 3. **Comunicação e Rastreabilidade**: Comunicação HTTPS autenticada via JWT, heartbeat periódico e identificação única por máquina (`ROBOT_ID`).
 4. **Segurança de Dados**: Download temporário de PDFs com exclusão imediata e credenciais tratadas em memória volátil.
 
+> **Relação com o Servidor**: Este componente (`robot-standalone/`) é o **Robô Standalone** — um executável `.exe` que roda nas máquinas dos agentes. Ele se comunica com o **Servidor Central** (`src/`) via HTTP autenticado. O servidor mantém a fila de jobs (`RobotJob`), autenticação (`RobotInstance`) e monitoramento. O standalone não possui banco de dados próprio — tudo é consultado/alterado via API.
+
 ---
 
 ## Requisitos Funcionais
