@@ -9,11 +9,10 @@ async function bootstrap() {
   console.log("==================================================");
 
   const config = loadConfig();
-  console.log(`[Main] ID da Instância: ${config.ROBOT_ID}`);
   console.log(`[Main] Conectando a: ${config.API_URL}`);
   console.log(`[Main] Modo Navegador: ${config.HEADLESS ? "Headless (sem janela)" : "Headed (com janela)"}`);
 
-  const api = new ApiClient(config.API_URL, config.ROBOT_ID);
+  const api = new ApiClient(config.API_URL);
 
   try {
     // 1. Autenticação na API central via Chave de API
@@ -23,6 +22,7 @@ async function bootstrap() {
 
     console.log(`[Main] Autenticando com Chave de API (X-Robot-Key: ${config.ROBOT_KEY.substring(0, 8)}...)...`);
     await api.authenticate(config.ROBOT_KEY);
+    console.log(`[Main] Instância identificada pelo servidor: ${api.instanceId}`);
 
     // 2. Busca configuração inicial
     const systemConfig = await api.getConfig();

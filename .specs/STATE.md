@@ -82,6 +82,9 @@ Eliminação de arquivos `config.json` em texto plano na distribuição dos exec
 ### AD-015: Dois Componentes num Mesmo Repositório (2026-08-17)
 Projeto dividido em **Servidor Central** (`src/`) e **Robô Standalone** (`robot-standalone/`) no mesmo repositório. O servidor roda em produção (porta 3111) e gerencia a fila de jobs, autenticação e monitoramento. O robô é empacotado como `.exe` via pipeline de 4 etapas (esbuild → obfuscator → bytenode → pkg) e distribuído para as máquinas dos agentes. Comunicação via HTTP (polling + heartbeat). O robô standalone tem zero dependências de servidor — apenas Playwright.
 
+### AD-016: Build Simplificado e Identificação Dinâmica da Instância (2026-08-17)
+O pipeline de build do robô standalone foi simplificado para aceitar exclusivamente 3 parâmetros essenciais: `--key`, `--api-url` e `--headless`. As referências estáticas a `ROBOT_ID`, `ROBOT_EMAIL` e `ROBOT_PASS` foram eliminadas do código cliente e dos defines do `esbuild`. A identificação do robô (`instance_id`) passou a ser resolvida dinamicamente pelo servidor central na resposta da autenticação (`POST /api/robot-docusign/instance/auth`), reduzindo complexidade e risco de exposição de credenciais.
+
 ## Dependências Externas
 - **MongoDB Atlas/Local:** Persistência de dados (servidor central).
 - **Node.js:** Runtime do servidor e do robô standalone.
