@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert";
-import * as robotSessionModule from "./robotSession.js";
+import robotSession from "./robotSession.js";
 import { send } from "./robotBrowser.js";
 
 describe("robotBrowser Service", () => {
@@ -24,7 +24,7 @@ describe("robotBrowser Service", () => {
         click: async () => {},
       };
 
-      const loginSpy = mock.method(robotSessionModule, "loginAndSaveSession", async () => {});
+      const loginSpy = mock.method(robotSession, "loginAndSaveSession", async () => {});
 
       const envelopeData = {
         recipientName: "John Doe",
@@ -38,9 +38,11 @@ describe("robotBrowser Service", () => {
 
     it("ensureAuthenticated - login necessario + sucesso: redireciona apos login bem sucedido", async () => {
       let currentUrl = "https://account.docusign.com/oauth/auth";
+      let gotoCount = 0;
       const mockPage = {
         goto: async (url) => {
-          if (url === "https://app.docusign.com/send") {
+          gotoCount++;
+          if (gotoCount > 1 && url === "https://app.docusign.com/send") {
             currentUrl = "https://app.docusign.com/send";
           }
         },
@@ -51,7 +53,7 @@ describe("robotBrowser Service", () => {
       };
 
       let loginCalled = false;
-      mock.method(robotSessionModule, "loginAndSaveSession", async () => {
+      mock.method(robotSession, "loginAndSaveSession", async () => {
         loginCalled = true;
       });
 
@@ -74,9 +76,9 @@ describe("robotBrowser Service", () => {
         context: () => ({}),
       };
 
-      mock.method(robotSessionModule, "loginAndSaveSession", async () => {});
+      mock.method(robotSession, "loginAndSaveSession", async () => {});
       let invalidatedEmail = null;
-      mock.method(robotSessionModule, "invalidateSession", async (email) => {
+      mock.method(robotSession, "invalidateSession", async (email) => {
         invalidatedEmail = email;
         return true;
       });
