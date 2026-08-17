@@ -1,13 +1,70 @@
+# ==============================================================================
+# Dependências
+# ==============================================================================
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==============================================================================
+# Ambiente, Segredos e Chaves
+# ==============================================================================
 .env
-tmp/
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+
+# ==============================================================================
+# Logs, Temporários e Cache
+# ==============================================================================
 logs/
 *.log
-.DS_Store
+tmp/
+temp/
+.cache/
 
-# Build outputs
-robot-standalone/dist/
-robot-standalone/dist-bundle/
-robot-standalone/dist-jsc/
-robot-standalone/dist-obf/
+# ==============================================================================
+# Build & Saídas do Robô Standalone
+# ==============================================================================
+dist/
+dist-*/
+**/dist/
+**/dist-*/
 robot-standalone/robot-standalone/
+*.exe
+*.jsc
+
+# ==============================================================================
+# Configurações Locais do Robô
+# ==============================================================================
+robot-standalone/config.json
+!robot-standalone/config.json.example
+!robot-standalone/build/pkg.config.json
+
+# ==============================================================================
+# Playwright & Test Artifacts
+# ==============================================================================
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+playwright/.cache/
+
+# ==============================================================================
+# SO & IDEs
+# ==============================================================================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+
