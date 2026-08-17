@@ -64,7 +64,8 @@ Navegação de documentação através de `public/manual-usuario.html` alimentad
 Eliminação de arquivos `config.json` em texto plano na distribuição dos executáveis clientes. Credenciais sequenciais do CRM (`ROBOT_EMAIL`, `ROBOT_PASS`), identificador da máquina (`ROBOT_ID`), flags (`HEADLESS`) e endpoint de produção (`URI_PROD` do `.env`) são injetados em tempo de compilação via `esbuild --define`, ofuscados com `javascript-obfuscator`, compilados em bytecode V8 nativo (`.jsc` via `bytenode`) e empacotados com `@yao-pkg/pkg`.
 **Distribuição**: cada build gera 2 arquivos inseparáveis — o `.exe` (loader que carrega o bytecode) e o `main-<id>.jsc` (bytecode). Ambos devem ser copiados juntos para a mesma pasta na máquina alvo; o `.exe` aborta se o `.jsc` não estiver ao lado (fallback `__dirname`).
 
-
+### AD-014: Autenticação Dual da Instância — API Key e Credenciais Legadas (2026-08-17)
+`POST /api/robot-docusign/instance/auth` aceita dois fluxos: (1) **API Key** via header `X-Robot-Key` ou campo `robot_key` — a chave é hasheada com SHA-256 e comparada contra a coleção `robot_api_keys` (banco `crm_acl`, conectado via `getAclDb()`), herdando cargo/permissões do usuário criador (`created_by`); (2) **legado** via `email`/`senha`. O token JWT emitido inclui `isRobot: true`, dura 30 dias, registra/atualiza a `RobotInstance` e grava `last_used_at`/`last_used_ip` na chave.
 
 ## Dependências Externas
 - **MongoDB Atlas/Local:** Persistência de dados.
@@ -89,6 +90,14 @@ Eliminação de arquivos `config.json` em texto plano na distribuição dos exec
 - Dados de vendedor inativado são preservados; oportunidades são transferidas.
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
+
+### [5.44.0] - 2026-08-17
+
+#### Adicionado
+
+- **Autenticação por API Key na Instância do Robô (AD-014)**:
+  - `src/modules/robot-docusign/controllers/robotInstanceController.js`: `authenticateInstance` agora aceita API Key via header `X-Robot-Key` ou campo `robot_key`, validando SHA-256 contra a coleção `robot_api_keys` no banco `crm_acl` (`getAclDb()`), herdando cargo/permissões do usuário criador e registrando `last_used_at`/`last_used_ip`. Fluxo legado (email/senha) mantido como fallback.
+  - `.specs/features/robot-docusigner/sub-specs/build-executor/`: sub-spec consolidada (`spec.md` + `tasks.md`) substituindo `standalone-multi-instance/`.
 
 ### [5.43.0] - 2026-08-14
 

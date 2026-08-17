@@ -62,7 +62,7 @@ Todas sob prefixo `/api/robot-docusign`:
 | POST    | `/test-login`                  | admin    | Testa login no DocuSign            |
 | GET     | `/queue`                       | Bearer   | Fila de jobs                       |
 | POST    | `/process-pending`             | Bearer   | Processa jobs pendentes            |
-| `/instance/*`                     | público   | Sub-rotas de instâncias (ver `robotInstanceRoutes.js`) |
+| `/instance/*`                     | público   | Sub-rotas de instâncias (ver `robotInstanceRoutes.js`) — `POST /auth` aceita API Key (`X-Robot-Key`) ou email/senha |
 | GET     | `/health`                      | público  | Health check (rota raiz em `app.js`) |
 
 ## Banco de Dados

@@ -1,5 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import User from "../../../models/User.js";
@@ -9,9 +10,10 @@ import RobotJob from "../models/RobotJob.js";
 import RobotInstance from "../models/RobotInstance.js";
 import robotOrchestrator from "../services/robotOrchestrator.js";
 import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
+import { getAclDb } from "../../../config/database.js";
 
 /**
- * Zod Schema para autenticação da instância do robô.
+ * Zod Schema para autenticação da instância do robô via email/senha.
  */
 const authSchema = z.object({
   email: z.string().email(),
@@ -66,10 +68,98 @@ const heartbeatSchema = z.object({
 });
 
 /**
- * Realiza autenticação da instância e retorna token JWT.
+ * Realiza autenticação da instância do robô e retorna token JWT.
+ * Suporta autenticação por API Key (header X-Robot-Key ou campo robot_key) ou credenciais de usuário (email/senha).
+ *
+ * @param {import("express").Request} req - Objeto de requisição Express
+ * @param {import("express").Response} res - Objeto de resposta Express
+ * @returns {Promise<import("express").Response>} Resposta JSON com token JWT e dados da sessão
  */
 export const authenticateInstance = async (req, res) => {
   try {
+    const rawRobotKey = req.headers["x-robot-key"] || req.body?.robot_key;
+
+    // 1. Fluxo de autenticação por API Key (Robot Profile / Service Account)
+    if (rawRobotKey && typeof rawRobotKey === "string" && rawRobotKey.trim().length > 0) {
+      const robotKey = rawRobotKey.trim();
+      const keyHash = crypto.createHash("sha256").update(robotKey).digest("hex");
+      const aclDb = getAclDb();
+
+      const apiKeyDoc = await aclDb.collection("robot_api_keys").findOne({
+        key_hash: keyHash,
+        active: true,
+      });
+
+      if (!apiKeyDoc) {
+        return res.status(401).json({ error: "Chave de robô (API Key) inválida ou inativa." });
+      }
+
+      // Carregar usuário criador da chave para herdar permissões/cargo
+      const user = await User.findById(apiKeyDoc.created_by);
+      if (!user) {
+        return res.status(401).json({ error: "Usuário associado à chave não encontrado." });
+      }
+
+      if (user.ativo === false) {
+        return res.status(403).json({ error: "Usuário associado à chave está inativo." });
+      }
+
+      const instance_id = req.body?.instance_id || `robot-${apiKeyDoc.key_prefix || "profile"}`;
+      const machine_info = req.body?.machine_info || {};
+
+      const token = jwt.sign(
+        {
+          id: user._id,
+          role: user.cargo,
+          cargo: user.cargo,
+          instance_id,
+          isRobot: true,
+          requestedBy: user._id,
+        },
+        process.env.JWT_SECRET || "default_jwt_secret_dev",
+        { expiresIn: "30d" }
+      );
+
+      // Registra ou atualiza a instância
+      await RobotInstance.findOneAndUpdate(
+        { instance_id },
+        {
+          $set: {
+            instance_id,
+            status: "active",
+            last_heartbeat: new Date(),
+            machine_info,
+          },
+        },
+        { upsert: true, new: true }
+      );
+
+      // Atualiza timestamp e IP do último uso da chave
+      await aclDb.collection("robot_api_keys").updateOne(
+        { _id: apiKeyDoc._id },
+        {
+          $set: {
+            last_used_at: new Date(),
+            last_used_ip: req.ip || req.socket?.remoteAddress || null,
+          },
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        token,
+        instance_id,
+        isRobot: true,
+        user: {
+          id: user._id,
+          nome: user.nome,
+          email: user.email,
+          cargo: user.cargo,
+        },
+      });
+    }
+
+    // 2. Fluxo legado: Autenticação via Email e Senha
     const parse = authSchema.safeParse(req.body);
     if (!parse.success) {
       return res.status(400).json({
