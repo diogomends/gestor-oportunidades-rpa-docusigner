@@ -157,6 +157,8 @@ for (const dir of [DIST_DIR, BUNDLE_DIR, OBF_DIR, JSC_DIR]) {
 async function buildForOneKey({ buildKey, index, total }) {
   const tag = total > 1 ? `-${index}` : "";
   const bundleBase = `robot-docusigner${tag}`;
+  const outDir = path.join(DIST_DIR, bundleBase);
+  fs.mkdirSync(outDir, { recursive: true });
   const entryFile = path.join(ROOT_DIR, "src", "main.js");
 
   console.log(`\n--- [${index}/${total}] Build para chave ${buildKey.substring(0, 10)}... ---`);
@@ -219,8 +221,8 @@ if (fs.existsSync(jscPath)) {
   // ── Etapa 4: Gerar executável com @yao-pkg/pkg ──
   console.log(` 4/4 Empacotando binário .exe...`);
 
-  const exeOut = path.join(DIST_DIR, `${bundleBase}.exe`);
-  fs.copyFileSync(jscOut, path.join(DIST_DIR, `main-${bundleBase}.jsc`));
+  const exeOut = path.join(outDir, `${bundleBase}.exe`);
+  fs.copyFileSync(jscOut, path.join(outDir, `main-${bundleBase}.jsc`));
 
   execSync(
     `npx @yao-pkg/pkg "${loaderFile}" --target node18-win-x64 --output "${exeOut}"`,
@@ -228,7 +230,7 @@ if (fs.existsSync(jscPath)) {
   );
 
   console.log(` -> OK: ${exeOut}`);
-  return { exe: exeOut, jsc: path.join(DIST_DIR, `main-${bundleBase}.jsc`) };
+  return { exe: exeOut, jsc: path.join(outDir, `main-${bundleBase}.jsc`) };
 }
 
 // ── Execução ──
@@ -252,7 +254,8 @@ async function main() {
   const failCount = results.filter(r => !r.ok).length;
   for (const r of results) {
     const status = r.ok ? "OK" : "FALHA";
-    console.log(`   [${status}] ${r.index}) ${r.ok ? `${path.basename(r.exe)} + ${path.basename(r.jsc)}` : r.error}`);
+    const folder = r.ok ? path.basename(path.dirname(r.exe)) : "";
+    console.log(`   [${status}] ${r.index}) ${r.ok ? `${folder}/` : r.error}`);
   }
   console.log(`\n Sucesso: ${okCount}/${results.length}`);
   if (failCount > 0) console.log(` Falhas:  ${failCount}/${results.length}`);
