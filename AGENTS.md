@@ -6,9 +6,10 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 
 | Comando                          | O que faz                                        |
 | -------------------------------- | ------------------------------------------------ |
-| `npm start`                      | Produção (`node src/server.js`)                  |
-| `npm run dev`                    | Dev com nodemon                                  |
+| `npm start`                      | Produção (`node backend/src/server.js`)          |
+| `npm run dev`                    | Dev com nodemon (`backend/src/server.js`)        |
 | `npm test`                       | Testes nativos (`node --test`)                   |
+| `npm run build:robot`            | Gera executáveis do robô                         |
 | `npx playwright install chromium` | Instala browser Chromium para o robô             |
 
 Porta padrão: **3111** (configurável via `PORT`).
@@ -20,24 +21,31 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 ## Arquitetura
 
 ```
-src/
-├── server.js          # Entrypoint: dotenv, import models, connectDB, connectContractsDB, robotScheduler.start(), listen
-├── app.js             # Express: JSON 10mb, CORS, Helmet, morgan, montagem de rotas
-├── config/
-│   └── database.js    # 3 conexões: default (db_crm_funil), crm_contracts, crm_acl
-├── models/            # User.js, Contract.js, SystemConfig.js (3 modelos)
-├── middlewares/       # authMiddleware.js (protect), roleMiddleware.js (authorize)
-├── services/          # docusignService.js (API DocuSign)
-├── utils/             # crypto.js, timeRestrictionService.js
-└── modules/
-    └── robot-docusign/  # Único módulo de domínio
-        ├── index.js           # Exporta routes, orchestrator, session, scheduler
-        ├── routes.js          # Rotas Express (prefixo /api/robot-docusign)
-        ├── controllers/       # robotDocusignController.js, robotInstanceController.js
-        ├── models/            # RobotJob.js, RobotSession.js, RobotInstance.js
-        ├── services/          # robotOrchestrator.js, robotBrowser.js, robotScheduler.js, robotSession.js, robotSelectors.js
-        ├── selectors/         # Selectors CSS para automação do DocuSign
-        └── routes/            # robotInstanceRoutes.js
+├── backend/
+│   ├── package.json       # Dependências e scripts do servidor Express
+│   └── src/
+│       ├── server.js          # Entrypoint: dotenv, import models, connectDB, connectContractsDB, robotScheduler.start(), listen
+│       ├── app.js             # Express: JSON 10mb, CORS, Helmet, morgan, montagem de rotas
+│       ├── config/
+│       │   └── database.js    # 3 conexões: default (db_crm_funil), crm_contracts, crm_acl
+│       ├── models/            # User.js, Contract.js, SystemConfig.js (3 modelos)
+│       ├── middlewares/       # authMiddleware.js (protect), roleMiddleware.js (authorize)
+│       ├── services/          # docusignService.js, gestorApiClient.js
+│       ├── utils/             # crypto.js, timeRestrictionService.js
+│       └── modules/
+│           └── robot-docusign/  # Módulo de domínio
+│               ├── index.js           # Exporta routes, orchestrator, session, scheduler
+│               ├── routes.js          # Rotas Express (prefixo /api/robot-docusign)
+│               ├── controllers/       # robotDocusignController.js, robotInstanceController.js
+│               ├── models/            # RobotJob.js, RobotSession.js, RobotInstance.js
+│               ├── services/          # robotOrchestrator.js, robotBrowser.js, robotScheduler.js, robotSession.js, robotSelectors.js
+│               ├── selectors/         # Selectors CSS para automação do DocuSign
+│               └── routes/            # robotInstanceRoutes.js
+├── robot/
+│   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, bytenode, esbuild)
+│   ├── src/               # Código-fonte da automação do robô (main, job-runner, browser)
+│   ├── build/             # Pipeline de compilação/ofuscação/empacotamento (.exe)
+│   └── scripts/           # Scripts de instalação e inicialização do robô
 ```
 
 - **ES Modules** puro. Use `import`/`export`.

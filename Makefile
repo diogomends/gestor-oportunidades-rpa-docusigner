@@ -39,30 +39,35 @@ dev:
 test:
 	npm test
 
-# Instala dependencias do servidor e do standalone
+# Instala dependencias do servidor e do robo
 install:
 	npm install
-	cd robot-standalone && npm install
+	cd backend && npm install
+	cd robot && npm install
 
-# Instala apenas dependencias do standalone
+# Instala apenas dependencias do backend
+install-backend:
+	cd backend && npm install
+
+# Instala apenas dependencias do robo
 install-robot:
-	cd robot-standalone && npm install
+	cd robot && npm install
 
-# Testa o robo standalone com navegador visivel (HEADLESS=false) — sh/bash
+# Testa o robo com navegador visivel (HEADLESS=false) — sh/bash
 test-headed:
-	cd robot-standalone && HEADLESS=false node src/main.js
+	cd robot && HEADLESS=false node src/main.js
 
-# Testa o robo standalone com navegador visivel — PowerShell
+# Testa o robo com navegador visivel — PowerShell
 test-headed-ps:
-	powershell -Command "cd robot-standalone; $$env:HEADLESS='false'; node src/main.js"
+	powershell -Command "cd robot; $$env:HEADLESS='false'; node src/main.js"
 
-# Gera executavel .exe do robo standalone com chave de acesso embutida
+# Gera executavel .exe do robo com chave de acesso embutida
 # Uso:
 #   make build-robot KEY="rf_sec_xxxx"
 #   make build-robot KEY="rf_sec_xxxx" HEADLESS=false
 build-robot:
-	cd robot-standalone && node build/build.js --key "$(KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
+	cd robot && node build/build.js --key "$(KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
 
 # Limpa pastas de build anteriores (PowerShell)
 clean:
-	powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue robot-standalone\dist, robot-standalone\dist-bundle, robot-standalone\dist-obf, robot-standalone\dist-jsc"
+	powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue robot\dist, robot\dist-bundle, robot\dist-obf, robot\dist-jsc"

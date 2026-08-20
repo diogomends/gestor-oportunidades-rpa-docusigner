@@ -8,13 +8,13 @@ O projeto é composto por **2 componentes independentes** que vivem no mesmo rep
 
 | Componente | Onde roda | Função |
 |------------|-----------|--------|
-| **Servidor Central** (`src/`) | Servidor de produção (porta 3111) | API REST que orquestra jobs, gerencia sessões, autentica robôs e monitora instâncias |
-| **Robô Standalone** (`robot-standalone/`) | Máquinas dos vendedores/agentes | Executável `.exe` que faz polling na fila de jobs e executa automação Playwright de forma isolada |
+| **Servidor Central** (`backend/`) | Servidor de produção (porta 3111) | API REST que orquestra jobs, gerencia sessões, autentica robôs e monitora instâncias |
+| **Robô** (`robot/`) | Máquinas dos vendedores/agentes | Executável `.exe` que faz polling na fila de jobs e executa automação Playwright de forma isolada |
 
 ```
 ┌─────────────────────────────────┐         ┌──────────────────────────────────┐
-│   SERVIDOR CENTRAL (produção)   │         │   ROBÔ STANDALONE (.exe local)   │
-│   src/ → node src/server.js     │         │   robot-standalone/ → .exe       │
+│   SERVIDOR CENTRAL (produção)   │         │       ROBÔ (.exe local)          │
+│   backend/ → node server.js     │         │   robot/ → .exe                  │
 │                                 │  HTTP   │                                  │
 │  ┌───────────────────────────┐  │◄───────►│  ┌────────────────────────────┐  │
 │  │ API REST (porta 3111)     │  │ polling │  │ Scheduler (polling fila)   │  │
@@ -29,7 +29,7 @@ O projeto é composto por **2 componentes independentes** que vivem no mesmo rep
 └─────────────────────────────────┘         └──────────────────────────────────┘
 ```
 
-**Fluxo resumido:** O servidor expõe uma fila de jobs no MongoDB. O robô standalone (`.exe` nas máquinas dos agentes) faz polling autenticado via HTTP, busca jobs pendentes, executa a automação Playwright no DocuSign e reporta progresso/status de volta ao servidor.
+**Fluxo resumido:** O servidor expõe uma fila de jobs no MongoDB. O robô (`.exe` nas máquinas dos agentes) faz polling autenticado via HTTP, busca jobs pendentes, executa a automação Playwright no DocuSign e reporta progresso/status de volta ao servidor.
 
 ## Pré-requisitos
 
@@ -44,8 +44,8 @@ O projeto é composto por **2 componentes independentes** que vivem no mesmo rep
 git clone <url-do-repositorio>
 cd gestor-oportunidades-rpa-docusigner
 
-# Instalar dependências
-npm install
+# Instalar dependências de todos os componentes
+npm run make install # ou make install
 
 # Instalar navegador Chromium para o robô
 npx playwright install chromium
@@ -78,8 +78,9 @@ cp .env.example .env
 
 | Comando | Descrição |
 |---------|-----------|
-| `npm start` | Inicia em produção (`node src/server.js`) |
-| `npm run dev` | Inicia em desenvolvimento com nodemon |
+| `npm start` | Inicia o backend em produção (`node backend/src/server.js`) |
+| `npm run dev` | Inicia o backend em desenvolvimento com nodemon |
+| `npm run build:robot` | Compila o robô e gera o executável protegido `.exe` |
 | `npm test` | Executa testes nativos (`node --test`) |
 
 ### Makefile (via `make`)
@@ -88,48 +89,52 @@ cp .env.example .env
 |---------|-----------|
 | `make dev` | Inicia servidor em desenvolvimento |
 | `make test` | Roda testes nativos |
-| `make test-headed` | Roda o robô standalone com navegador visível (`HEADLESS=false`) |
+| `make test-headed` | Roda o robô com navegador visível (`HEADLESS=false`) |
 | `make test-headed-ps` | Idem, mas via PowerShell (para Windows CMD) |
 | `make build-robot` | Gera executável .exe. Use KEY="rf_sec_xxx" para chave específica e HEADLESS=false para modo headed |
-| `make install` | Instala dependências de tudo (servidor + standalone) |
+| `make install` | Instala dependências de tudo (backend + robot) |
+| `make install-backend` | Instala dependências do backend |
+| `make install-robot` | Instala dependências do robô |
 | `make clean` | Limpa pastas de build anteriores |
 
 ## Componentes do Projeto
 
 | Diretório | Descrição | Gera Executável |
 |-----------|-----------|-----------------|
-| **`src/`** | Servidor central (Express + MongoDB). API REST para orquestração de jobs, autenticação JWT, agendamento de tarefas e monitoramento. O robô Playwright roda internamente via `robotOrchestrator.js` quando em modo "robot". | Não |
-| **`robot-standalone/`** | Robô autônomo para instalar nas máquinas dos vendedores/agentes. Comunica com o servidor via HTTP, faz polling na fila de jobs do MongoDB e executa automação Playwright de forma isolada. Pode ser empacotado como `.exe`. | **Sim** — `robot-docusigner.exe` |
+| **`backend/`** | Servidor central (Express + MongoDB). API REST para orquestração de jobs, autenticação JWT, agendamento de tarefas e monitoramento. | Não |
+| **`robot/`** | Robô autônomo para instalar nas máquinas dos vendedores/agentes. Comunica com o servidor via HTTP, faz polling na fila de jobs do MongoDB e executa automação Playwright de forma isolada. Pode ser empacotado como `.exe`. | **Sim** — `robot-docusigner.exe` |
 
 ## Arquitetura
 
-### `src/` — Servidor Central
+### `backend/` — Servidor Central
 
 ```
-src/
-├── server.js          # Entrypoint: dotenv, models, connectDB, scheduler, listen
-├── app.js             # Express: JSON 10mb, CORS, Helmet, morgan, rotas
-├── config/
-│   └── database.js    # 3 conexões: db_crm_funil, crm_contracts, crm_acl
-├── models/            # User.js, Contract.js, SystemConfig.js
-├── middlewares/       # authMiddleware.js, roleMiddleware.js
-├── services/          # docusignService.js (API DocuSign)
-├── utils/             # crypto.js, timeRestrictionService.js
-└── modules/
-    └── robot-docusign/  # Módulo de domínio
-        ├── index.js
-        ├── routes.js
-        ├── controllers/
-        ├── models/        # RobotJob, RobotSession, RobotInstance
-        ├── services/      # robotOrchestrator, robotBrowser, robotScheduler
-        ├── selectors/     # CSS selectors para automação
-        └── routes/
+backend/
+├── package.json       # Dependências e scripts do backend
+├── src/
+│   ├── server.js          # Entrypoint: dotenv, models, connectDB, scheduler, listen
+│   ├── app.js             # Express: JSON 10mb, CORS, Helmet, morgan, rotas
+│   ├── config/
+│   │   └── database.js    # 3 conexões: db_crm_funil, crm_contracts, crm_acl
+│   ├── models/            # User.js, Contract.js, SystemConfig.js
+│   ├── middlewares/       # authMiddleware.js, roleMiddleware.js
+│   ├── services/          # docusignService.js (API DocuSign), gestorApiClient.js
+│   ├── utils/             # crypto.js, timeRestrictionService.js
+│   └── modules/
+│       └── robot-docusign/  # Módulo de domínio
+│           ├── index.js
+│           ├── routes.js
+│           ├── controllers/
+│           ├── models/        # RobotJob, RobotSession, RobotInstance
+│           ├── services/      # robotOrchestrator, robotBrowser, robotScheduler
+│           ├── selectors/     # CSS selectors para automação
+│           └── routes/
 ```
 
-### `robot-standalone/` — Robô Autônomo (Executável)
+### `robot/` — Robô Autônomo (Executável)
 
 ```
-robot-standalone/
+robot/
 ├── src/
 │   ├── main.js         # Entrypoint: config, auth, scheduler
 │   ├── config.js       # Leitura de config.json / env vars
@@ -150,11 +155,11 @@ robot-standalone/
 
 ### Gerar Executável (.exe)
 
-O executável do robô standalone é gerado via pipeline de 4 etapas dentro de `robot-standalone/`:
+O executável do robô é gerado via pipeline dentro de `robot/`:
 
 ```bash
-# 1. Entrar no diretório do standalone
-cd robot-standalone
+# 1. Entrar no diretório do robot (ou usar make build-robot na raiz)
+cd robot
 
 # 2. Instalar dependências
 npm install
@@ -163,7 +168,7 @@ npm install
 npm run build
 ```
 
-O executável protegido será gerado em `robot-standalone/dist/robot-docusigner.exe`.
+O executável protegido será gerado em `robot/dist/robot-docusigner-X/robot-docusigner-X.exe`.
 
 #### Parâmetros de Build
 
