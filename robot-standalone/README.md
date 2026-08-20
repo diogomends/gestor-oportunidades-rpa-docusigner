@@ -8,21 +8,19 @@ Este módulo contém a aplicação autônoma empacotada em `.exe` para distribui
 - **Proteção do Código**: O código JavaScript é transpilado via esbuild, ofuscado com `javascript-obfuscator`, compilado para bytecode V8 nativo (`.jsc`) pelo `bytenode` e empacotado como binário Windows `.exe`.
 - **Privacidade de Dados**: PDFs e credenciais trafegam apenas em memória volátil e diretórios temporários (`os.tmpdir()`), sendo excluídos de forma imediata após o término do upload na DocuSign.
 
-## Distribuição — Dois Arquivos Obrigatórios
-
-Cada build gera **dois arquivos que devem ser distribuídos juntos, na mesma pasta**:
-
+## Distribuição — Arquivo Único Autônomo
+ 
+Cada build gera um **executável autônomo e protegido**:
+ 
 | Arquivo | Função |
 |---------|--------|
-| `robot-docusigner.exe` | Binário Windows (loader). NÃO contém o código — é apenas o runtime Node embutido que carrega o bytecode. |
-| `main-robot-docusigner.jsc` | Bytecode V8 nativo (código ofuscado/compilado com chave embutida). O `.exe` procura este arquivo ao lado dele (ou no `__dirname`) e aborta com erro se não encontrar. |
-
-> **IMPORTANTE**: nunca distribua o `.exe` sem o `.jsc` correspondente.
+| `robot-docusigner-X.exe` | Binário Windows autônomo com runtime Node, código empacotado e ofuscado com a chave embutida. |
+| `run.bat` | Script auxiliar para inicialização com terminal persistente e visualização de logs. |
 
 ## Instalação na Máquina do Agente
-1. Copie os arquivos da pasta `dist/` (`robot-docusigner.exe` E `main-robot-docusigner.jsc`) para a máquina alvo.
-2. Execute `setup.bat` apenas para instalar o navegador Chromium do Playwright (não é mais necessário gerar/editar `config.json` — a chave de API (`ROBOT_KEY`), `HEADLESS` e `API_URL` já vêm embutidas no bytecode no momento do build; a identificação da instância é realizada automaticamente pelo servidor central).
-3. Execute `robot-docusigner.exe`.
+1. Copie a pasta gerada em `dist/` (ex: `robot-docusigner-1`) para a máquina alvo.
+2. Execute `setup.bat` (ou `npx playwright install chromium`) se o navegador Chromium do Playwright ainda não estiver instalado.
+3. Execute `run.bat` ou o executável `robot-docusigner-X.exe`.
 
 ## Como Gerar Novo Build do Executável (.exe)
 

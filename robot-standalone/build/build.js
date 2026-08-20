@@ -187,50 +187,22 @@ async function buildForOneKey({ buildKey, index, total }) {
     { stdio: "inherit", cwd: ROOT_DIR }
   );
 
-  // ── Etapa 3: Bytecode V8 ──
-  console.log(` 3/4 Compilando para Bytecode V8 (.jsc)...`);
-  const jscOut = path.join(JSC_DIR, `main-${bundleBase}.jsc`);
-
-  await bytenode.compileFile({
-    filename: obfOut,
-    output: jscOut,
-    compileAsModule: true,
-  });
-
-  // Loader que carrega o .jsc
-  const loaderContent = `
-const bytenode = require('bytenode');
-const path = require('path');
-const fs = require('fs');
-
-const jscFilename = 'main-${bundleBase}.jsc';
-const localJsc = path.join(__dirname, jscFilename);
-const externalJsc = path.join(path.dirname(process.execPath), jscFilename);
-const jscPath = fs.existsSync(localJsc) ? localJsc : externalJsc;
-
-if (fs.existsSync(jscPath)) {
-  require(jscPath);
-} else {
-  console.error('[Loader] Arquivo bytecode ' + jscFilename + ' não encontrado!');
-  process.exit(1);
-}
-`;
-  const loaderFile = path.join(JSC_DIR, `index-${bundleBase}.cjs`);
-  fs.writeFileSync(loaderFile, loaderContent, "utf-8");
-
-  // ── Etapa 4: Gerar executável com @yao-pkg/pkg ──
-  console.log(` 4/4 Empacotando binário .exe...`);
+  // ── Etapa 3: Gerar executável direto com @yao-pkg/pkg ──
+  console.log(` 3/3 Empacotando binário autônomo .exe com @yao-pkg/pkg...`);
 
   const exeOut = path.join(outDir, `${bundleBase}.exe`);
-  fs.copyFileSync(jscOut, path.join(outDir, `main-${bundleBase}.jsc`));
 
   execSync(
-    `npx @yao-pkg/pkg "${loaderFile}" --target node18-win-x64 --output "${exeOut}"`,
+    `npx @yao-pkg/pkg "${obfOut}" --target node18-win-x64 --output "${exeOut}"`,
     { stdio: "inherit", cwd: ROOT_DIR }
   );
 
+  // Script auxiliar run.bat para facilitar execução com logs visíveis
+  const batContent = `@echo off\r\ntitle ${bundleBase}\r\necho ==================================================\r\necho Iniciando ${bundleBase}...\r\necho ==================================================\r\n"${bundleBase}.exe"\r\npause\r\n`;
+  fs.writeFileSync(path.join(outDir, "run.bat"), batContent, "utf-8");
+
   console.log(` -> OK: ${exeOut}`);
-  return { exe: exeOut, jsc: path.join(outDir, `main-${bundleBase}.jsc`) };
+  return { exe: exeOut };
 }
 
 // ── Execução ──
