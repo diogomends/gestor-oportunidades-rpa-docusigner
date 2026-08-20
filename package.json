@@ -2,11 +2,16 @@
   "name": "gestor-oportunidades-rpa-docusigner",
   "version": "1.0.0",
   "type": "module",
-  "main": "src/server.js",
+  "main": "backend/src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "test": "node --test"
+    "start": "node backend/src/server.js",
+    "dev": "nodemon backend/src/server.js",
+    "start:backend": "npm --prefix backend start",
+    "dev:backend": "npm --prefix backend run dev",
+    "test:backend": "npm --prefix backend test",
+    "start:robot": "npm --prefix robot start",
+    "build:robot": "npm --prefix robot run build",
+    "test": "node --test backend/src/**/*.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

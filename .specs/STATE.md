@@ -3,22 +3,22 @@
 ## Visão Geral
 Projeto composto por **2 componentes independentes** no mesmo repositório:
 
-1. **Servidor Central** (`src/`) — API Express + MongoDB que orquestra jobs, autentica robôs via JWT/API Key e monitora instâncias. Roteiro de produção na porta 3111.
-2. **Robô Standalone** (`robot-standalone/`) — Executável `.exe` que roda nas máquinas dos vendedores/agentes, faz polling autenticado no servidor e executa automação Playwright no DocuSign.
+1. **Servidor Central** (`backend/`) — API Express + MongoDB que orquestra jobs, autentica robôs via JWT/API Key e monitora instâncias. Roteiro de produção na porta 3111.
+2. **Robô** (`robot/`) — Executável `.exe` que roda nas máquinas dos vendedores/agentes, faz polling autenticado no servidor e executa automação Playwright no DocuSign.
 
 ## Diagrama de Arquitetura
 
 ```mermaid
 graph LR
     subgraph "SERVIDOR CENTRAL (produção)"
-        A[API Express] -->|porta 3111| B[MongoDB]
+        A[API Express backend/] -->|porta 3111| B[MongoDB]
         A --> C[RobotScheduler]
         A --> D[RobotOrchestrator]
         A --> E[RobotInstance Monitor]
     end
 
-    subgraph "ROBÔ STANDALONE (.exe local)"
-        F[ApiClient HTTP] --> G[JobRunner Playwright]
+    subgraph "ROBÔ (.exe local)"
+        F[ApiClient HTTP robot/] --> G[JobRunner Playwright]
         F --> H[Scheduler + Heartbeat]
     end
 

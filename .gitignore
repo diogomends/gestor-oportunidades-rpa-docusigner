@@ -35,16 +35,16 @@ dist/
 dist-*/
 **/dist/
 **/dist-*/
-robot-standalone/robot-standalone/
+robot/robot/
 *.exe
 *.jsc
 
 # ==============================================================================
 # Configurações Locais do Robô
 # ==============================================================================
-robot-standalone/config.json
-!robot-standalone/config.json.example
-!robot-standalone/build/pkg.config.json
+robot/config.json
+!robot/config.json.example
+!robot/build/pkg.config.json
 
 # ==============================================================================
 # Playwright & Test Artifacts

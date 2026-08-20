@@ -15,9 +15,13 @@ const JSC_DIR = path.join(ROOT_DIR, "dist-jsc");
  * Lê o arquivo .env.dev ou .env na raiz do projeto.
  */
 function loadRootEnv() {
-  const envDevPath = path.resolve(ROOT_DIR, "..", ".env.dev");
-  const envPath = path.resolve(ROOT_DIR, "..", ".env");
-  const pathToLoad = fs.existsSync(envDevPath) ? envDevPath : (fs.existsSync(envPath) ? envPath : null);
+  const candidatePaths = [
+    path.resolve(ROOT_DIR, "..", ".env.dev"),
+    path.resolve(ROOT_DIR, "..", ".env"),
+    path.resolve(ROOT_DIR, "..", "backend", ".env.dev"),
+    path.resolve(ROOT_DIR, "..", "backend", ".env"),
+  ];
+  const pathToLoad = candidatePaths.find((p) => fs.existsSync(p)) || null;
   const env = {};
   if (pathToLoad) {
     const content = fs.readFileSync(pathToLoad, "utf-8");

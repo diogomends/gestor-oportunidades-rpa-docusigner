@@ -13,6 +13,7 @@ export function loadConfig() {
   const possiblePaths = [
     path.join(process.cwd(), "config.json"),
     path.join(execDir, "config.json"),
+    path.join(process.cwd(), "robot", "config.json"),
     path.join(process.cwd(), "robot-standalone", "config.json"),
   ];
 

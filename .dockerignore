@@ -6,8 +6,9 @@ logs/
 .DS_Store
 .git
 .gitignore
-robot-standalone/dist/
-robot-standalone/dist-bundle/
-robot-standalone/dist-jsc/
-robot-standalone/dist-obf/
-robot-standalone/robot-standalone/
+robot/dist/
+robot/dist-bundle/
+robot/dist-jsc/
+robot/dist-obf/
+robot/node_modules/
+backend/node_modules/
