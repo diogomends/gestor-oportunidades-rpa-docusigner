@@ -1,0 +1,81 @@
+name: Deploy em Produção via SSH
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-producao-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Conectar e fazer deploy no servidor
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          timeout: 300s
+          script: |
+            set -e
+            echo ">>> [DEPLOY] Iniciando deploy em $(date)"
+
+            export REPO_ROOT="/home/appuser/servidor-unity-rce/gestor-oportunidades-rpa-docusigner"
+
+            if [ -d "$REPO_ROOT" ]; then
+              cd "$REPO_ROOT"
+              echo ">>> [DEPLOY] Diretório encontrado: $(pwd)"
+
+              echo ">>> [DEPLOY] Atualizando URL do remote origin com token ativo..."
+              git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+              echo ">>> [DEPLOY] Atualizando o código..."
+              git fetch origin
+              git checkout main
+              git reset --hard origin/main
+            else
+              echo ">>> [DEPLOY] Diretório não encontrado. Clonando repositório..."
+              mkdir -p "$(dirname "$REPO_ROOT")"
+              git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git "$REPO_ROOT"
+              cd "$REPO_ROOT"
+            fi
+
+            echo ">>> [DEPLOY] No diretório: $(pwd)"
+
+            echo ">>> [DEPLOY] Parando containers antigos..."
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans || echo "⚠️  Nenhum container para parar."
+
+            echo ">>> [DEPLOY] Removendo containers conflitantes por nome..."
+            docker rm -f app_docusigner || echo "⚠️  Nenhum container conflitante encontrado."
+
+            echo ">>> [DEPLOY] Limpando imagens não utilizadas..."
+            docker image prune -af --filter "label=com.docker.compose.project=gestor-oportunidades-rpa-docusigner"
+
+            echo ">>> [DEPLOY] Construindo e iniciando novos containers..."
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
+
+            echo ">>> [DEPLOY] Aguardando serviços iniciarem..."
+            sleep 10
+
+            echo ">>> [DEPLOY] Status dos containers:"
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+
+            echo ">>> [DEPLOY] Logs recentes:"
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=20
+
+            echo ">>> [DEPLOY] Testando conectividade..."
+            if curl -f -s http://localhost:3111/api/health > /dev/null 2>&1; then
+              echo "✅ API (porta 3111) - OK"
+            else
+              echo "⚠️  API (porta 3111) - Não respondendo ainda (pode estar inicializando)"
+            fi
+
+            echo "✅ [DEPLOY] Deploy concluído com sucesso em $(date)!"
