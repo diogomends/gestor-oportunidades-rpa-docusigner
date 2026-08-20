@@ -1,0 +1,10 @@
+services:
+  app_docusigner:
+    build: .
+    container_name: app_docusigner
+    networks:
+      - docusigner_network
+
+networks:
+  docusigner_network:
+    driver: bridge

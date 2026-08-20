@@ -1,0 +1,24 @@
+services:
+  app_docusigner:
+    restart: always
+    ports:
+      - "${PORT:-3111}:3111"
+    environment:
+      - NODE_ENV=production
+      - PORT=3111
+      - TZ=America/Sao_Paulo
+      - MONGO_URI=${MONGO_URI}
+      - MONGO_CONTRACTS_URI=${MONGO_CONTRACTS_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - GESTOR_API_URL=${GESTOR_API_URL}
+      - ROBOT_API_KEY=${ROBOT_API_KEY}
+      - DOCUSIGN_INTEGRATION_KEY=${DOCUSIGN_INTEGRATION_KEY}
+      - DOCUSIGN_USER_ID=${DOCUSIGN_USER_ID}
+      - DOCUSIGN_ACCOUNT_ID=${DOCUSIGN_ACCOUNT_ID}
+      - DOCUSIGN_RSA_PRIVATE_KEY_PATH=${DOCUSIGN_RSA_PRIVATE_KEY_PATH:-./key/private.key}
+      - DOCUSIGN_HMAC_KEY=${DOCUSIGN_HMAC_KEY}
+      - DOCUSIGN_BASE_PATH=${DOCUSIGN_BASE_PATH:-na.docusign.net}
+      - USUARIO_DOCUSIGNER=${USUARIO_DOCUSIGNER}
+      - SENHA_DOCUSIGNER=${SENHA_DOCUSIGNER}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

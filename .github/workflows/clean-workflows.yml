@@ -1,0 +1,32 @@
+name: Cleanup Workflow Runs
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old workflow runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          HOJE=$(date +'%Y-%m-%d')
+          echo "Fetching old completed workflow runs..."
+          gh run list --status completed --limit 500 --json databaseId,createdAt | \
+          jq -c '.[]' | \
+          while read -r run; do
+            ID=$(echo "$run" | jq -r '.databaseId')
+            CREATED=$(echo "$run" | jq -r '.createdAt' | cut -c1-10)
+            if [ "$CREATED" != "$HOJE" ]; then
+              echo "Deleting run ID: $ID (Created at: $CREATED)"
+              gh run delete "$ID" || echo "⚠️ Could not delete run ID: $ID"
+            fi
+          done
