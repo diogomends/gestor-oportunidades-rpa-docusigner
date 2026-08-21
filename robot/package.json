@@ -16,5 +16,8 @@
     "bytenode": "^1.6.0",
     "esbuild": "^0.23.0",
     "javascript-obfuscator": "^4.2.2"
+  },
+  "overrides": {
+    "inversify": "6.0.2"
   }
 }
