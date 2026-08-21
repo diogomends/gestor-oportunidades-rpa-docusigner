@@ -15,3 +15,4 @@
 - [x] **T-SMI-13**: Implementar detecção inteligente prévia em `setup.bat` para verificar se o Chromium já existe em `%LOCALAPPDATA%\ms-playwright\chromium-*`. Se existir, informar imediatamente sem acionar download de rede.
 - [x] **T-SMI-14**: Implementar fallback de download via `npx playwright install chromium` apenas se não encontrado, com captura de `%ERRORLEVEL%`, verificação de conexão e log em `setup.log`.
 - [x] **T-SMI-15**: Atualizar o pipeline de build e validar a execução do `setup.bat` nos diretórios gerados em `dist/`.
+- [x] **T-SMI-16**: Saneamento de resíduos legados (remoção de `pkg.config.json` e `config.json.example`, e restrição de fallback do `config.js` exclusivamente ao `NODE_ENV=development`).
