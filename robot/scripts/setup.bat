@@ -1,25 +1,71 @@
 @echo off
 chcp 65001 > nul
-echo ================================================================
-echo   INSTALADOR DE DEPENDÊNCIAS - ROBÔ RPA DOCUSIGN
-echo ================================================================
-echo.
-echo [1/2] Verificando e instalando o navegador Chromium (Playwright)...
-npx playwright install chromium
+setlocal EnableDelayedExpansion
 
+set "LOG_FILE=%~dp0setup.log"
+echo [SETUP] Iniciando verificacao e instalacao do ambiente do Robo RPA DocuSign... > "!LOG_FILE!"
+echo Data/Hora: %DATE% %TIME% >> "!LOG_FILE!"
+
+echo ================================================================
+echo   INSTALADOR DE DEPENDENCIAS - ROBO RPA DOCUSIGN
+echo ================================================================
 echo.
-echo [2/2] Criando arquivo de configuracao local a partir do modelo...
-if not exist config.json (
-    copy config.json.example config.json
-    echo Arquivo config.json criado! Por favor, edite com seu ROBOT_ID e credenciais.
-) else (
-    echo Arquivo config.json ja existe. Mantendo configuracao atual.
+
+echo [1/2] Verificando se o navegador Chromium ja esta instalado...
+echo [INFO] Verificando "%LOCALAPPDATA%\ms-playwright\chromium-*" >> "!LOG_FILE!"
+
+set "CHROMIUM_FOUND=0"
+set "CHROMIUM_DIR="
+
+for /d %%D in ("%LOCALAPPDATA%\ms-playwright\chromium-*") do (
+    set "CHROMIUM_FOUND=1"
+    set "CHROMIUM_DIR=%%D"
 )
 
+if "!CHROMIUM_FOUND!"=="1" (
+    echo [SUCESSO] Chromium detectado em: !CHROMIUM_DIR!
+    echo [SUCESSO] Chromium detectado em: !CHROMIUM_DIR! >> "!LOG_FILE!"
+    goto :finalizar
+)
+
+echo [INFO] Chromium nao encontrado em %LOCALAPPDATA%\ms-playwright.
+echo [2/2] Instalando o navegador Chromium via Playwright...
+echo [INFO] Executando: npx playwright install chromium >> "!LOG_FILE!"
+
+npx playwright install chromium >> "!LOG_FILE!" 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo [ERRO] Falha ao instalar o Chromium via Playwright (Codigo de erro: %ERRORLEVEL%).
+    echo [ERRO] Falha ao instalar o Chromium via Playwright (Codigo: %ERRORLEVEL%) >> "!LOG_FILE!"
+    echo [INFO] Testando conectividade com a internet...
+    ping -n 1 8.8.8.8 > nul 2>&1
+    if %ERRORLEVEL% NEQ 0 (
+        echo [ALERTA] Falha de conexao com a internet. Verifique sua rede e proxy.
+        echo [ALERTA] Falha no teste de ping para 8.8.8.8 >> "!LOG_FILE!"
+    ) else (
+        echo [INFO] Conexao com a internet OK. Verifique se o Node.js/NPX estao instalados e com permissao de execucao.
+        echo [INFO] Conexao OK, possivel problema de permissao ou configuracao do NPX. >> "!LOG_FILE!"
+    )
+    echo.
+    echo Consulte o arquivo de log para mais detalhes: "!LOG_FILE!"
+    echo.
+    echo ================================================================
+    echo   A INSTALACAO NAO PODE SER CONCLUIDA COM SUCESSO.
+    echo ================================================================
+    echo.
+    pause
+    exit /b 1
+)
+
+echo [SUCESSO] Chromium instalado com exito!
+echo [SUCESSO] Chromium instalado com exito via npx playwright install chromium >> "!LOG_FILE!"
+
+:finalizar
 echo.
 echo ================================================================
-echo   INSTALAÇÃO CONCLUÍDA COM SUCESSO!
-echo   Para iniciar o robo, execute: robot-docusigner.exe
+echo   [SUCESSO] O robo esta pronto para uso!
+echo   Para iniciar o robo, execute: run.bat
 echo ================================================================
 echo.
+echo [FIM] Processo de setup concluido com sucesso. >> "!LOG_FILE!"
 pause

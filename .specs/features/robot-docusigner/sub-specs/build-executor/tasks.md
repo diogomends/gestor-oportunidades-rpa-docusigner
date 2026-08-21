@@ -11,3 +11,7 @@
 - [x] **T-SMI-09**: Adicionar cópia do `node_modules/playwright` e `node_modules/playwright-core` para `dist/<bundleBase>/node_modules/` e `setup.bat` para `dist/<bundleBase>/` no `build.js` (`buildForOneKey()`).
 - [x] **T-SMI-10**: Validar que o executável gerado inicializa o runtime do Playwright sem erro `Cannot find module 'playwright'`.
 - [x] **T-SMI-11**: Inclusão de geração automática de `README.txt` com quadro explicativo de arquivos e guia de instalação em cada pasta gerada no build.
+- [x] **T-SMI-12**: Refatorar `robot/scripts/setup.bat` para remover completamente referências a `config.json` e adicionar cabeçalho com UTF-8 (`chcp 65001`).
+- [x] **T-SMI-13**: Implementar detecção inteligente prévia em `setup.bat` para verificar se o Chromium já existe em `%LOCALAPPDATA%\ms-playwright\chromium-*`. Se existir, informar imediatamente sem acionar download de rede.
+- [x] **T-SMI-14**: Implementar fallback de download via `npx playwright install chromium` apenas se não encontrado, com captura de `%ERRORLEVEL%`, verificação de conexão e log em `setup.log`.
+- [x] **T-SMI-15**: Atualizar o pipeline de build e validar a execução do `setup.bat` nos diretórios gerados em `dist/`.
