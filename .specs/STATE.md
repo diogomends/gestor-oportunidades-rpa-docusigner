@@ -398,7 +398,19 @@ O script de compilação `robot-standalone/build/build.js` e o comando `make bui
   - **Projeto Standalone**: Módulo `robot-standalone/` com arquitetura baseada em `ApiClient`, `Scheduler` (polling resiliente) e `JobRunner` (Playwright com destruição garantida de PDFs em `finally`).
   - **Pipeline de Build Protegido**: Script `build/build.js` integrando `esbuild` (CJS bundling), `javascript-obfuscator` (ofuscação de fluxo e strings), `bytenode` (compilação para bytecode V8 nativo `.jsc`) e `@yao-pkg/pkg` (geração do `.exe` standalone para Windows).
 
+### [5.41.0] - 2026-08-20
+
+#### Adicionado
+
+- **Containerização Docker e Esteira de CI/CD via GitHub Actions**:
+  - `Dockerfile` baseado em Node 20 Alpine com Chromium, fonts e dependências do Playwright.
+  - `docker-compose.yml` e `docker-compose.prod.yml` para orquestração de containers da API (porta 3111).
+  - `.github/workflows/deploy.yml` com pipeline de deploy automático via SSH no `servidor-unity-rce` (`165.227.212.57`).
+  - `.github/workflows/clean-workflows.yml` para limpeza periódica dos runs de workflow.
+  - `.dockerignore` configurado para isolar artefatos de build do robô e arquivos de configuração.
+
 ### [5.13.0] - 2026-08-07
+
 
 #### Alterado
 

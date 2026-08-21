@@ -11,8 +11,19 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | `npm test`                       | Testes nativos (`node --test`)                   |
 | `npm run build:robot`            | Gera executáveis do robô                         |
 | `npx playwright install chromium` | Instala browser Chromium para o robô             |
+| `docker compose up --build`      | Sobe servidor em container Docker local          |
+| `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` | Sobe servidor em produção via Docker |
 
 Porta padrão: **3111** (configurável via `PORT`).
+
+## Deploy & CI/CD
+
+O projeto possui esteira automatizada via **GitHub Actions** (`.github/workflows/deploy.yml`):
+- Disparo automático em `push` na branch `main` ou manual via `workflow_dispatch`.
+- Conecta via SSH no `servidor-unity-rce` (`165.227.212.57`) e executa o build/restart dos containers Docker (`app_docusigner`).
+- O arquivo `.env` de produção é mantido no servidor em `/home/appuser/servidor-unity-rce/gestor-oportunidades-rpa-docusigner/.env`.
+- Limpeza periódica de runs via `.github/workflows/clean-workflows.yml`.
+
 
 ## Projeto Relacionado
 

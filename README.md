@@ -54,6 +54,25 @@ npx playwright install chromium
 cp .env.example .env
 ```
 
+## Executando com Docker
+
+O servidor pode ser executado em container Docker (com Chromium pré-instalado para automação Playwright):
+
+```bash
+# Modo desenvolvimento / local:
+docker compose up --build
+
+# Modo produção com arquivo override de produção:
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+## CI/CD e Deploy Automático
+
+O repositório está integrado com **GitHub Actions**:
+- Workflow `.github/workflows/deploy.yml`: a cada push em `main`, conecta via SSH no `servidor-unity-rce` e atualiza a aplicação via Docker Compose.
+- O `.env` de produção permanece isolado no servidor em `/home/appuser/servidor-unity-rce/gestor-oportunidades-rpa-docusigner/.env`.
+
+
 ## Variáveis de Ambiente
 
 | Variável | Obrigatória | Padrão | Descrição |
