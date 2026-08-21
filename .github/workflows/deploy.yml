@@ -30,9 +30,9 @@ jobs:
 
             export REPO_ROOT="/home/appuser/servidor-unity-rce/gestor-oportunidades-rpa-docusigner"
 
-            if [ -d "$REPO_ROOT" ]; then
+            if [ -d "$REPO_ROOT/.git" ]; then
               cd "$REPO_ROOT"
-              echo ">>> [DEPLOY] Diretório encontrado: $(pwd)"
+              echo ">>> [DEPLOY] Repositório Git encontrado: $(pwd)"
 
               echo ">>> [DEPLOY] Atualizando URL do remote origin com token ativo..."
               git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
@@ -42,10 +42,13 @@ jobs:
               git checkout main
               git reset --hard origin/main
             else
-              echo ">>> [DEPLOY] Diretório não encontrado. Clonando repositório..."
-              mkdir -p "$(dirname "$REPO_ROOT")"
-              git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git "$REPO_ROOT"
+              echo ">>> [DEPLOY] Diretório sem repositório Git. Inicializando e sincronizando com main..."
+              mkdir -p "$REPO_ROOT"
               cd "$REPO_ROOT"
+              git init
+              git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" || git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+              git fetch origin
+              git checkout -B main origin/main
             fi
 
             echo ">>> [DEPLOY] No diretório: $(pwd)"
