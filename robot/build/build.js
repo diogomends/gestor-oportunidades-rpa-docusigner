@@ -192,7 +192,7 @@ async function buildForOneKey({ buildKey, index, total }) {
   );
 
   // ── Etapa 3: Gerar executável direto com @yao-pkg/pkg ──
-  console.log(` 3/3 Empacotando binário autônomo .exe com @yao-pkg/pkg...`);
+  console.log(` 3/4 Empacotando binário autônomo .exe com @yao-pkg/pkg...`);
 
   const exeOut = path.join(outDir, `${bundleBase}.exe`);
 
@@ -200,6 +200,27 @@ async function buildForOneKey({ buildKey, index, total }) {
     `npx @yao-pkg/pkg "${obfOut}" --target node18-win-x64 --output "${exeOut}"`,
     { stdio: "inherit", cwd: ROOT_DIR }
   );
+
+  // ── Etapa 4: Copiar dependências do Playwright e scripts auxiliares ──
+  console.log(` 4/4 Copiando dependências do Playwright e setup.bat...`);
+  const nodeModulesDest = path.join(outDir, "node_modules");
+  fs.mkdirSync(nodeModulesDest, { recursive: true });
+
+  const playwrightSrc = path.join(ROOT_DIR, "node_modules", "playwright");
+  const playwrightCoreSrc = path.join(ROOT_DIR, "node_modules", "playwright-core");
+
+  if (fs.existsSync(playwrightSrc)) {
+    fs.cpSync(playwrightSrc, path.join(nodeModulesDest, "playwright"), { recursive: true });
+  }
+  if (fs.existsSync(playwrightCoreSrc)) {
+    fs.cpSync(playwrightCoreSrc, path.join(nodeModulesDest, "playwright-core"), { recursive: true });
+  }
+
+  // Copiar setup.bat
+  const setupBatSrc = path.join(ROOT_DIR, "scripts", "setup.bat");
+  if (fs.existsSync(setupBatSrc)) {
+    fs.copyFileSync(setupBatSrc, path.join(outDir, "setup.bat"));
+  }
 
   // Script auxiliar run.bat para facilitar execução com logs visíveis
   const batContent = `@echo off\r\ntitle ${bundleBase}\r\necho ==================================================\r\necho Iniciando ${bundleBase}...\r\necho ==================================================\r\n"${bundleBase}.exe"\r\npause\r\n`;
