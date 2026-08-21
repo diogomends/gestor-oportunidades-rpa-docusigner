@@ -8,25 +8,28 @@ import path from "node:path";
  * @returns {Object} Configuração estruturada.
  */
 export function loadConfig() {
-  // Procura config.json opcional no diretório do executável ou no cwd (para dev/debug)
-  const execDir = path.dirname(process.execPath || process.argv[1]);
-  const possiblePaths = [
-    path.join(process.cwd(), "config.json"),
-    path.join(execDir, "config.json"),
-    path.join(process.cwd(), "robot", "config.json"),
-    path.join(process.cwd(), "robot-standalone", "config.json"),
-  ];
-
   let fileConfig = {};
-  for (const p of possiblePaths) {
-    if (fs.existsSync(p)) {
-      try {
-        const raw = fs.readFileSync(p, "utf-8");
-        fileConfig = JSON.parse(raw);
-        console.log(`[Config] Configuração sobrescrita via: ${p}`);
-        break;
-      } catch (e) {
-        console.warn(`[Config] Erro ao ler ${p}:`, e.message);
+
+  // Procura config.json opcional apenas em ambiente de desenvolvimento (dev/debug)
+  if (process.env.NODE_ENV === "development") {
+    const execDir = path.dirname(process.execPath || process.argv[1]);
+    const possiblePaths = [
+      path.join(process.cwd(), "config.json"),
+      path.join(execDir, "config.json"),
+      path.join(process.cwd(), "robot", "config.json"),
+      path.join(process.cwd(), "robot-standalone", "config.json"),
+    ];
+
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        try {
+          const raw = fs.readFileSync(p, "utf-8");
+          fileConfig = JSON.parse(raw);
+          console.log(`[Config] Configuração sobrescrita via: ${p}`);
+          break;
+        } catch (e) {
+          console.warn(`[Config] Erro ao ler ${p}:`, e.message);
+        }
       }
     }
   }
