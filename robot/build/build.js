@@ -226,6 +226,58 @@ async function buildForOneKey({ buildKey, index, total }) {
   const batContent = `@echo off\r\ntitle ${bundleBase}\r\necho ==================================================\r\necho Iniciando ${bundleBase}...\r\necho ==================================================\r\n"${bundleBase}.exe"\r\npause\r\n`;
   fs.writeFileSync(path.join(outDir, "run.bat"), batContent, "utf-8");
 
+  // Documentação README.txt com instruções e quadro explicativo
+  const readmeContent = [
+    "================================================================================",
+    `           ROBO RPA DOCUSIGN - INSTRUCOES DE INSTALACAO E EXECUCAO`,
+    "================================================================================",
+    "",
+    "Este pacote contem o robo autonomo e protegido para automacao do DocuSign.",
+    "Sua chave de autenticacao e comunicacao com o servidor ja estao embutidas.",
+    "",
+    "--------------------------------------------------------------------------------",
+    "ESTRUTURA DESTE DIRETORIO:",
+    "--------------------------------------------------------------------------------",
+    "Arquivo / Diretorio        Finalidade",
+    "-----------------------    -----------------------------------------------------",
+    `${bundleBase}.exe`.padEnd(27) + "Binario Windows autonomo com runtime Node.js, codigo",
+    "                           ofuscado e chave de autenticacao embutida.",
+    "",
+    "run.bat                    Script auxiliar para inicializacao com janela de",
+    "                           terminal visivel e logs em tempo real (Recomendado).",
+    "",
+    "setup.bat                  Script para instalacao inicial do navegador Chromium",
+    "                           na maquina alvo (apenas na 1a vez).",
+    "",
+    "node_modules/              Modulos locais do Playwright (playwright e",
+    "                           playwright-core) necessarios para automacao.",
+    "",
+    "--------------------------------------------------------------------------------",
+    "PASSO A PASSO PARA INSTALACAO E USO:",
+    "--------------------------------------------------------------------------------",
+    "",
+    "1. COPIAR A PASTA:",
+    "   Copie esta pasta completa para a maquina do agente/vendedor onde o robo",
+    "   ira operar.",
+    "",
+    "2. INSTALACAO DO NAVEGADOR (Apenas na 1a vez na maquina):",
+    '   De dois cliques no arquivo "setup.bat" para baixar e configurar o navegador',
+    "   Chromium do Playwright automaticamente.",
+    "",
+    "   Ou, se preferir via PowerShell / Terminal:",
+    "   npx playwright install chromium",
+    "",
+    "3. INICIAR O ROBO:",
+    `   De dois cliques no arquivo "run.bat" (ou execute "${bundleBase}.exe").`,
+    "",
+    "   O robo se conectara automaticamente ao servidor central via API Key,",
+    "   registrara a sessao da maquina e comecara a consumir e processar as",
+    "   tarefas da fila da DocuSign.",
+    "",
+    "================================================================================",
+  ].join("\r\n");
+  fs.writeFileSync(path.join(outDir, "README.txt"), readmeContent, "utf-8");
+
   console.log(` -> OK: ${exeOut}`);
   return { exe: exeOut };
 }

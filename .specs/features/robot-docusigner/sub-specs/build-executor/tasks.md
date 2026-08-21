@@ -8,3 +8,6 @@
 - [x] **T-SMI-06**: Pipeline de build protegido `build/build.js` com `esbuild`, `javascript-obfuscator`, `bytenode` e `@yao-pkg/pkg`.
 - [x] **T-SMI-07**: Script de setup do ambiente do cliente `setup.bat` e documentação de distribuição.
 - [x] **T-SMI-08**: Injeção de credenciais sequenciais e URI_PROD em tempo de build com esbuild define, eliminando arquivos JSON expostos no cliente.
+- [x] **T-SMI-09**: Adicionar cópia do `node_modules/playwright` e `node_modules/playwright-core` para `dist/<bundleBase>/node_modules/` e `setup.bat` para `dist/<bundleBase>/` no `build.js` (`buildForOneKey()`).
+- [x] **T-SMI-10**: Validar que o executável gerado inicializa o runtime do Playwright sem erro `Cannot find module 'playwright'`.
+- [x] **T-SMI-11**: Inclusão de geração automática de `README.txt` com quadro explicativo de arquivos e guia de instalação em cada pasta gerada no build.

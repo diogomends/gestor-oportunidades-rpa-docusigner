@@ -16,6 +16,9 @@ Cada build gera um **executável autônomo e protegido**:
 |---------|--------|
 | `robot-docusigner-X.exe` | Binário Windows autônomo com runtime Node, código empacotado e ofuscado com a chave embutida. |
 | `run.bat` | Script auxiliar para inicialização com terminal persistente e visualização de logs. |
+| `setup.bat` | Script para instalação do navegador Chromium (Playwright). |
+| `README.txt` | Guia completo de instalação e uso com quadro explicativo. |
+| `node_modules/` | Dependências locais do Playwright (`playwright` e `playwright-core`). |
 
 ## Instalação na Máquina do Agente
 1. Copie a pasta gerada em `dist/` (ex: `robot-docusigner-1`) para a máquina alvo.
@@ -39,7 +42,18 @@ make build-robot KEY="rf_sec_sua_chave" API_URL="https://crm.meudominio.com" HEA
 Os arquivos gerados estarão prontos para distribuição em `dist/`:
 ```
 dist/
-├── robot-docusigner.exe
-└── main-robot-docusigner.jsc
+├── robot-docusigner-1/
+│   ├── robot-docusigner-1.exe
+│   ├── run.bat
+│   ├── setup.bat
+│   ├── README.txt
+│   └── node_modules/
+├── robot-docusigner-2/
+│   ├── robot-docusigner-2.exe
+│   ├── run.bat
+│   ├── setup.bat
+│   ├── README.txt
+│   └── node_modules/
+└── ...
 ```
 
