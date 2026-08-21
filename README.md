@@ -110,7 +110,7 @@ O repositório está integrado com **GitHub Actions**:
 | `make test` | Roda testes nativos |
 | `make test-headed` | Roda o robô com navegador visível (`HEADLESS=false`) |
 | `make test-headed-ps` | Idem, mas via PowerShell (para Windows CMD) |
-| `make build-robot` | Gera executável .exe. Use KEY="rf_sec_xxx" para chave específica e HEADLESS=false para modo headed |
+| `make build-robot` | Gera executáveis .exe dos robôs standalone com chave(s) embutida(s). Use KEY="rf_sec_xxx" para chave específica, HEADLESS=false para modo headed e API_URL para URL customizada |
 | `make install` | Instala dependências de tudo (backend + robot) |
 | `make install-backend` | Instala dependências do backend |
 | `make install-robot` | Instala dependências do robô |
@@ -164,11 +164,9 @@ robot/
 │       ├── docusign.js  # Automação DocuSign (login, envio, status)
 │       └── selectors.js # Seletores CSS
 ├── build/
-│   ├── build.js        # Pipeline: esbuild → obfuscator → bytenode → pkg
-│   └── pkg.config.json
+│   └── build.js        # Pipeline: esbuild → obfuscator → bytenode → pkg
 ├── scripts/
 │   └── setup.bat       # Instalador para máquina do agente
-├── config.json.example # Modelo de configuração
 └── package.json
 ```
 
@@ -187,7 +185,7 @@ npm install
 npm run build
 ```
 
-O executável protegido será gerado em `robot/dist/robot-docusigner-X/robot-docusigner-X.exe`.
+O executável protegido será gerado em `robot/dist/robot-docusigner-X/robot-docusigner-X.exe` (onde X é o índice da chave).
 
 #### Parâmetros de Build
 
@@ -199,7 +197,7 @@ O executável protegido será gerado em `robot/dist/robot-docusigner-X/robot-doc
 
 > *`KEY` é obrigatória se não houver `ROBOT_KEY` no `.env.dev` ou `.env`.
 
-**Resultado:** Um `.exe` + `.jsc` com a chave, HEADLESS e API_URL embutidos no bytecode (sem `config.json` em texto plano).
+**Resultado:** Um `.exe` + `.jsc` com a chave, HEADLESS e API_URL embutidos no bytecode (sem `config.json` em texto plano). Cada chave gera uma subpasta em `robot/dist/` (ex: `robot-docusigner-1/`, `robot-docusigner-2/`).
 
 **Pipeline de Build:**
 
@@ -210,7 +208,7 @@ O executável protegido será gerado em `robot/dist/robot-docusigner-X/robot-doc
 | 3 | **bytenode** | Compilação para bytecode V8 (`.jsc`) |
 | 4 | **@yao-pkg/pkg** | Empacotamento como binário Windows `.exe` |
 
-**Distribuição:** Copie `dist/robot-docusigner.exe` e `dist/main-robot-docusigner.jsc` para a máquina alvo — os dois arquivos devem ficar na mesma pasta, pois o `.exe` é um loader que carrega o `.jsc`. Execute `setup.bat` apenas para instalar o Chromium.
+**Distribuição:** Copie a pasta gerada em `dist/` (ex: `robot-docusigner-1/`) para a máquina alvo. Execute `setup.bat` apenas para instalar o Chromium.
 
 ## API REST
 

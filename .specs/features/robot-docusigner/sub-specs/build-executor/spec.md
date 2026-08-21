@@ -38,3 +38,17 @@ O robô RPA DocuSign precisa ser distribuído e executado localmente nas máquin
 - Compilação para bytecode nativo V8 com `bytenode` (`.jsc`).
 - Empacotamento em binário Windows (`.exe`) via `@yao-pkg/pkg`.
 - O build copia o `.jsc` para a pasta de distribuição ao lado do `.exe`; ambos devem ser entregues juntos ao cliente.
+
+### [REQ-SMI-05] Distribuição das Dependências Playwright no Build
+- `@yao-pkg/pkg` não inclui dependências com carregamento dinâmico no sistema virtual (`C:\snapshot`), exigindo que `playwright` e `playwright-core` estejam disponíveis no diretório físico (`node_modules/`) ao lado do executável.
+- O pipeline de build deve copiar recursivamente `robot/node_modules/playwright` e `robot/node_modules/playwright-core` para `robot/dist/<bundleBase>/node_modules/`.
+- Copiar o script `setup.bat` para as pastas de saída do `dist/` para facilitar a instalação do Chromium no ambiente de execução.
+- Preservar o esbuild com a flag `--external:playwright`, mantendo a ofuscação e a injeção estática das credenciais por robô.
+
+### [REQ-SMI-06] Script de Setup com Diagnóstico Completo de Ambiente
+- `setup.bat` deve remover completamente qualquer menção/cópia de `config.json` e `config.json.example`.
+- **Detecção Inteligente do Chromium**: Verificar primeiro se o Chromium já está instalado localmente em `%LOCALAPPDATA%\ms-playwright\chromium-*` antes de tentar qualquer requisição de download. Se já existir, marcar como pronto imediatamente sem bloquear o terminal.
+- **Download sob Demanda**: Apenas executar `npx playwright install chromium` caso o navegador realmente não esteja presente na máquina.
+- Tratar rigorosamente o `%ERRORLEVEL%` e testar conectividade se houver falha.
+- Salvar a saída das operações em `setup.log`.
+- Exibir feedback visual de status (`[SUCESSO] O robô está pronto para uso`) ou orientações claras em caso de falha.

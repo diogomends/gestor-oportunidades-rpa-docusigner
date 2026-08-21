@@ -56,7 +56,11 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, bytenode, esbuild)
 │   ├── src/               # Código-fonte da automação do robô (main, job-runner, browser)
 │   ├── build/             # Pipeline de compilação/ofuscação/empacotamento (.exe)
-│   └── scripts/           # Scripts de instalação e inicialização do robô
+│   ├── scripts/           # Scripts de instalação e inicialização do robô
+│   ├── dist/              # Saída do build: subpastas por chave (robot-docusigner-1/, robot-docusigner-2/, ...)
+│   ├── dist-bundle/       # Bundle temporário do esbuild (CJS)
+│   ├── dist-obf/          # Código ofuscado temporário
+│   └── dist-jsc/          # Bytecode V8 temporário (.jsc)
 ```
 
 - **ES Modules** puro. Use `import`/`export`.

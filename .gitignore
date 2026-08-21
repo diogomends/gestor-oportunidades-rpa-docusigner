@@ -43,8 +43,6 @@ robot/robot/
 # Configurações Locais do Robô
 # ==============================================================================
 robot/config.json
-!robot/config.json.example
-!robot/build/pkg.config.json
 
 # ==============================================================================
 # Playwright & Test Artifacts

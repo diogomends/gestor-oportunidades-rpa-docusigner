@@ -23,6 +23,8 @@ Antes de gerar os comandos `git add`, verificar se os seguintes arquivos foram a
 - [ ] `validation.md` — relatório de validação criado/atualizado
 - [ ] `STATE.md` — Handoff ou Changelog atualizado
 - [ ] Arquivos `.specs/` relevantes incluídos nos comandos `git add` (um `git add` por arquivo, em linha única)
+- [ ] `README.md` — documentação do projeto atualizada (se houve mudanças na estrutura, comandos, variáveis ou fluxos)
+- [ ] `AGENTS.md` — guia do agente atualizado (se houve mudanças em comandos, convenções, arquitetura ou rotas)
 
 ## Modelo de Comando (segue exatamente este fluxo)
 
