@@ -1,6 +1,29 @@
 import fs from "node:fs";
-import { chromium } from "playwright";
+import path from "node:path";
+import { createRequire } from "node:module";
 import { sendEnvelope, checkEnvelopeStatus } from "./browser/docusign.js";
+
+/**
+ * Carrega o Playwright dinamicamente a partir do diretório do executável (.exe)
+ * ou do ambiente de execução atual, garantindo compatibilidade com o snapshot virtual do @yao-pkg/pkg.
+ */
+function resolvePlaywright() {
+  try {
+    const appDir = path.dirname(process.execPath);
+    const externalRequire = createRequire(path.join(appDir, "package.json"));
+    return externalRequire("playwright");
+  } catch (_err) {
+    try {
+      const localRequire = createRequire(import.meta.url);
+      return localRequire("playwright");
+    } catch {
+      return require("playwright");
+    }
+  }
+}
+
+const playwrightModule = resolvePlaywright();
+const chromium = playwrightModule.chromium || playwrightModule.default?.chromium || playwrightModule;
 
 /**
  * Executor isolado de tarefas Playwright com controle seguro de lifecycle e limpeza de disco.

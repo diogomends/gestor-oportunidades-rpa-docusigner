@@ -113,6 +113,13 @@ O script de compilação `robot-standalone/build/build.js` e o comando `make bui
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
+### [5.46.0] - 2026-08-21
+
+#### Corrigido
+
+- **Resolução Dinâmica do Módulo Playwright no Executável Standalone do Robô**:
+  - `robot/src/job-runner.js`: Substituída importação estática do `playwright` por resolução dinâmica via `createRequire` baseada em `process.execPath`. Corrige o erro `Cannot find module 'playwright'` quando o executável `.exe` gerado pelo `@yao-pkg/pkg` tenta carregar as dependências de `node_modules` externas ao snapshot virtual.
+
 ### [5.45.0] - 2026-08-17
 
 #### Adicionado
