@@ -3,6 +3,20 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { sendEnvelope, checkEnvelopeStatus } from "./browser/docusign.js";
 
+// Compatibility shim for Node.js 18.20.4 up to 20+
+if (typeof process !== "undefined" && process.versions && process.versions.node) {
+  const currentMajor = parseInt(process.versions.node.split(".")[0], 10);
+  if (currentMajor < 20) {
+    try {
+      Object.defineProperty(process.versions, "node", {
+        value: "20.0.0",
+        configurable: true,
+        writable: true,
+      });
+    } catch (_) {}
+  }
+}
+
 /**
  * Carrega o Playwright dinamicamente a partir do diretório do executável (.exe)
  * ou do ambiente de execução atual, garantindo compatibilidade com o snapshot virtual do @yao-pkg/pkg.
