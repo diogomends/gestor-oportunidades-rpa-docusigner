@@ -22,22 +22,37 @@ if (typeof process !== "undefined" && process.versions && process.versions.node)
  * ou do ambiente de execução atual, garantindo compatibilidade com o snapshot virtual do @yao-pkg/pkg.
  */
 function resolvePlaywright() {
+  const appDir = path.dirname(process.execPath);
+  const explicitPath = path.join(appDir, "node_modules", "playwright");
+
+  if (fs.existsSync(explicitPath)) {
+    try {
+      // Usa createRequire com dummy path no dir real do exe,
+      // evitando interceptação pelo snapshot virtual do @yao-pkg/pkg.
+      const externalRequire = createRequire(path.join(appDir, "dummy.cjs"));
+      return externalRequire(explicitPath);
+    } catch (_err) {
+      // Fallback: tenta require nativo com path absoluto
+    }
+  }
+
   try {
-    const appDir = path.dirname(process.execPath);
-    const externalRequire = createRequire(path.join(appDir, "package.json"));
+    const externalRequire = createRequire(path.join(appDir, "dummy.cjs"));
     return externalRequire("playwright");
   } catch (_err) {
     try {
-      const localRequire = createRequire(import.meta.url);
-      return localRequire("playwright");
-    } catch {
       return require("playwright");
+    } catch (err) {
+      console.error("[JobRunner] Fatal: failed to resolve 'playwright' module.", err);
+      throw err;
     }
   }
 }
 
-const playwrightModule = resolvePlaywright();
-const chromium = playwrightModule.chromium || playwrightModule.default?.chromium || playwrightModule;
+function getChromium() {
+  const playwrightModule = resolvePlaywright();
+  return playwrightModule.chromium || playwrightModule.default?.chromium || playwrightModule;
+}
 
 /**
  * Executor isolado de tarefas Playwright com controle seguro de lifecycle e limpeza de disco.
@@ -83,6 +98,7 @@ export class JobRunner {
         step: { name: "launch_browser", status: "running" },
       });
 
+      const chromium = getChromium();
       browser = await chromium.launch({
         headless: this.headless,
         args: [

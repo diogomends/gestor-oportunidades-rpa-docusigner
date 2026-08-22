@@ -117,8 +117,8 @@ O script de compilação `robot-standalone/build/build.js` e o comando `make bui
 
 #### Corrigido
 
-- **Resolução Dinâmica do Módulo Playwright no Executável Standalone do Robô**:
-  - `robot/src/job-runner.js`: Substituída importação estática do `playwright` por resolução dinâmica via `createRequire` baseada em `process.execPath`. Corrige o erro `Cannot find module 'playwright'` quando o executável `.exe` gerado pelo `@yao-pkg/pkg` tenta carregar as dependências de `node_modules` externas ao snapshot virtual.
+- **Resolução Direta e Absoluta do Módulo Playwright no Executável Standalone do Robô**:
+  - `robot/src/job-runner.js`: Implementada resolução prioritária via caminho absoluto em disco (`path.join(appDir, 'node_modules', 'playwright')`) e inicialização sob demanda (`getChromium()`). Bypassa completamente o snapshot virtual do `@yao-pkg/pkg` (`C:\snapshot\...`), evitando erros de módulo ausente ao executar o `.exe` standalone empacotado.
 
 ### [5.45.0] - 2026-08-17
 
