@@ -447,6 +447,12 @@ O script de compilação `robot-standalone/build/build.js` e o comando `make bui
 
 ### [5.12.1] - 2026-08-07
 
+### [5.12.1] - 2026-08-21
+
+#### Corrigido
+
+- **Compatibilidade do Robô Node.js 18.20.4 até 20+**: Adicionado shim de compatibilidade de versão em `robot/src/main.js` e `robot/src/job-runner.js` para evitar bloqueios do Playwright em ambientes Node 18, e atualizado o target do pipeline `@yao-pkg/pkg` em `robot/build/build.js` para `node20-win-x64` garantindo execução nativa e retrocompatível.
+
 #### Alterado
 
 - **Visual KPI Cards no Dashboard**: cards de métricas (`.kpi-card`) agora vivem dentro de um wrapper `.glass-panel` unificado, eliminando fundo opaco individual (`var(--surface-dark)`) em favor de `rgba(255, 255, 255, 0.03)` — sem dupla camada visual. Arquivos: `public/dashboard.html`, `public/css/dashboard.css`.
