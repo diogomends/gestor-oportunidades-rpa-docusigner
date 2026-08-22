@@ -27,10 +27,12 @@ function resolvePlaywright() {
 
   if (fs.existsSync(explicitPath)) {
     try {
-      const dynamicRequire = typeof __non_webpack_require__ !== "undefined" ? __non_webpack_require__ : require;
-      return dynamicRequire(explicitPath);
+      // Usa createRequire com dummy path no dir real do exe,
+      // evitando interceptação pelo snapshot virtual do @yao-pkg/pkg.
+      const externalRequire = createRequire(path.join(appDir, "dummy.cjs"));
+      return externalRequire(explicitPath);
     } catch (_err) {
-      // Fallback para createRequire caso require direto falhe
+      // Fallback: tenta require nativo com path absoluto
     }
   }
 
