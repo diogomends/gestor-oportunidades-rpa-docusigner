@@ -197,7 +197,7 @@ async function buildForOneKey({ buildKey, index, total }) {
   const exeOut = path.join(outDir, `${bundleBase}.exe`);
 
   execSync(
-    `npx @yao-pkg/pkg "${obfOut}" --target node18-win-x64 --output "${exeOut}"`,
+    `npx @yao-pkg/pkg "${obfOut}" --target node20-win-x64 --output "${exeOut}"`,
     { stdio: "inherit", cwd: ROOT_DIR }
   );
 
