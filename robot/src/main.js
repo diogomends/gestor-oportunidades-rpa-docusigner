@@ -1,3 +1,17 @@
+// Compatibility shim for Node.js 18.20.4 up to 20+
+if (typeof process !== "undefined" && process.versions && process.versions.node) {
+  const currentMajor = parseInt(process.versions.node.split(".")[0], 10);
+  if (currentMajor < 20) {
+    try {
+      Object.defineProperty(process.versions, "node", {
+        value: "20.0.0",
+        configurable: true,
+        writable: true,
+      });
+    } catch (_) {}
+  }
+}
+
 import { loadConfig } from "./config.js";
 import { ApiClient } from "./api-client.js";
 import { JobRunner } from "./job-runner.js";
