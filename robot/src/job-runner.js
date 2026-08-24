@@ -22,49 +22,46 @@ if (typeof process !== "undefined" && process.versions && process.versions.node)
  * ou do ambiente de execução atual, garantindo compatibilidade com o snapshot virtual do @yao-pkg/pkg.
  */
 function resolvePlaywright() {
-  const possibleDirs = [
+  const candidateDirs = [
     path.dirname(process.execPath),
     process.cwd(),
     path.resolve("."),
+    path.resolve(path.dirname(process.execPath), ".."),
   ];
 
-  for (const dir of possibleDirs) {
-    const corePath = path.join(dir, "node_modules", "playwright-core");
-    const playwrightPath = path.join(dir, "node_modules", "playwright");
+  for (const dir of candidateDirs) {
+    const coreIndex = path.join(dir, "node_modules", "playwright-core", "index.js");
+    const playwrightIndex = path.join(dir, "node_modules", "playwright", "index.js");
 
-    if (fs.existsSync(corePath)) {
+    if (fs.existsSync(coreIndex)) {
       try {
-        const externalRequire = createRequire(path.join(dir, "dummy.cjs"));
-        return externalRequire(corePath);
-      } catch (_) {}
+        const extRequire = createRequire(path.join(dir, "package.json"));
+        return extRequire(coreIndex);
+      } catch (e) {
+        console.warn(`[JobRunner] Warning: failed requiring ${coreIndex}:`, e.message);
+      }
     }
 
-    if (fs.existsSync(playwrightPath)) {
+    if (fs.existsSync(playwrightIndex)) {
       try {
-        const externalRequire = createRequire(path.join(dir, "dummy.cjs"));
-        return externalRequire(playwrightPath);
-      } catch (_) {}
+        const extRequire = createRequire(path.join(dir, "package.json"));
+        return extRequire(playwrightIndex);
+      } catch (e) {
+        console.warn(`[JobRunner] Warning: failed requiring ${playwrightIndex}:`, e.message);
+      }
     }
   }
 
   try {
-    const externalRequire = createRequire(path.join(process.cwd(), "dummy.cjs"));
-    return externalRequire("playwright-core");
+    const extRequire = createRequire(path.join(process.cwd(), "package.json"));
+    return extRequire("playwright-core");
   } catch (_) {
     try {
-      const externalRequire = createRequire(path.join(process.cwd(), "dummy.cjs"));
-      return externalRequire("playwright");
-    } catch (_) {
-      try {
-        return require("playwright-core");
-      } catch (_) {
-        try {
-          return require("playwright");
-        } catch (err) {
-          console.error("[JobRunner] Fatal: failed to resolve 'playwright' or 'playwright-core' module.", err);
-          throw err;
-        }
-      }
+      const extRequire = createRequire(path.join(process.cwd(), "package.json"));
+      return extRequire("playwright");
+    } catch (err) {
+      console.error("[JobRunner] Fatal: failed to resolve 'playwright' or 'playwright-core' module.", err);
+      throw err;
     }
   }
 }
