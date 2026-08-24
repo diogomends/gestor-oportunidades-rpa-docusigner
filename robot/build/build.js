@@ -217,6 +217,17 @@ async function buildForOneKey({ buildKey, index, total }) {
     fs.cpSync(playwrightCoreSrc, path.join(nodeModulesDest, "playwright-core"), { recursive: true });
   }
 
+  // Patch no coreBundle.js para contornar ERR_INSPECTOR_NOT_AVAILABLE no runtime do @yao-pkg/pkg
+  const bundleFile = path.join(nodeModulesDest, "playwright-core", "lib", "coreBundle.js");
+  if (fs.existsSync(bundleFile)) {
+    let content = fs.readFileSync(bundleFile, "utf-8");
+    content = content.replace(
+      'inspector = __toESM(require("inspector"));',
+      'inspector = { default: { Session: class { connect(){} post(e,cb){ if(cb) cb(); } on(){} }, url: () => undefined }, url: () => undefined };'
+    );
+    fs.writeFileSync(bundleFile, content, "utf-8");
+  }
+
   // Copiar setup.bat
   const setupBatSrc = path.join(ROOT_DIR, "scripts", "setup.bat");
   if (fs.existsSync(setupBatSrc)) {

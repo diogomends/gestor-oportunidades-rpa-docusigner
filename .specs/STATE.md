@@ -447,11 +447,13 @@ O script de compilação `robot-standalone/build/build.js` e o comando `make bui
 
 ### [5.12.1] - 2026-08-07
 
-### [5.12.2] - 2026-08-24
+### [5.46.1] - 2026-08-24
 
 #### Corrigido
 
-- **Resolução de Módulos Playwright no Binário Empacotado (.exe)**: Corrigida a função `resolvePlaywright` em `robot/src/job-runner.js` para referenciar explicitamente o arquivo `index.js` dos diretórios `node_modules/playwright-core` e `node_modules/playwright`, solucionando o erro `MODULE_NOT_FOUND` gerado no carregamento de pacotes com suporte a `"exports"` sem o campo legado `"main"`.
+- **Shim do Módulo Inspector no Pipeline de Build do Robô (.exe)**: Adicionado patch automático pós-cópia em `robot/build/build.js` que substitui o require inicial do `inspector` em `playwright-core/lib/coreBundle.js` por um objeto shim seguro com classes e métodos vazios (`Session`, `url`), prevenindo a exceção `ERR_INSPECTOR_NOT_AVAILABLE` disparada no ambiente empacotado pelo `@yao-pkg/pkg`.
+
+### [5.46.0] - 2026-08-21
 
 ### [5.12.1] - 2026-08-21
 
