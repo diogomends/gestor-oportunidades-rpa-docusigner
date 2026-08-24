@@ -179,7 +179,7 @@ async function buildForOneKey({ buildKey, index, total }) {
   ].join(" ");
 
   execSync(
-    `npx esbuild "${entryFile}" --bundle --platform=node --format=cjs --target=node18 --external:playwright --external:bytenode ${defineArgs} --outfile="${bundleOut}"`,
+    `npx esbuild "${entryFile}" --bundle --platform=node --format=cjs --target=node18 --external:playwright --external:playwright-core --external:bytenode ${defineArgs} --outfile="${bundleOut}"`,
     { stdio: "inherit", cwd: ROOT_DIR }
   );
 
