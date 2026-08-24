@@ -125,8 +125,9 @@ if (detectedKeys.length === 0) {
   process.exit(1);
 }
 
-// URL de produção (comum a todos os builds)
-const targetApiUrl = (apiUrl || process.env.API_URL || rootEnv.API_URL || rootEnv.URI_PROD || "http://localhost:3111").replace(/\/$/, "");
+// URL de produção (comum a todos os builds) com sanitização de barras e porta
+const rawApiUrl = (apiUrl || process.env.API_URL || rootEnv.API_URL || rootEnv.URI_PROD || "http://localhost:3111").trim();
+const targetApiUrl = rawApiUrl.replace(/\/:(\d+)/, ":$1").replace(/\/+$/, "");
 
 // Headless resolvido (comum a todos os builds)
 const isHeadless = argHeadless !== null
