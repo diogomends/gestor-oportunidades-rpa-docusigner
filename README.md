@@ -156,7 +156,7 @@ backend/
 robot/
 ├── src/
 │   ├── main.js         # Entrypoint: config, auth, scheduler
-│   ├── config.js       # Leitura de config.json / env vars
+│   ├── config.js       # Leitura de env vars + config.json (dev only)
 │   ├── api-client.js   # Cliente HTTP autenticado (JWT) para o servidor
 │   ├── job-runner.js   # Executor isolado de jobs Playwright
 │   ├── scheduler.js    # Loop de polling + heartbeat

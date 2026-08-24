@@ -22,29 +22,49 @@ if (typeof process !== "undefined" && process.versions && process.versions.node)
  * ou do ambiente de execução atual, garantindo compatibilidade com o snapshot virtual do @yao-pkg/pkg.
  */
 function resolvePlaywright() {
-  const appDir = path.dirname(process.execPath);
-  const explicitPath = path.join(appDir, "node_modules", "playwright");
+  const possibleDirs = [
+    path.dirname(process.execPath),
+    process.cwd(),
+    path.resolve("."),
+  ];
 
-  if (fs.existsSync(explicitPath)) {
-    try {
-      // Usa createRequire com dummy path no dir real do exe,
-      // evitando interceptação pelo snapshot virtual do @yao-pkg/pkg.
-      const externalRequire = createRequire(path.join(appDir, "dummy.cjs"));
-      return externalRequire(explicitPath);
-    } catch (_err) {
-      // Fallback: tenta require nativo com path absoluto
+  for (const dir of possibleDirs) {
+    const corePath = path.join(dir, "node_modules", "playwright-core");
+    const playwrightPath = path.join(dir, "node_modules", "playwright");
+
+    if (fs.existsSync(corePath)) {
+      try {
+        const externalRequire = createRequire(path.join(dir, "dummy.cjs"));
+        return externalRequire(corePath);
+      } catch (_) {}
+    }
+
+    if (fs.existsSync(playwrightPath)) {
+      try {
+        const externalRequire = createRequire(path.join(dir, "dummy.cjs"));
+        return externalRequire(playwrightPath);
+      } catch (_) {}
     }
   }
 
   try {
-    const externalRequire = createRequire(path.join(appDir, "dummy.cjs"));
-    return externalRequire("playwright");
-  } catch (_err) {
+    const externalRequire = createRequire(path.join(process.cwd(), "dummy.cjs"));
+    return externalRequire("playwright-core");
+  } catch (_) {
     try {
-      return require("playwright");
-    } catch (err) {
-      console.error("[JobRunner] Fatal: failed to resolve 'playwright' module.", err);
-      throw err;
+      const externalRequire = createRequire(path.join(process.cwd(), "dummy.cjs"));
+      return externalRequire("playwright");
+    } catch (_) {
+      try {
+        return require("playwright-core");
+      } catch (_) {
+        try {
+          return require("playwright");
+        } catch (err) {
+          console.error("[JobRunner] Fatal: failed to resolve 'playwright' or 'playwright-core' module.", err);
+          throw err;
+        }
+      }
     }
   }
 }
