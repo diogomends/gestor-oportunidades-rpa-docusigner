@@ -41,6 +41,8 @@ npm run typecheck         # Type check (se disponível)
 | REQ-ROBOT-KEY-01 | T13 | ✅ gestorApiClient (validateApiKey) | ✅ Robot API Key auth | — |
 | REQ-ROBOT-KEY-02 | T13 | ✅ gestorApiClient (contracts CRUD) | ✅ Contracts HTTP bypass | — |
 | REQ-ROBOT-KEY-03 | T14 | ✅ server bootstrap guard | ✅ Process exit on invalid | — |
+| REQ-OTP-01 | T15 | ✅ robotSession (passo MFA) | ✅ Controller test-login (otpCode) | — |
+| REQ-OTP-02 | T15 | ✅ Erros MFA_REQUIRED / OTP_INVALID | ✅ Timeouts estendidos MFA | — |
 
 ---
 
@@ -469,6 +471,43 @@ Adicionar guard no bootstrap do servidor (`src/server.js`) para verificar a vali
 - [x] `validateApiKey()` chamada durante o bootstrap da aplicação.
 - [x] Se `valid === true`: prossegue com inicialização do scheduler e `app.listen()`.
 - [x] Se `valid === false`: log de erro "Chave de API do robô inválida ou revogada. Verifique o painel do Gestor." e encerra com `process.exit(1)`.
+
+---
+
+## Fase 9 - Suporte a Código OTP/MFA no test-login
+
+### T15: Código de Acesso Temporário (OTP) no Login DocuSign
+
+- **Req**: REQ-OTP-01, REQ-OTP-02
+- **Status**: [x] Done (2026-08-25)
+- **Esforço**: 2h | Paralelizável: Não
+- **Depende de**: Nenhuma
+
+**Contexto**:
+O frontend do `gestor-oportunidades` (PR #461, commit `986e358`, já mergeado) adicionou o input `id="docusignOtpCode"` na tela de configuração do Robô DocuSign. No evento `blur`, com 6 dígitos válidos, ele dispara `testLogin({ email, password, otpCode })` → `POST /api/robot-docusign/test-login`. Este serviço ainda **não suporta** `otpCode`: o schema Zod descarta o campo e o fluxo de login Playwright não preenche a tela de MFA/2FA do DocuSign.
+
+**O quê**:
+1. Aceitar `otpCode` opcional em `POST /test-login` e propagá-lo até o fluxo de login Playwright.
+2. Detectar a tela MFA/2FA do DocuSign após a submissão da senha e:
+   - Com `otpCode` presente → preencher o código e submeter.
+   - Sem `otpCode` → retornar erro específico **401 `{ "error": "MFA_REQUIRED", "message": "Login DocuSign exige código de segurança (MFA). Informe o código temporário." }`**.
+3. Se o `otpCode` for informado mas estiver inválido/expirado → erro distinto **401 `{ "error": "OTP_INVALID", "message": "Código temporário inválido ou expirado. Gere um novo código." }`**.
+4. **Prazo maior de espera quando a tela MFA aparecer**: usar constante `MFA_TIMEOUT` (90s) no lugar dos timeouts padrão — tanto na detecção do input MFA (`waitForSelector`) quanto na navegação pós-submissão do código (`waitForURL`). Fluxo sem MFA permanece com os timeouts atuais (10s/30s), sem breaking change.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/controllers/robotDocusignController.js` — `testLoginSchema`: adicionar `otpCode: z.string().regex(/^\d{6}$/).optional()`; propagar nas credenciais; mapear erros `MFA_REQUIRED`/`OTP_INVALID` para HTTP 401 com corpo JSON específico.
+- `backend/src/modules/robot-docusign/services/robotSession.js` — `loginAndSaveSession`: passo opcional pós-senha com detecção da tela MFA, preenchimento do código e submissão; constantes `MFA_TIMEOUT`; seletores de MFA (ex.: `input[type='tel'], input[data-testid='mfa-code'], input[autocomplete='one-time-code']`) aceitos via `selectors.mfa`.
+- `backend/src/modules/robot-docusign/services/robotSession.test.js` — testes unitários: MFA sem código → erro `MFA_REQUIRED`; MFA com código → preenche/submente com timeout estendido; OTP inválido → erro `OTP_INVALID`; sem tela MFA → fluxo inalterado.
+- `backend/src/modules/robot-docusign/controllers/robotDocusignController.test.js` — integração: payload com `otpCode` válido/inválido (Zod → 400) e mapeamento dos erros 401.
+
+**Feito quando**:
+- [x] Schema Zod aceita `otpCode` de exatamente 6 dígitos numéricos (opcional).
+- [x] Controller propaga `otpCode` para `robotSession.getOrRefreshSession`/`loginAndSaveSession`.
+- [x] Erro `MFA_REQUIRED` (401) retornado quando a tela MFA aparece sem código.
+- [x] Erro `OTP_INVALID` (401) retornado quando o código é rejeitado/expira.
+- [x] Timeouts da etapa MFA estendidos via constante `MFA_TIMEOUT` (90s); fluxo normal inalterado.
+- [x] Testes unitários e de integração passando (`npm test` — 87 testes, 0 falhas).
+- [ ] Deploy: merge na `main` dispara `.github/workflows/deploy.yml` (comandos git gerados, não executados — ver `.agents/rules/commit.md`).
 
 ---
 

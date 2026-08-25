@@ -3,6 +3,15 @@ import fs from "node:fs";
 import RobotSession from "../models/RobotSession.js";
 
 /**
+ * Timeout estendido (90s) para a etapa MFA/2FA — DocuSign demora mais para
+ * concluir o login quando exige código de segurança temporário.
+ */
+export const MFA_TIMEOUT = 90000;
+
+const DEFAULT_MFA_SELECTOR =
+  "input[type='tel'], input[data-testid='mfa-code'], input[autocomplete='one-time-code'], input[name='mfa-code'], input[id*='otp']";
+
+/**
  * Captura um screenshot de depuração e salva em tmp/robot-debug/.
  *
  * @param {Object} page - Instância de página do Playwright.
@@ -109,12 +118,86 @@ export async function applySessionToContext(context, session) {
 }
 
 /**
+ * Cria erro de domínio com código identificador (ex.: MFA_REQUIRED, OTP_INVALID).
+ *
+ * @param {string} code - Código do erro.
+ * @param {string} message - Mensagem em pt-BR.
+ * @returns {Error} Erro com propriedade `code`.
+ */
+function createAuthError(code, message) {
+  const err = new Error(message);
+  err.code = code;
+  return err;
+}
+
+/**
+ * Verifica se a URL ainda está em alguma tela de login/OAuth da DocuSign.
+ *
+ * @param {string} url - URL atual.
+ * @returns {boolean} True se estiver na tela de login/OAuth.
+ */
+function isLoginUrl(url) {
+  return (
+    url.includes("account.docusign.com") ||
+    url.includes("apps.docusign.com") ||
+    url.includes("/oauth/") ||
+    url.includes("/login")
+  );
+}
+
+/**
+ * Detecta se a tela de MFA/2FA apareceu após a submissão da senha.
+ * Usa Promise.race entre o input MFA e a navegação para fora do login,
+ * evitando esperar o timeout completo (MFA_TIMEOUT) em logins sem MFA.
+ *
+ * @param {Object} page - Página do Playwright.
+ * @param {string} mfaSelector - Seletor CSS do input de código MFA.
+ * @returns {Promise<boolean>} True se o input MFA aparecer.
+ */
+async function detectMfaScreen(page, mfaSelector) {
+  let settled = false;
+  const navPromise = new Promise((resolve) => {
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      if (settled) {
+        clearInterval(timer);
+        return;
+      }
+      const currentUrl =
+        typeof page.url === "function" ? String(page.url()) : "";
+      if (!isLoginUrl(currentUrl)) {
+        settled = true;
+        clearInterval(timer);
+        resolve("navigated");
+      } else if (Date.now() - startedAt > MFA_TIMEOUT) {
+        settled = true;
+        clearInterval(timer);
+        resolve("timeout");
+      }
+    }, 500);
+    if (typeof timer.unref === "function") timer.unref();
+  });
+
+  const selectorPromise =
+    typeof page.waitForSelector === "function"
+      ? page
+          .waitForSelector(mfaSelector, { timeout: MFA_TIMEOUT })
+          .then((el) => (el ? "mfa" : "none"))
+          .catch(() => "none")
+      : Promise.resolve("none");
+
+  const outcome = await Promise.race([selectorPromise, navPromise]);
+  settled = true;
+  return outcome === "mfa";
+}
+
+/**
  * Realiza o fluxo de login no Playwright, captura cookies e salva no banco.
  *
  * @param {Object} page - Página do Playwright.
  * @param {Object} context - Contexto do Playwright Browser.
- * @param {Object} credentials - Objeto { email, password }.
- * @param {Object} [selectors] - Seletores de UI para a página de login.
+ * @param {Object} credentials - Objeto { email, password, otpCode? }.
+ * @param {Object} [selectors] - Seletores de UI para a página de login (inclui `mfa`).
  * @returns {Promise<Object>} Documento RobotSession salvo.
  */
 export async function loginAndSaveSession(page, context, credentials, selectors = {}) {
@@ -168,11 +251,57 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
         await page.click(submitSelector);
       }
 
+      // Etapa opcional de MFA/2FA: se a tela de código aparecer, exige otpCode
+      // e usa timeout estendido (MFA_TIMEOUT) na detecção e navegação.
+      const mfaSelector = selectors.mfa || DEFAULT_MFA_SELECTOR;
+      const mfaRequired = await detectMfaScreen(page, mfaSelector);
+
+      if (mfaRequired) {
+        const otpCode = (credentials?.otpCode || "").trim();
+        if (!otpCode) {
+          await captureDebugScreenshot(page, "login-mfa-required");
+          throw createAuthError(
+            "MFA_REQUIRED",
+            "Login DocuSign exige código de segurança (MFA). Informe o código temporário."
+          );
+        }
+
+        if (typeof page.fill === "function") {
+          await page.fill(mfaSelector, otpCode);
+          if (typeof page.click === "function") {
+            await page.click(submitSelector);
+          }
+        }
+      }
+
       if (typeof page.waitForURL === "function") {
         await page.waitForURL(
           (url) => !url.includes("account.docusign.com") && !url.includes("apps.docusign.com"),
-          { timeout: 30000 }
+          { timeout: mfaRequired ? MFA_TIMEOUT : 30000 }
         ).catch(() => {});
+      }
+
+      // Código informado mas login não progrediu e o input MFA continua visível
+      // → código inválido ou expirado.
+      if (mfaRequired) {
+        const finalUrlCheck =
+          typeof page.url === "function" ? String(page.url()) : "";
+        if (isLoginUrl(finalUrlCheck)) {
+          const mfaStillVisible =
+            typeof page.waitForSelector === "function"
+              ? await page
+                  .waitForSelector(mfaSelector, { timeout: 2000 })
+                  .then((el) => Boolean(el))
+                  .catch(() => false)
+              : false;
+          if (mfaStillVisible) {
+            await captureDebugScreenshot(page, "login-otp-invalid");
+            throw createAuthError(
+              "OTP_INVALID",
+              "Código temporário inválido ou expirado. Gere um novo código."
+            );
+          }
+        }
       }
     } catch (err) {
       await captureDebugScreenshot(page, "login-failed");

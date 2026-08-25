@@ -58,6 +58,10 @@ const testLoginSchema = z
   .object({
     email: z.string().email().optional(),
     password: z.string().optional(),
+    otpCode: z
+      .string()
+      .regex(/^\d{6}$/, "otpCode deve conter exatamente 6 dígitos numéricos")
+      .optional(),
   })
   .optional();
 
@@ -516,6 +520,9 @@ export const testLogin = async (req, res) => {
       } catch (cErr) {
         // Ignora erro de fechamento
       }
+    }
+    if (error?.code === "MFA_REQUIRED" || error?.code === "OTP_INVALID") {
+      return res.status(401).json({ error: error.code, message: error.message });
     }
     console.error("[robotDocusignController] Erro ao testar login DocuSign:", error);
     return res.status(500).json({

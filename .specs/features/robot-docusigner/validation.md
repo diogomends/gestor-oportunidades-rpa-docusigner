@@ -54,3 +54,21 @@
   - [x] Guard de inicialização em `server.js` interrompe a subida (`process.exit(1)`) caso a chave esteja revogada ou inválida.
   - [x] Sincronização de status do contrato via HTTP funcionando com fallback direto no banco de contingência.
 
+---
+
+## 5. Critérios de Validação - Task T15: Código OTP/MFA no test-login
+
+- **Data**: 2026-08-25
+- **Status**: Implementado — validação unitária/integração concluída; E2E pendente pós-deploy
+
+### Cenários a validar
+
+- [x] `POST /api/robot-docusign/test-login` com `otpCode` ausente → comportamento atual preservado (sem breaking change). *Coberto por testes de regressão existentes (`robotSession.test.js`).* 
+- [x] `POST /test-login` com `otpCode` válido (6 dígitos) e tela MFA presente no DocuSign → código preenchido, submetido e login concluído com sucesso. *Teste "preenche e submete otpCode com timeout estendido" (`robotSession.test.js`).*
+- [x] Tela MFA detectada **sem** `otpCode` informado → HTTP **401** com `{ "error": "MFA_REQUIRED" }`. *Teste "lanca erro MFA_REQUIRED" + mapeamento no controller.*
+- [x] `otpCode` rejeitado/expirado pelo DocuSign → HTTP **401** com `{ "error": "OTP_INVALID" }`. *Teste "lanca erro OTP_INVALID" + mapeamento no controller.*
+- [x] `otpCode` fora do padrão (ex.: 5 dígitos, letras) → HTTP **400** (validação Zod). *Teste de integração "deve retornar 400 quando otpCode não tem exatamente 6 dígitos numéricos" (`robotDocusignController.test.js`).*
+- [x] Timeouts da etapa MFA estendidos para 90s (`MFA_TIMEOUT`) — detecção do input e navegação pós-submissão; fluxo sem MFA mantém timeouts originais (10s/30s).
+- [x] Testes unitários (`robotSession.test.js`) e de integração (`robotDocusignController.test.js`) passando via `npm test` — 87 testes, 0 falhas.
+- [ ] E2E em produção: login real DocuSign exigindo MFA com código gerado pelo usuário.
+
