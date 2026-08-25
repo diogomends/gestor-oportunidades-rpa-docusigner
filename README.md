@@ -208,7 +208,7 @@ O executável protegido será gerado em `robot/dist/robot-docusigner-X/robot-doc
 | 3 | **bytenode** | Compilação para bytecode V8 (`.jsc`) |
 | 4 | **@yao-pkg/pkg** | Empacotamento como binário Windows `.exe` |
 
-**Distribuição:** Copie a pasta gerada em `dist/` (ex: `robot-docusigner-1/`) para a máquina alvo. Execute `setup.bat` apenas para instalar o Chromium.
+**Distribuição:** Copie a pasta gerada em `dist/` (ex: `robot-docusigner-1/`) para a máquina alvo. Execute `setup.bat` para instalar o Chromium do Playwright e configurar automaticamente a inicialização do robô junto ao Windows (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
 
 ## API REST
 

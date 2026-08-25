@@ -16,14 +16,14 @@ Cada build gera um **executável autônomo e protegido**:
 |---------|--------|
 | `robot-docusigner-X.exe` | Binário Windows autônomo com runtime Node, código empacotado e ofuscado com a chave embutida. |
 | `run.bat` | Script auxiliar para inicialização com terminal persistente e visualização de logs. |
-| `setup.bat` | Script para instalação do navegador Chromium (Playwright). |
+| `setup.bat` | Script para instalação do navegador Chromium (Playwright) e configuração de inicialização automática no Windows. |
 | `README.txt` | Guia completo de instalação e uso com quadro explicativo. |
 | `node_modules/` | Dependências locais do Playwright (`playwright` e `playwright-core`). |
 
 ## Instalação na Máquina do Agente
 1. Copie a pasta gerada em `dist/` (ex: `robot-docusigner-1`) para a máquina alvo.
-2. Execute `setup.bat` (ou `npx playwright install chromium`) se o navegador Chromium do Playwright ainda não estiver instalado.
-3. Execute `run.bat` ou o executável `robot-docusigner-X.exe`.
+2. Execute `setup.bat` para baixar o navegador Chromium do Playwright e configurar a inicialização automática junto com o Windows.
+3. Execute `run.bat` ou o executável `robot-docusigner-X.exe` (ou reinicie o Windows).
 
 ## Como Gerar Novo Build do Executável (.exe)
 
