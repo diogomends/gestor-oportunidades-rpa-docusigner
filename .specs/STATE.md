@@ -447,6 +447,12 @@ O script de compilação `robot-standalone/build/build.js` e o comando `make bui
 
 ### [5.12.1] - 2026-08-07
 
+### [5.46.2] - 2026-08-25
+
+#### Adicionado
+
+- **Inicialização Automática com o Windows no Setup do Robô**: Adicionada etapa `[3/3]` em `robot/scripts/setup.bat` que registra a execução do `run.bat` no Registro do Windows (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`), garantindo que os robôs distribuídos iniciem automaticamente no boot/logon das máquinas dos agentes. Atualizados templates de documentação e README.
+
 ### [5.46.1] - 2026-08-24
 
 #### Corrigido

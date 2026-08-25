@@ -52,3 +52,7 @@ O robô RPA DocuSign precisa ser distribuído e executado localmente nas máquin
 - Tratar rigorosamente o `%ERRORLEVEL%` e testar conectividade se houver falha.
 - Salvar a saída das operações em `setup.log`.
 - Exibir feedback visual de status (`[SUCESSO] O robô está pronto para uso`) ou orientações claras em caso de falha.
+
+### [REQ-SMI-07] Inicialização Automática com o Windows no Setup
+- `setup.bat` deve cadastrar automaticamente a chave `DocuSignerRobot` apontando para o `run.bat` no Registro do Windows (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`), garantindo que o robô inicie no logon do usuário sem necessidade de configuração manual.
+- Tratar o `%ERRORLEVEL%` do comando `reg add` e registrar o resultado no log de instalação.

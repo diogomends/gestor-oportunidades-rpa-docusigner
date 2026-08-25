@@ -17,3 +17,4 @@
 - [x] **T-SMI-15**: Atualizar o pipeline de build e validar a execução do `setup.bat` nos diretórios gerados em `dist/`.
 - [x] **T-SMI-16**: Saneamento de resíduos legados (remoção de `pkg.config.json` e `config.json.example`, e restrição de fallback do `config.js` exclusivamente ao `NODE_ENV=development`).
 - [x] **T-SMI-17**: Patch no `coreBundle.js` da distribuição `node_modules/playwright-core` no pipeline `robot/build/build.js` para aplicar shim seguro do `node:inspector` evitando `ERR_INSPECTOR_NOT_AVAILABLE` no runtime empacotado.
+- [x] **T-SMI-18**: Inclusão de registro automático de inicialização com o Windows (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`) no script `robot/scripts/setup.bat` e atualização do template de documentação `README.txt`.
