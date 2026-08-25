@@ -9,6 +9,7 @@ import {
   loginAndSaveSession,
   getOrRefreshSession,
   invalidateSession,
+  MFA_TIMEOUT,
 } from "./robotSession.js";
 
 describe("robotSession Service", () => {
@@ -183,6 +184,91 @@ describe("robotSession Service", () => {
       assert.deepStrictEqual(savedSessionArgs.update.cookies, mockCookies);
       assert.strictEqual(savedSessionArgs.update.userAgent, "MockUserAgent/1.0");
       assert.strictEqual(result.email, credentials.email);
+    });
+
+    describe("etapa MFA/OTP", () => {
+      const mfaSelectors = { mfa: "#otp-input" };
+      const baseCredentials = { email: "robot@docusign.com", password: "SecretPassword123" };
+      const mockContext = { cookies: async () => [{ name: "c", value: "v" }] };
+
+      it("lanca erro MFA_REQUIRED quando tela MFA aparece sem otpCode", async () => {
+        let screenshotCaptured = false;
+        const mockPage = {
+          url: () => "https://account.docusign.com/login",
+          goto: async () => {},
+          fill: async () => {},
+          click: async () => {},
+          waitForSelector: async (sel) => (sel === "#otp-input" ? {} : null),
+          screenshot: async () => {
+            screenshotCaptured = true;
+          },
+        };
+
+        await assert.rejects(
+          async () => {
+            await loginAndSaveSession(mockPage, mockContext, baseCredentials, mfaSelectors);
+          },
+          (err) =>
+            err.code === "MFA_REQUIRED" &&
+            err.message.includes("código de segurança")
+        );
+        assert.strictEqual(screenshotCaptured, true);
+      });
+
+      it("preenche e submete otpCode com timeout estendido quando tela MFA aparece", async () => {
+        let currentUrl = "https://account.docusign.com/login";
+        let otpFilled = false;
+        let recordedTimeout = null;
+        const actions = [];
+        const mockPage = {
+          url: () => currentUrl,
+          fill: async (sel, val) => {
+            actions.push(`fill:${sel}:${val}`);
+            if (sel === "#otp-input") otpFilled = true;
+          },
+          click: async (sel) => {
+            actions.push(`click:${sel}`);
+            if (otpFilled) currentUrl = "https://app.local/home";
+          },
+          waitForSelector: async (sel) =>
+            sel === "#otp-input" && !otpFilled ? {} : null,
+          waitForURL: async (_fn, opts) => {
+            recordedTimeout = opts.timeout;
+          },
+          evaluate: async () => "UA",
+        };
+
+        mock.method(RobotSession, "findOneAndUpdate", async (_query, update) => update);
+
+        const result = await loginAndSaveSession(mockPage, mockContext, { ...baseCredentials, otpCode: "123456" }, mfaSelectors);
+
+        assert.ok(actions.includes("fill:#otp-input:123456"));
+        assert.strictEqual(recordedTimeout, MFA_TIMEOUT);
+        assert.strictEqual(result.email, baseCredentials.email);
+      });
+
+      it("lanca erro OTP_INVALID quando o codigo informado é rejeitado ou expira", async () => {
+        let screenshotCaptured = false;
+        const mockPage = {
+          url: () => "https://account.docusign.com/login",
+          goto: async () => {},
+          fill: async () => {},
+          click: async () => {},
+          waitForSelector: async (sel) => (sel === "#otp-input" ? {} : null),
+          waitForURL: async () => {},
+          screenshot: async () => {
+            screenshotCaptured = true;
+          },
+        };
+
+        await assert.rejects(
+          async () => {
+            await loginAndSaveSession(mockPage, mockContext, { ...baseCredentials, otpCode: "999999" }, mfaSelectors);
+          },
+          (err) => err.code === "OTP_INVALID"
+        );
+        assert.strictEqual(screenshotCaptured, true);
+      });
     });
 
     describe("regression: error propagation", () => {

@@ -369,6 +369,16 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
 
       assert.ok(res.body.message || res.body.error);
     });
+
+    it("deve retornar 400 quando otpCode não tem exatamente 6 dígitos numéricos", async () => {
+      const res = await request(app)
+        .post("/api/robot-docusign/test-login")
+        .set("Authorization", `Bearer ${tokenAdmin}`)
+        .send({ otpCode: "12ab6" })
+        .expect(400);
+
+      assert.ok(res.body.details.some((d) => d.path?.includes("otpCode") || d.message.includes("otpCode")));
+    });
   });
 
   describe("GET /api/robot-docusign/queue", () => {

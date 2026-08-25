@@ -447,6 +447,12 @@ O script de compilação `robot-standalone/build/build.js` e o comando `make bui
 
 ### [5.12.1] - 2026-08-07
 
+### [5.47.0] - 2026-08-25
+
+#### Adicionado
+
+- **Suporte a Código OTP/MFA no test-login (T15)**: `POST /api/robot-docusign/test-login` agora aceita `otpCode` opcional (6 dígitos, validação Zod) enviado pelo frontend do `gestor-oportunidades` (input `id="docusignOtpCode"`, PR #461). Em `robotSession.js`, a etapa pós-senha detecta a tela MFA/2FA do DocuSign via `Promise.race` (input MFA vs navegação — sem atraso em logins sem MFA) com timeout estendido `MFA_TIMEOUT` (90s): preenche e submete o código quando informado. Erros específicos propagados ao controller: **401 `{ "error": "MFA_REQUIRED" }`** (tela MFA sem código) e **401 `{ "error": "OTP_INVALID" }`** (código rejeitado/expirado). Arquivos: `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `backend/src/modules/robot-docusign/services/robotSession.js` + testes unitários/integração. Pendente: merge na `main` para deploy via GitHub Actions.
+
 ### [5.46.2] - 2026-08-25
 
 #### Adicionado
