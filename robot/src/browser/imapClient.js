@@ -82,6 +82,20 @@ export function extractMfaCodeFromText(text) {
 }
 
 /**
+ * Formata um objeto Date no padrão aceito pelo protocolo IMAP (DD-Mon-YYYY).
+ * Ex: 27-Aug-2026
+ * @param {Date} [date] - Data de referência.
+ * @returns {string} Data formatada no padrão RFC 3501.
+ */
+export function formatImapDate(date = new Date()) {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+/**
  * Cliente IMAP nativo em socket TCP/TLS sem dependências externas.
  */
 export class ImapClient {
@@ -153,6 +167,7 @@ export class ImapClient {
 
   /**
    * Envia um comando IMAP com tag única e aguarda a resposta final com a mesma tag.
+   * Possui tratamento imediato de desconexão e encerramento de socket sem reter timeout.
    * @param {string} command - Comando IMAP (sem a tag).
    * @returns {Promise<{ tag: string, response: string, raw: string }>}
    */
@@ -168,26 +183,48 @@ export class ImapClient {
     return new Promise((resolve, reject) => {
       let cmdBuffer = "";
       const timer = setTimeout(() => {
+        cleanup();
         reject(new Error(`Timeout aguardando resposta do comando IMAP: ${command}`));
       }, this.timeout);
+
+      const cleanup = () => {
+        clearTimeout(timer);
+        if (this.socket) {
+          this.socket.off("data", onData);
+          this.socket.off("error", onError);
+          this.socket.off("close", onClose);
+        }
+      };
+
+      const onError = (err) => {
+        cleanup();
+        reject(new Error(`Erro no socket durante comando IMAP (${command}): ${err.message}`));
+      };
+
+      const onClose = () => {
+        cleanup();
+        reject(new Error(`Socket IMAP fechado inesperadamente durante comando: ${command}`));
+      };
 
       const onData = (chunk) => {
         cmdBuffer += chunk;
         const tagPattern = new RegExp(`^${tag}\\s+(OK|NO|BAD)`, "m");
         if (tagPattern.test(cmdBuffer)) {
-          clearTimeout(timer);
-          this.socket.off("data", onData);
+          cleanup();
           resolve({ tag, raw: cmdBuffer });
         }
       };
 
       this.socket.on("data", onData);
+      this.socket.on("error", onError);
+      this.socket.on("close", onClose);
       this.socket.write(fullCommand);
     });
   }
 
   /**
    * Executa o fluxo de autenticação, seleção da caixa e extração do código MFA.
+   * Utiliza filtro temporal SINCE para priorizar mensagens do dia corrente e evitar processamento desnecessário.
    * @param {string} email - Usuário/Email IMAP.
    * @param {string} password - Senha da conta.
    * @returns {Promise<string|null>} Código extraído ou null.
@@ -205,9 +242,31 @@ export class ImapClient {
       throw new Error(`Falha ao selecionar INBOX: ${selectRes.raw.trim()}`);
     }
 
-    // 3. UID SEARCH (busca não lidos ou todos)
-    let searchRes = await this.sendCommand('UID SEARCH UNSEEN SUBJECT "Verificar"');
+    // 3. UID SEARCH com critério temporal SINCE do dia atual
+    const todaySince = formatImapDate();
+    let searchRes = await this.sendCommand(`UID SEARCH UNSEEN SINCE ${todaySince} SUBJECT "Verificar"`);
     let uids = this.parseUidsFromSearch(searchRes.raw);
+
+    if (uids.length === 0) {
+      searchRes = await this.sendCommand(`UID SEARCH UNSEEN SINCE ${todaySince}`);
+      uids = this.parseUidsFromSearch(searchRes.raw);
+    }
+
+    if (uids.length === 0) {
+      searchRes = await this.sendCommand(`UID SEARCH ALL SINCE ${todaySince} SUBJECT "Verificar"`);
+      uids = this.parseUidsFromSearch(searchRes.raw);
+    }
+
+    if (uids.length === 0) {
+      searchRes = await this.sendCommand(`UID SEARCH ALL SINCE ${todaySince}`);
+      uids = this.parseUidsFromSearch(searchRes.raw);
+    }
+
+    // Fallback de compatibilidade caso fuso horário ou servidores não correspondam ao SINCE
+    if (uids.length === 0) {
+      searchRes = await this.sendCommand('UID SEARCH UNSEEN SUBJECT "Verificar"');
+      uids = this.parseUidsFromSearch(searchRes.raw);
+    }
 
     if (uids.length === 0) {
       searchRes = await this.sendCommand("UID SEARCH UNSEEN");
@@ -272,10 +331,10 @@ export class ImapClient {
 }
 
 /**
- * Função utilitária com polling para buscar o código MFA via IMAP.
+ * Função utilitária com polling e backoff adaptativo para buscar o código MFA via IMAP.
  *
  * @param {Object} mailCredentials - Objeto { email, password, host, port, tls }.
- * @param {Object} [options] - Opções { maxWaitMs, pollIntervalMs }.
+ * @param {Object} [options] - Opções { maxWaitMs, pollIntervalMs, backoffFactor, maxPollIntervalMs }.
  * @returns {Promise<string|null>} Código de 6 dígitos ou null.
  */
 export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
@@ -290,7 +349,9 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
   const port = Number(mailCredentials?.port) || 993;
   const tlsEnabled = mailCredentials?.tls !== false;
   const maxWaitMs = options.maxWaitMs || 30000;
-  const pollIntervalMs = options.pollIntervalMs || 2500;
+  let currentIntervalMs = options.pollIntervalMs || 2500;
+  const backoffFactor = options.backoffFactor || 1.25;
+  const maxPollIntervalMs = options.maxPollIntervalMs || 6000;
 
   const startedAt = Date.now();
 
@@ -316,7 +377,13 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
       console.warn(`[IMAP] Tentativa de consulta IMAP falhou (${err.message}). Aguardando próximo ciclo...`);
     }
 
-    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    const remainingMs = maxWaitMs - (Date.now() - startedAt);
+    if (remainingMs <= 0) break;
+
+    const waitTime = Math.min(currentIntervalMs, remainingMs);
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
+
+    currentIntervalMs = Math.min(Math.round(currentIntervalMs * backoffFactor), maxPollIntervalMs);
   }
 
   return null;
@@ -326,6 +393,7 @@ export default {
   decodeQuotedPrintable,
   decodeBase64,
   extractMfaCodeFromText,
+  formatImapDate,
   ImapClient,
   fetchMfaCodeViaImap,
 };

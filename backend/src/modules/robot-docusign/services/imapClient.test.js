@@ -5,11 +5,20 @@ import {
   decodeQuotedPrintable,
   decodeBase64,
   extractMfaCodeFromText,
+  formatImapDate,
   ImapClient,
   fetchMfaCodeViaImap,
 } from "../../../../../robot/src/browser/imapClient.js";
 
 describe("IMAP MFA Client Unit & Regression Tests", () => {
+  describe("formatImapDate", () => {
+    it("deve formatar data no padrão RFC 3501 (DD-Mon-YYYY)", () => {
+      const fixedDate = new Date(2026, 7, 27); // 27 de Agosto de 2026
+      const formatted = formatImapDate(fixedDate);
+      assert.equal(formatted, "27-Aug-2026");
+    });
+  });
+
   describe("decodeQuotedPrintable", () => {
     it("deve decodificar quebras suaves de linha (soft line breaks)", () => {
       const input = "Seu c=\r\nódigo de veri=\nficação";
@@ -82,9 +91,63 @@ describe("IMAP MFA Client Unit & Regression Tests", () => {
     });
   });
 
+  describe("ImapClient Socket Error & Drop Resilience", () => {
+    let crashServer = null;
+    let crashPort = 0;
+
+    before(async () => {
+      await new Promise((resolve) => {
+        crashServer = net.createServer((socket) => {
+          socket.setEncoding("utf8");
+          socket.write("* OK Mock Server Ready\r\n");
+
+          socket.on("data", (data) => {
+            // Fecha abruptamente na primeira mensagem recebida
+            socket.destroy();
+          });
+        });
+
+        crashServer.listen(0, "127.0.0.1", () => {
+          crashPort = crashServer.address().port;
+          resolve();
+        });
+      });
+    });
+
+    after(async () => {
+      if (crashServer) {
+        await new Promise((resolve) => crashServer.close(resolve));
+      }
+    });
+
+    it("deve rejeitar sendCommand imediatamente se o socket fechar sem aguardar timeout", async () => {
+      const client = new ImapClient({
+        host: "127.0.0.1",
+        port: crashPort,
+        tls: false,
+        timeout: 10000,
+      });
+
+      await client.connect();
+
+      const startTime = Date.now();
+      await assert.rejects(
+        async () => {
+          await client.sendCommand("LOGIN test test");
+        },
+        /Socket IMAP fechado|Erro no socket/
+      );
+
+      const elapsed = Date.now() - startTime;
+      assert.ok(elapsed < 2000, `Deveria rejeitar imediatamente em < 2s, mas levou ${elapsed}ms`);
+      client.close();
+    });
+  });
+
   describe("ImapClient Socket Dialogue (Mock Server)", () => {
     let server = null;
     let serverPort = 0;
+    const receivedCommands = [];
 
     before(async () => {
       await new Promise((resolve) => {
@@ -95,6 +158,7 @@ describe("IMAP MFA Client Unit & Regression Tests", () => {
           socket.on("data", (data) => {
             const lines = data.split("\r\n").filter(Boolean);
             for (const line of lines) {
+              receivedCommands.push(line);
               const parts = line.split(" ");
               const tag = parts[0];
               const cmd = parts[1]?.toUpperCase();
@@ -155,9 +219,11 @@ describe("IMAP MFA Client Unit & Regression Tests", () => {
       client.close();
 
       assert.equal(code, "582914");
+      const searchWithSince = receivedCommands.some((c) => c.includes("UID SEARCH") && c.includes("SINCE"));
+      assert.ok(searchWithSince, "Deveria ter enviado UID SEARCH contendo filtro SINCE");
     });
 
-    it("fetchMfaCodeViaImap deve polling e retornar código com sucesso", async () => {
+    it("fetchMfaCodeViaImap deve polling e retornar código com sucesso com backoff adaptativo", async () => {
       const code = await fetchMfaCodeViaImap(
         {
           email: "test@unitynordeste.com.br",
@@ -166,7 +232,7 @@ describe("IMAP MFA Client Unit & Regression Tests", () => {
           port: serverPort,
           tls: false,
         },
-        { maxWaitMs: 3000, pollIntervalMs: 500 }
+        { maxWaitMs: 3000, pollIntervalMs: 500, backoffFactor: 1.2 }
       );
 
       assert.equal(code, "582914");
