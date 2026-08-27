@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import selectors from "./selectors.js";
+import { fetchMfaCodeFromRoundcube } from "./roundcube.js";
 
 /**
  * Aplica um delay randômico entre ações para anti-detecção de bots.
@@ -50,9 +51,39 @@ export async function ensureAuthenticated(page, credentials) {
     await randomDelay(500, 1000);
     await page.keyboard.press("Enter");
 
-    // Aguarda redirecionamento pós-login
-    await page.waitForNavigation({ waitUntil: "networkidle", timeout: 45000 }).catch(() => {});
-    await randomDelay(2000, 4000);
+    // Aguarda potencial tela de MFA ou redirecionamento direto
+    await randomDelay(2000, 3500);
+
+    const mfaSel = selectors.mfa || {};
+    const mfaInput = await page.$(mfaSel.input || "input[type='tel']").catch(() => null);
+
+    if (mfaInput) {
+      console.log("[Browser] Tela de MFA/2FA detectada. Buscando código no Webmail Roundcube...");
+      const mailCreds = credentials.token_notification_email || credentials;
+      const otpCode = await fetchMfaCodeFromRoundcube(page.context(), mailCreds);
+
+      if (!otpCode) {
+        throw new Error("DocuSign solicitou código MFA, mas não foi possível extrair o código de segurança do Webmail.");
+      }
+
+      console.log(`[Browser] Preenchendo código MFA: ${otpCode}...`);
+      await page.fill(mfaSel.input || "input[type='tel']", otpCode);
+      await randomDelay(500, 1000);
+
+      const verifyBtn = await page.$(mfaSel.verify_button).catch(() => null);
+      if (verifyBtn) {
+        await verifyBtn.click();
+      } else {
+        await page.keyboard.press("Enter");
+      }
+
+      await page.waitForNavigation({ waitUntil: "networkidle", timeout: 90000 }).catch(() => {});
+      await randomDelay(2000, 4000);
+    } else {
+      // Aguarda redirecionamento normal pós-login
+      await page.waitForNavigation({ waitUntil: "networkidle", timeout: 45000 }).catch(() => {});
+      await randomDelay(2000, 4000);
+    }
 
     console.log("[Browser] Login efetuado com sucesso.");
   }

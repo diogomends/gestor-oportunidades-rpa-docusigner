@@ -246,6 +246,10 @@ export const getInstanceConfig = async (req, res) => {
         email: robotConfig.credentials?.email || "",
         password: robotConfig.credentials?.password || "",
       },
+      token_notification_email: {
+        email: robotConfig.token_notification_email?.email || "",
+        password: robotConfig.token_notification_email?.password || "",
+      },
       limits: robotConfig.limits || { max_concurrent: 3 },
       retry: robotConfig.retry || { maxAttempts: 3, baseDelayMs: 2000 },
     });
@@ -403,7 +407,11 @@ export const getNextJob = async (req, res) => {
       subject: `Contrato de Adesão - ${contract?.client?.razaoSocial || "Cliente"}`,
       message: "Prezado cliente, segue o contrato para assinatura eletrônica.",
       pdfUrl,
-      credentials: config.credentials,
+      credentials: {
+        ...(config.credentials || {}),
+        token_notification_email: config.token_notification_email,
+      },
+      token_notification_email: config.token_notification_email,
     };
 
     // Atualiza status da instância
