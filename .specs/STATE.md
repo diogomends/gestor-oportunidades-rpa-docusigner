@@ -116,6 +116,15 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
+### [5.50.0] - Planned
+
+#### Planejado
+- **Hardening, Resiliência e Otimização do Cliente IMAP Nativo (T18)**:
+  - Implementar tratamento instantâneo de erros e fechamento de conexão no `sendCommand` do `ImapClient`.
+  - Configurar polling com backoff adaptativo e reuso de sessão no `fetchMfaCodeViaImap` para mitigar bloqueios por rate-limit de autenticação.
+  - Adicionar critério temporal `SINCE <DD-Mon-YYYY>` na busca `UID SEARCH` do protocolo IMAP para limitar o escopo ao dia corrente.
+  - Expandir testes unitários de resiliência com simulação de queda de socket e desconexão prematura.
+
 ### [5.49.0] - 2026-08-27
 
 #### Adicionado / Aprimorado
