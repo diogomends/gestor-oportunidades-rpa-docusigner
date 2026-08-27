@@ -33,13 +33,13 @@ if "!CHROMIUM_FOUND!"=="1" (
     echo [INFO] Executando: npx playwright install chromium >> "!LOG_FILE!"
 
     npx playwright install chromium >> "!LOG_FILE!" 2>&1
-    if %ERRORLEVEL% NEQ 0 (
+    if !ERRORLEVEL! NEQ 0 (
         echo.
-        echo [ERRO] Falha ao instalar o Chromium via Playwright (Codigo de erro: %ERRORLEVEL%).
-        echo [ERRO] Falha ao instalar o Chromium via Playwright (Codigo: %ERRORLEVEL%) >> "!LOG_FILE!"
+        echo [ERRO] Falha ao instalar o Chromium via Playwright - Codigo de erro: !ERRORLEVEL!
+        echo [ERRO] Falha ao instalar o Chromium via Playwright - Codigo de erro: !ERRORLEVEL! >> "!LOG_FILE!"
         echo [INFO] Testando conectividade com a internet...
         ping -n 1 8.8.8.8 > nul 2>&1
-        if %ERRORLEVEL% NEQ 0 (
+        if !ERRORLEVEL! NEQ 0 (
             echo [ALERTA] Falha de conexao com a internet. Verifique sua rede e proxy.
             echo [ALERTA] Falha no teste de ping para 8.8.8.8 >> "!LOG_FILE!"
         ) else (
@@ -68,11 +68,11 @@ echo [INFO] Configurando chave de inicializacao no Registro HKCU... >> "!LOG_FIL
 set "RUN_BAT=%~dp0run.bat"
 if exist "!RUN_BAT!" (
     reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "DocuSignerRobot" /t REG_SZ /d "\"!RUN_BAT!\"" /f >> "!LOG_FILE!" 2>&1
-    if %ERRORLEVEL% EQU 0 (
+    if !ERRORLEVEL! EQU 0 (
         echo [SUCESSO] Inicializacao automatica com o Windows configurada com sucesso.
         echo [SUCESSO] Registro HKCU atualizado com "!RUN_BAT!" >> "!LOG_FILE!"
     ) else (
-        echo [ALERTA] Nao foi possivel registrar a inicializacao automatica no Registro (Codigo: %ERRORLEVEL%).
+        echo [ALERTA] Nao foi possivel registrar a inicializacao automatica no Registro - Codigo: !ERRORLEVEL!.
         echo [ALERTA] Falha ao registrar chave no Registro >> "!LOG_FILE!"
     )
 ) else (
