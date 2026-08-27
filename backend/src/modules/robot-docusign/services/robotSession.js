@@ -285,7 +285,13 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
         if (typeof page.fill === "function") {
           await page.fill(mfaSelector, otpCode);
           if (typeof page.click === "function") {
-            await page.click(submitSelector);
+            const mfaVerifySelector =
+              selectors.mfa?.verify_button ||
+              selectors.verify_button ||
+              'button[data-qa="verify-code"], button:has-text("Verify"), button[data-testid="mfa-submit"], button[type="submit"]';
+            await page.click(mfaVerifySelector).catch(async () => {
+              await page.click(submitSelector);
+            });
           }
         }
       }
