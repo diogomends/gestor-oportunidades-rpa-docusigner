@@ -594,6 +594,10 @@ export async function trigger(contractOrId, action = "send", options = {}) {
   return await executeJob(contractOrId, action, options);
 }
 
+/**
+ * Exportação padrão do orquestrador do robô.
+ * @type {{DEFAULT_ROBOT_DOCUSIGN_CONFIG: object, getRobotConfig: function, shouldUseRobot: function, calculateRetryDelay: function, calculateNextRetryAt: function, executeJob: function, trigger: function, robotEvents: import("events").EventEmitter}}
+ */
 export default {
   DEFAULT_ROBOT_DOCUSIGN_CONFIG,
   getRobotConfig,

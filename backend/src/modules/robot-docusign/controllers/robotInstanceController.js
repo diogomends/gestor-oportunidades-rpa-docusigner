@@ -223,6 +223,9 @@ export const authenticateInstance = async (req, res) => {
 
 /**
  * Obtém as configurações de agendamento, horário e limites do sistema.
+ * @param {import("express").Request} req - Requisição Express.
+ * @param {import("express").Response} res - Resposta Express.
+ * @returns {Promise<import("express").Response>} JSON com enabled, mode, schedule e credenciais.
  */
 export const getInstanceConfig = async (req, res) => {
   try {
@@ -264,6 +267,9 @@ export const getInstanceConfig = async (req, res) => {
 
 /**
  * Busca de forma atômica o próximo job da fila para processamento.
+ * @param {import("express").Request} req - Requisição Express (query/body instance_id).
+ * @param {import("express").Response} res - Resposta Express.
+ * @returns {Promise<import("express").Response>} Payload do job ou flag hasJob:false.
  */
 export const getNextJob = async (req, res) => {
   try {
@@ -432,6 +438,9 @@ export const getNextJob = async (req, res) => {
 
 /**
  * Atualiza o status e logs de um job em execução.
+ * @param {import("express").Request} req - Requisição Express (params jobId, body status/step).
+ * @param {import("express").Response} res - Resposta Express.
+ * @returns {Promise<import("express").Response>} Job atualizado.
  */
 export const updateJobStatus = async (req, res) => {
   try {
@@ -530,6 +539,9 @@ export const updateJobStatus = async (req, res) => {
 
 /**
  * Registra o heartbeat periódico da instância standalone.
+ * @param {import("express").Request} req - Requisição Express (body instance_id, status).
+ * @param {import("express").Response} res - Resposta Express.
+ * @returns {Promise<import("express").Response>} Instância com last_heartbeat.
  */
 export const registerHeartbeat = async (req, res) => {
   try {
@@ -572,6 +584,9 @@ export const registerHeartbeat = async (req, res) => {
 
 /**
  * Faz stream do arquivo PDF do contrato para o robô anexar na DocuSign.
+ * @param {import("express").Request} req - Requisição Express (params contractId).
+ * @param {import("express").Response} res - Resposta Express.
+ * @returns {Promise<void>} Pipe do PDF ou JSON de erro.
  */
 export const downloadContractPdf = async (req, res) => {
   try {
@@ -606,6 +621,9 @@ export const downloadContractPdf = async (req, res) => {
 
 /**
  * Lista todas as instâncias registradas do robô.
+ * @param {import("express").Request} req - Requisição Express.
+ * @param {import("express").Response} res - Resposta Express.
+ * @returns {Promise<import("express").Response>} Lista de instâncias.
  */
 export const getAllInstances = async (req, res) => {
   try {
@@ -632,6 +650,10 @@ export const getAllInstances = async (req, res) => {
   }
 };
 
+/**
+ * Exportação padrão dos handlers de instância do robô.
+ * @type {{authenticateInstance: function, getInstanceConfig: function, getNextJob: function, updateJobStatus: function, registerHeartbeat: function, downloadContractPdf: function, getAllInstances: function}}
+ */
 export default {
   authenticateInstance,
   getInstanceConfig,

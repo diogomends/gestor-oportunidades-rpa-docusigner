@@ -6,6 +6,9 @@ import { fetchMfaCodeViaImap } from "./imapClient.js";
 
 /**
  * Aplica um delay randômico entre ações para anti-detecção de bots.
+ * @param {number} [minMs=800] - Tempo mínimo em milissegundos.
+ * @param {number} [maxMs=2000] - Tempo máximo em milissegundos.
+ * @returns {Promise<void>} Promise resolvida após o delay.
  */
 export async function randomDelay(minMs = 800, maxMs = 2000) {
   const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
@@ -14,6 +17,11 @@ export async function randomDelay(minMs = 800, maxMs = 2000) {
 
 /**
  * Garante que a página do Playwright está autenticada na DocuSign.
+ * @param {import('playwright').Page} page - Instância da página Playwright.
+ * @param {Object} credentials - Credenciais DocuSign ({ email, password, token_notification_email }).
+ * @param {string} credentials.email - E-mail de login DocuSign.
+ * @param {string} credentials.password - Senha de login DocuSign.
+ * @returns {Promise<void>} Resolve quando a autenticação (incluindo MFA) for concluída.
  */
 export async function ensureAuthenticated(page, credentials) {
   const baseUrl = selectors.baseUrl || "https://app.docusign.com";
@@ -108,6 +116,15 @@ export async function ensureAuthenticated(page, credentials) {
 
 /**
  * Envia um envelope de contrato para assinatura na UI DocuSign.
+ * @param {import('playwright').Page} page - Instância da página Playwright autenticada.
+ * @param {Object} envelopeData - Dados do envelope.
+ * @param {string} envelopeData.recipientName - Nome do destinatário.
+ * @param {string} envelopeData.recipientEmail - E-mail do destinatário.
+ * @param {string} [envelopeData.subject] - Assunto do e-mail.
+ * @param {string} [envelopeData.message] - Mensagem do e-mail.
+ * @param {string} envelopeData.pdfPath - Caminho local do PDF do contrato.
+ * @param {Object} envelopeData.credentials - Credenciais DocuSign para autenticação.
+ * @returns {Promise<{envelopeId: string, recipientName: string, recipientEmail: string, status: string, sentAt: string}>} Resultado do envio.
  */
 export async function sendEnvelope(page, envelopeData) {
   const { recipientName, recipientEmail, subject, message, pdfPath, credentials } = envelopeData;
@@ -173,6 +190,10 @@ export async function sendEnvelope(page, envelopeData) {
 
 /**
  * Consulta o status de um envelope existente.
+ * @param {import('playwright').Page} page - Instância da página Playwright autenticada.
+ * @param {string} envelopeId - Identificador do envelope DocuSign.
+ * @param {Object} credentials - Credenciais DocuSign para autenticação.
+ * @returns {Promise<{envelopeId: string, status: string, checkedAt: string}>} Status atual do envelope.
  */
 export async function checkEnvelopeStatus(page, envelopeId, credentials) {
   await ensureAuthenticated(page, credentials);

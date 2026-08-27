@@ -1,5 +1,7 @@
 /**
  * Seletores centralizados para a interface web da DocuSign.
+ * Centraliza seletores CSS/data-testid para login, envio, status, MFA e Roundcube.
+ * @type {{baseUrl: string, login: Object, dashboard: Object, send: Object, status: Object, download: Object, resend: Object, mfa: Object, roundcube: Object}}
  */
 export const selectors = {
   baseUrl: "https://app.docusign.com",

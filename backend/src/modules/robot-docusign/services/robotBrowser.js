@@ -340,6 +340,10 @@ export async function withRetry(operationFn, maxRetries = 3, delayMs = 1000) {
   throw lastError;
 }
 
+/**
+ * Exportação padrão das operações Playwright do robô.
+ * @type {{send: function, status: function, download: function, resend: function, reports: function, withRetry: function}}
+ */
 export default {
   send,
   status,

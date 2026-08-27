@@ -2,6 +2,13 @@
  * Scheduler em loop para busca e processamento contínuo de jobs na máquina do agente.
  */
 export class Scheduler {
+  /**
+   * Cria uma instância do Scheduler.
+   * @param {import('./api-client.js').ApiClient} apiClient - Cliente da API central.
+   * @param {import('./job-runner.js').JobRunner} jobRunner - Executor de jobs Playwright.
+   * @param {Object} [initialConfig={}] - Configuração inicial ({ enabled, isAllowedNow }).
+   * @param {number} [pollIntervalSeconds=15] - Intervalo de polling em segundos.
+   */
   constructor(apiClient, jobRunner, initialConfig = {}, pollIntervalSeconds = 15) {
     this.api = apiClient;
     this.runner = jobRunner;
@@ -13,7 +20,8 @@ export class Scheduler {
   }
 
   /**
-   * Inicia o scheduler.
+   * Inicia o loop de polling e o heartbeat periódico.
+   * @returns {Promise<void>} Resolve quando o loop é interrompido via stop().
    */
   async start() {
     this.running = true;
@@ -40,7 +48,8 @@ export class Scheduler {
   }
 
   /**
-   * Executa um ciclo de verificação.
+   * Executa um ciclo de verificação: atualiza config, busca e processa próximo job.
+   * @returns {Promise<void>} Resolve ao final do ciclo (sem job ou após processar um job).
    */
   async tick() {
     // 1. Atualiza configuração e horários
@@ -84,7 +93,8 @@ export class Scheduler {
   }
 
   /**
-   * Para o loop do agendador.
+   * Para o loop do agendador e limpa o timer de heartbeat.
+   * @returns {void}
    */
   stop() {
     this.running = false;

@@ -13,6 +13,7 @@ const JSC_DIR = path.join(ROOT_DIR, "dist-jsc");
 
 /**
  * Lê o arquivo .env.dev ou .env na raiz do projeto.
+ * @returns {Object<string,string>} Objeto chave-valor com variáveis carregadas.
  */
 function loadRootEnv() {
   const candidatePaths = [
@@ -43,7 +44,8 @@ function loadRootEnv() {
 }
 
 /**
- * Parse CLI args suportando argumentos posicionais, --flag "val" e flags vazias
+ * Parse CLI args suportando argumentos posicionais, --flag "val" e flags vazias.
+ * @returns {{key: string, headless: boolean|null, apiUrl: string}} Argumentos parseados.
  */
 function parseArgs() {
   const rawArgs = process.argv.slice(2);
@@ -86,7 +88,8 @@ function parseArgs() {
 
 /**
  * Coleta todas as ROBOT_API_KEY_* do env (ex: ROBOT_API_KEY_1, ROBOT_API_KEY_2, ...).
- * Retorna array ordenado por índice: [{ index: 1, key: "rf_..." }, ...]
+ * @param {Object<string,string>} rootEnv - Objeto de variáveis de ambiente carregadas.
+ * @returns {{index: number, key: string}[]} Array ordenado por índice com chaves detectadas.
  */
 function resolveAllKeys(rootEnv) {
   const keys = [];
@@ -157,7 +160,12 @@ for (const dir of [DIST_DIR, BUNDLE_DIR, OBF_DIR, JSC_DIR]) {
 }
 
 /**
- * Pipeline de build para uma única chave.
+ * Pipeline de build para uma única chave (bundle → ofuscação → pkg → cópia Playwright).
+ * @param {Object} params - Parâmetros do build.
+ * @param {string} params.buildKey - Chave de API a embutir no binário.
+ * @param {number} params.index - Índice da chave no lote.
+ * @param {number} params.total - Total de chaves no lote.
+ * @returns {Promise<{exe: string}>} Caminho do executável gerado.
  */
 async function buildForOneKey({ buildKey, index, total }) {
   const tag = total > 1 ? `-${index}` : "";
@@ -291,6 +299,10 @@ async function buildForOneKey({ buildKey, index, total }) {
   return { exe: exeOut };
 }
 
+/**
+ * Orquestra o pipeline de build para todas as chaves detectadas e exibe resumo.
+ * @returns {Promise<void>} Resolve ao concluir todos os builds.
+ */
 // ── Execução ──
 async function main() {
   const results = [];

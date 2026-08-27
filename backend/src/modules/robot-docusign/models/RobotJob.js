@@ -158,5 +158,13 @@ robotJobSchema.pre("save", function (next) {
 });
 
 const conn = getContractsConnection();
+/**
+ * Model Mongoose para jobs do robô DocuSign (collection: robot_jobs).
+ * @type {import('mongoose').Model}
+ */
 export const RobotJob = conn.models.RobotJob || conn.model("RobotJob", robotJobSchema, "robot_jobs");
+/**
+ * Model padrão de RobotJob para import default.
+ * @type {import('mongoose').Model}
+ */
 export default RobotJob;

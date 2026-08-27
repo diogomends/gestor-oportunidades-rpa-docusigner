@@ -163,6 +163,10 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
   }
 }
 
+/**
+ * Exportação padrão do fallback Roundcube.
+ * @type {{fetchMfaCodeFromRoundcube: function}}
+ */
 export default {
   fetchMfaCodeFromRoundcube,
 };

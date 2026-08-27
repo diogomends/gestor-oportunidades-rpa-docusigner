@@ -20,6 +20,7 @@ if (typeof process !== "undefined" && process.versions && process.versions.node)
 /**
  * Carrega o Playwright dinamicamente a partir do diretório do executável (.exe)
  * ou do ambiente de execução atual, garantindo compatibilidade com o snapshot virtual do @yao-pkg/pkg.
+ * @returns {any} Módulo Playwright resolvido (playwright ou playwright-core).
  */
 function resolvePlaywright() {
   const candidateDirs = [
@@ -66,6 +67,10 @@ function resolvePlaywright() {
   }
 }
 
+/**
+ * Obtém a instância Chromium do Playwright resolvido.
+ * @returns {import('playwright').Chromium} Objeto chromium para launch.
+ */
 function getChromium() {
   const playwrightModule = resolvePlaywright();
   return playwrightModule.chromium || playwrightModule.default?.chromium || playwrightModule;
@@ -75,6 +80,12 @@ function getChromium() {
  * Executor isolado de tarefas Playwright com controle seguro de lifecycle e limpeza de disco.
  */
 export class JobRunner {
+  /**
+   * Cria uma instância do JobRunner.
+   * @param {import('./api-client.js').ApiClient} apiClient - Cliente da API central.
+   * @param {Object} [options={}] - Opções de execução.
+   * @param {boolean} [options.headless=true] - Se o navegador deve rodar em modo headless.
+   */
   constructor(apiClient, options = {}) {
     this.api = apiClient;
     this.headless = options.headless !== false;
@@ -82,8 +93,13 @@ export class JobRunner {
 
   /**
    * Executa um job específico da fila.
-   *
-   * @param {Object} job - Payload do job retornado por /api/robot-docusign/instance/next-job
+   * @param {Object} job - Payload do job retornado por /api/robot-docusign/instance/next-job.
+   * @param {string} job.jobId - Identificador do job.
+   * @param {string} job.contractId - Identificador do contrato.
+   * @param {string} job.action - Ação a executar (send | status).
+   * @param {string} [job.pdfUrl] - URL relativa do PDF (quando action=send).
+   * @param {Object} job.credentials - Credenciais DocuSign para autenticação.
+   * @returns {Promise<{success: boolean, result: any}>} Resultado da execução.
    */
   async processJob(job) {
     const { jobId, contractId, action, pdfUrl, credentials } = job;

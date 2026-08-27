@@ -143,6 +143,12 @@ Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variá
 - **Testes**: `node --test` nativo (sem Jest). Mocks via `node:test`. Supertest para integração. **Não rodar sem ser solicitado.**
 - **Idioma**: pt-BR em mensagens, commits e documentação.
 - **Commit**: sempre `--no-verify` em `git commit` e `git push`. Gerar comandos, nunca executar. Seguir `.agents/rules/commit.md`.
+- **JSDoc obrigatório**: Toda função, método ou classe criada/alterada DEVE ter JSDoc. Sem exceção.
+  - **Funções/métodos**: `@param {Tipo} nome - descrição`, `@returns {Tipo} descrição`, `@throws {Erro}` quando aplicável, `@async` se async.
+  - **Classes**: `@class Nome` + `@param` no `constructor`.
+  - **Models Mongoose**: `@typedef` para schema + `@type {import('mongoose').Model<Doc>}` no export.
+  - **Middlewares Express**: `@param {import('express').Request} req` / `@param {import('express').Response} res` / `@param {import('express').NextFunction} next`.
+  - **Constantes/config**: `@constant` + `@type {Tipo}`.
 
 ## .agents/rules
 

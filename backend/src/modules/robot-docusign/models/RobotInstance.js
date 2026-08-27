@@ -44,6 +44,10 @@ const robotInstanceSchema = new mongoose.Schema(
 );
 
 const conn = getContractsConnection();
+/**
+ * Model Mongoose para instâncias do robô DocuSign (collection: robot_instances).
+ * @type {import('mongoose').Model}
+ */
 export const RobotInstance =
   conn.models.RobotInstance || conn.model("RobotInstance", robotInstanceSchema, "robot_instances");
 export default RobotInstance;

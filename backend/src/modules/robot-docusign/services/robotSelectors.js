@@ -6,6 +6,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const jsonPath = path.resolve(__dirname, "../selectors/docusign-ui.json");
 
+/**
+ * Seletores padrão da interface DocuSign usados como fallback quando o JSON não existe.
+ * @type {Object}
+ */
 const defaultSelectors = {
   baseUrl: "https://app.docusign.com",
   login: {
