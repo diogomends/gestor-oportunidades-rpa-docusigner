@@ -116,6 +116,15 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
+### [5.51.0] - 2026-08-27
+
+#### Aprimorado / Otimizado (PonyTail M1-M4)
+- **Otimização PonyTail e Redução de Roundtrips no Cliente IMAP (T20)**:
+  - `robot/src/browser/imapClient.js` (M1): Reduzida a sequência de 8 comandos `UID SEARCH` para apenas 2 padrões (`SINCE <hoje>` com fallback direto `ALL`), delegando o filtro de assunto para a expressão regular local no cliente e poupando até 6 roundtrips IMAP por tentativa.
+  - `robot/src/browser/imapClient.js` (M2): Reuso ativo da mesma conexão/socket autenticado durante o loop de polling em `fetchMfaCodeViaImap`, evitando múltiplos logins repetidos no servidor Dovecot e prevenindo rate-limit de conexões por IP.
+  - `backend/src/modules/robot-docusign/services/imapClient.test.js` e `robot/src/browser/imapClient.test.js` (M3): Eliminada duplicidade de código de testes unitários mantendo `robot/.../imapClient.test.js` como fonte única da verdade e referenciada pelo backend.
+  - `robot/src/browser/imapClient.js` (M4): Alinhadas as constantes de polling com a especificação (`pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000`).
+
 ### [5.50.0] - 2026-08-27
 
 #### Adicionado / Aprimorado

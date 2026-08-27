@@ -635,6 +635,34 @@ A Task T17 implementou com sucesso a extração headless via protocolo IMAP dire
 
 ---
 
+### T20: Otimização PonyTail e Redução de Roundtrips IMAP
+
+- **Req**: REQ-MFA-IMAP-01, REQ-MFA-IMAP-02
+- **Status**: [x] Complete (2026-08-27)
+- **Esforço**: 1h | Paralelizável: Sim
+- **Depende de**: T18, T19
+
+**Contexto**:
+Aplicação dos princípios PonyTail para simplificação, remoção de overhead de roundtrips, eliminação de duplicação de testes e contenção de rate-limits no IMAP.
+
+**O quê**:
+1. **M1 (Redução de UID SEARCH)**: Redução de 8 consultas IMAP sequenciais para 2 padrões (`SINCE <data>` com fallback `ALL`), delegando a filtragem por regex para o cliente.
+2. **M2 (Reuso de Conexão IMAP)**: Manutenção do mesmo socket/sessão autenticada durante o loop de polling em `fetchMfaCodeViaImap`.
+3. **M3 (Eliminação de Duplicação de Testes)**: Manter `robot/src/browser/imapClient.test.js` como fonte da verdade e referenciar diretamente em `backend/src/modules/robot-docusign/services/imapClient.test.js`.
+4. **M4 (Alinhamento de Constantes)**: `pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000`.
+
+**Onde**:
+- `robot/src/browser/imapClient.js`
+- `robot/src/browser/imapClient.test.js`
+- `backend/src/modules/robot-docusign/services/imapClient.test.js`
+
+**Feito quando**:
+- [x] Roundtrips IMAP reduzidos significativamente por ciclo.
+- [x] Conexão IMAP é preservada e reutilizada entre tentativas de polling.
+- [x] Duplicação de suíte de testes eliminada sem quebrar `npm test`.
+
+---
+
 ## Riscos Identificados
 
 | Risco | Impacto | Mitigação |

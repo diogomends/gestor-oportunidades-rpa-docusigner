@@ -47,6 +47,12 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       const result = decodeQuotedPrintable(input);
       assert.equal(result, "Seu código de verificação da Docusign é: 987654");
     });
+
+    it("deve retornar string vazia para entrada nula ou inválida", () => {
+      assert.equal(decodeQuotedPrintable(null), "");
+      assert.equal(decodeQuotedPrintable(undefined), "");
+      assert.equal(decodeQuotedPrintable(""), "");
+    });
   });
 
   describe("decodeBase64", () => {
@@ -54,6 +60,11 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       const plain = "Seu código de verificação da Docusign é: 456789";
       const b64 = Buffer.from(plain, "utf8").toString("base64");
       assert.equal(decodeBase64(b64), plain);
+    });
+
+    it("deve retornar string vazia para entrada vazia ou inválida", () => {
+      assert.equal(decodeBase64(null), "");
+      assert.equal(decodeBase64(""), "");
     });
   });
 
@@ -68,9 +79,31 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       assert.equal(code, "849201");
     });
 
+    it("deve extrair código com variação sem acentuação", () => {
+      const emailBody = "Seu codigo de verificacao da Docusign e: 123456";
+      const code = extractMfaCodeFromText(emailBody);
+      assert.equal(code, "123456");
+    });
+
+    it("deve extrair código codificado em Quoted-Printable", () => {
+      const qpBody = "Seu c=C3=B3digo de verifica=C3=A7=C3=A3o da Docusign =C3=A9:=20=0D=0A741852";
+      const code = extractMfaCodeFromText(qpBody);
+      assert.equal(code, "741852");
+    });
+
+    it("deve extrair código embutido em bloco Base64", () => {
+      const innerText = "Your verification code: 369258";
+      const b64 = Buffer.from(innerText, "utf8").toString("base64");
+      const rawEmail = `Content-Transfer-Encoding: base64\r\n\r\n${b64}\r\n`;
+      const code = extractMfaCodeFromText(rawEmail);
+      assert.equal(code, "369258");
+    });
+
     it("deve retornar null se não encontrar código de 6 dígitos", () => {
       const emailBody = "Bem-vindo à DocuSign. Seu documento foi assinado com sucesso.";
       assert.equal(extractMfaCodeFromText(emailBody), null);
+      assert.equal(extractMfaCodeFromText(""), null);
+      assert.equal(extractMfaCodeFromText(null), null);
     });
   });
 
@@ -84,7 +117,7 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
           socket.setEncoding("utf8");
           socket.write("* OK Mock Server Ready\r\n");
 
-          socket.on("data", (data) => {
+          socket.on("data", () => {
             // Fecha abruptamente na primeira mensagem recebida
             socket.destroy();
           });
@@ -232,11 +265,27 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
 
       await client.connect();
       const code = await client.fetchLatestMfaCode("test@unitynordeste.com.br", "secret123");
+      await client.logout().catch(() => {});
       client.close();
 
       assert.equal(code, "582914");
       const searchWithSince = receivedCommands.some((c) => c.includes("UID SEARCH") && c.includes("SINCE"));
       assert.ok(searchWithSince, "Deveria ter enviado UID SEARCH contendo filtro SINCE");
+    });
+
+    it("fetchMfaCodeViaImap deve polling e retornar código com sucesso com backoff adaptativo e reuso de conexão", async () => {
+      const code = await fetchMfaCodeViaImap(
+        {
+          email: "test@unitynordeste.com.br",
+          password: "secret123",
+          host: "127.0.0.1",
+          port: serverPort,
+          tls: false,
+        },
+        { maxWaitMs: 3000, pollIntervalMs: 500, backoffFactor: 1.2 }
+      );
+
+      assert.equal(code, "582914");
     });
   });
 });

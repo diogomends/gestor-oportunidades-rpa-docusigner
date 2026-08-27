@@ -125,6 +125,8 @@ export class ImapClient {
     this.socket = null;
     this.tagIndex = 0;
     this.buffer = "";
+    this.authenticated = false;
+    this.inboxSelected = false;
   }
 
   /**
@@ -255,63 +257,53 @@ export class ImapClient {
   }
 
   /**
-   * Executa o fluxo de autenticação, seleção da caixa e extração do código MFA.
-   * Utiliza filtro temporal SINCE para priorizar mensagens do dia corrente e evitar processamento desnecessário.
+   * Autentica no servidor IMAP caso ainda não autenticado (RFC 3501).
    * @param {string} email - Usuário/Email IMAP.
    * @param {string} password - Senha da conta.
-   * @returns {Promise<string|null>} Código extraído ou null.
+   * @returns {Promise<void>}
    */
-  async fetchLatestMfaCode(email, password) {
-    // 1. LOGIN com escape de caracteres especiais RFC 3501
+  async login(email, password) {
+    if (this.authenticated) return;
     const escapedEmail = escapeImapString(email);
     const escapedPassword = escapeImapString(password);
     const loginRes = await this.sendCommand(`LOGIN "${escapedEmail}" "${escapedPassword}"`);
     if (!loginRes.raw.includes(" OK")) {
       throw new Error(`Falha no comando IMAP LOGIN: ${loginRes.raw.trim()}`);
     }
+    this.authenticated = true;
+  }
 
-    // 2. SELECT INBOX
+  /**
+   * Seleciona a pasta INBOX caso ainda não selecionada.
+   * @returns {Promise<void>}
+   */
+  async selectInbox() {
+    if (this.inboxSelected) return;
     const selectRes = await this.sendCommand("SELECT INBOX");
     if (!selectRes.raw.includes(" OK")) {
       throw new Error(`Falha ao selecionar INBOX: ${selectRes.raw.trim()}`);
     }
+    this.inboxSelected = true;
+  }
 
-    // 3. UID SEARCH com critério temporal SINCE do dia atual
+  /**
+   * Executa a consulta e extração do código MFA mais recente.
+   * Reutiliza autenticação e seleção de caixa caso a conexão já esteja aberta.
+   * Utiliza 2 padrões de busca temporal (SINCE e fallback ALL) e filtra no cliente.
+   * @param {string} email - Usuário/Email IMAP.
+   * @param {string} password - Senha da conta.
+   * @returns {Promise<string|null>} Código extraído ou null.
+   */
+  async fetchLatestMfaCode(email, password) {
+    await this.login(email, password);
+    await this.selectInbox();
+
+    // 1. Busca mensagens do dia atual (SINCE)
     const todaySince = formatImapDate();
-    let searchRes = await this.sendCommand(`UID SEARCH UNSEEN SINCE ${todaySince} SUBJECT "Verificar"`);
+    let searchRes = await this.sendCommand(`UID SEARCH SINCE ${todaySince}`);
     let uids = this.parseUidsFromSearch(searchRes.raw);
 
-    if (uids.length === 0) {
-      searchRes = await this.sendCommand(`UID SEARCH UNSEEN SINCE ${todaySince}`);
-      uids = this.parseUidsFromSearch(searchRes.raw);
-    }
-
-    if (uids.length === 0) {
-      searchRes = await this.sendCommand(`UID SEARCH ALL SINCE ${todaySince} SUBJECT "Verificar"`);
-      uids = this.parseUidsFromSearch(searchRes.raw);
-    }
-
-    if (uids.length === 0) {
-      searchRes = await this.sendCommand(`UID SEARCH ALL SINCE ${todaySince}`);
-      uids = this.parseUidsFromSearch(searchRes.raw);
-    }
-
-    // Fallback de compatibilidade caso fuso horário ou servidores não correspondam ao SINCE
-    if (uids.length === 0) {
-      searchRes = await this.sendCommand('UID SEARCH UNSEEN SUBJECT "Verificar"');
-      uids = this.parseUidsFromSearch(searchRes.raw);
-    }
-
-    if (uids.length === 0) {
-      searchRes = await this.sendCommand("UID SEARCH UNSEEN");
-      uids = this.parseUidsFromSearch(searchRes.raw);
-    }
-
-    if (uids.length === 0) {
-      searchRes = await this.sendCommand('UID SEARCH ALL SUBJECT "Verificar"');
-      uids = this.parseUidsFromSearch(searchRes.raw);
-    }
-
+    // 2. Fallback caso timezone/servidor não corresponda ao SINCE
     if (uids.length === 0) {
       searchRes = await this.sendCommand("UID SEARCH ALL");
       uids = this.parseUidsFromSearch(searchRes.raw);
@@ -324,17 +316,14 @@ export class ImapClient {
     // Pega o UID mais recente (maior número)
     const latestUid = Math.max(...uids);
 
-    // 4. UID FETCH do corpo da mensagem
+    // 3. UID FETCH do corpo da mensagem
     const fetchRes = await this.sendCommand(`UID FETCH ${latestUid} (BODY.PEEK[])`);
     const code = extractMfaCodeFromText(fetchRes.raw);
 
     if (code) {
-      // 5. Marca a mensagem como lida (\Seen)
+      // 4. Marca a mensagem como lida (\Seen)
       await this.sendCommand(`UID STORE ${latestUid} +FLAGS (\\Seen)`).catch(() => {});
     }
-
-    // 6. LOGOUT
-    await this.sendCommand("LOGOUT").catch(() => {});
 
     return code;
   }
@@ -355,17 +344,32 @@ export class ImapClient {
   }
 
   /**
+   * Envia comando LOGOUT e desativa estado de autenticação.
+   * @returns {Promise<void>}
+   */
+  async logout() {
+    if (this.socket && !this.socket.destroyed && this.authenticated) {
+      await this.sendCommand("LOGOUT").catch(() => {});
+      this.authenticated = false;
+      this.inboxSelected = false;
+    }
+  }
+
+  /**
    * Encerra a conexão do socket com segurança.
    */
   close() {
     if (this.socket && !this.socket.destroyed) {
       this.socket.destroy();
     }
+    this.authenticated = false;
+    this.inboxSelected = false;
   }
 }
 
 /**
  * Função utilitária com polling e backoff adaptativo para buscar o código MFA via IMAP.
+ * Mantém e reutiliza a mesma conexão IMAP durante as tentativas, reconectando apenas em falha.
  *
  * @param {Object} mailCredentials - Objeto { email, password, host, port, tls }.
  * @param {Object} [options] - Opções { maxWaitMs, pollIntervalMs, backoffFactor, maxPollIntervalMs }.
@@ -383,41 +387,57 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
   const port = Number(mailCredentials?.port) || 993;
   const tlsEnabled = mailCredentials?.tls !== false;
   const maxWaitMs = options.maxWaitMs || 30000;
-  let currentIntervalMs = options.pollIntervalMs || 2500;
-  const backoffFactor = options.backoffFactor || 1.25;
+  let currentIntervalMs = options.pollIntervalMs || 3000;
+  const backoffFactor = options.backoffFactor || 1.2;
   const maxPollIntervalMs = options.maxPollIntervalMs || 6000;
 
   const startedAt = Date.now();
+  let client = null;
 
-  while (Date.now() - startedAt < maxWaitMs) {
-    const client = new ImapClient({
-      host,
-      port,
-      tls: tlsEnabled,
-      timeout: 10000,
-    });
+  try {
+    while (Date.now() - startedAt < maxWaitMs) {
+      try {
+        if (!client || !client.socket || client.socket.destroyed) {
+          client = new ImapClient({
+            host,
+            port,
+            tls: tlsEnabled,
+            timeout: 10000,
+          });
+          await client.connect();
+        }
 
-    try {
-      await client.connect();
-      const code = await client.fetchLatestMfaCode(email, password);
-      client.close();
+        const code = await client.fetchLatestMfaCode(email, password);
 
-      if (code) {
-        console.log(`[IMAP] Código MFA extraído com sucesso via protocolo IMAP: ${code}`);
-        return code;
+        if (code) {
+          console.log(`[IMAP] Código MFA extraído com sucesso via protocolo IMAP: ${code}`);
+          await client.logout().catch(() => {});
+          client.close();
+          client = null;
+          return code;
+        }
+      } catch (err) {
+        if (client) {
+          client.close();
+          client = null;
+        }
+        console.warn(`[IMAP] Tentativa de consulta IMAP falhou (${err.message}). Aguardando próximo ciclo...`);
       }
-    } catch (err) {
-      client.close();
-      console.warn(`[IMAP] Tentativa de consulta IMAP falhou (${err.message}). Aguardando próximo ciclo...`);
+
+      const remainingMs = maxWaitMs - (Date.now() - startedAt);
+      if (remainingMs <= 0) break;
+
+      const waitTime = Math.min(currentIntervalMs, remainingMs);
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+
+      currentIntervalMs = Math.min(Math.round(currentIntervalMs * backoffFactor), maxPollIntervalMs);
     }
-
-    const remainingMs = maxWaitMs - (Date.now() - startedAt);
-    if (remainingMs <= 0) break;
-
-    const waitTime = Math.min(currentIntervalMs, remainingMs);
-    await new Promise((resolve) => setTimeout(resolve, waitTime));
-
-    currentIntervalMs = Math.min(Math.round(currentIntervalMs * backoffFactor), maxPollIntervalMs);
+  } finally {
+    if (client) {
+      await client.logout().catch(() => {});
+      client.close();
+      client = null;
+    }
   }
 
   return null;
