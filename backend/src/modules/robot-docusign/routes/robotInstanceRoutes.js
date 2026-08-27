@@ -11,6 +11,11 @@ import {
   getAllInstances,
 } from "../controllers/robotInstanceController.js";
 
+/**
+ * Express router handling robot instance lifecycle, authentication, heartbeat, job dispatching, and contract PDF downloads.
+ * Prefix: /api/robot-docusign/instance
+ * @type {import("express").Router}
+ */
 const router = express.Router();
 
 // 1. Rota pública para autenticação da instância do robô
@@ -27,3 +32,4 @@ router.post("/heartbeat", registerHeartbeat);
 router.get("/contracts/:contractId/pdf", downloadContractPdf);
 
 export default router;
+

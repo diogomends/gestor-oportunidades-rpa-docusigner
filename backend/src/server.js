@@ -21,6 +21,14 @@ import "./modules/robot-docusign/models/RobotInstance.js";
 
 const PORT = process.env.PORT || 3111;
 
+/**
+ * Bootstraps the backend server:
+ * - Connects to primary and contracts MongoDB databases
+ * - Validates robot API Key against Gestor API
+ * - Starts the RPA background scheduler
+ * - Binds HTTP server on configured PORT
+ * @returns {Promise<void>}
+ */
 const startServer = async () => {
   await connectDB();
   await connectContractsDB();
@@ -51,3 +59,4 @@ process.on("SIGTERM", () => process.exit(0));
 process.on("SIGINT", () => process.exit(0));
 
 startServer();
+

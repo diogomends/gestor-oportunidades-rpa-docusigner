@@ -17,6 +17,14 @@ import { ApiClient } from "./api-client.js";
 import { JobRunner } from "./job-runner.js";
 import { Scheduler } from "./scheduler.js";
 
+/**
+ * Bootstraps the standalone RPA DocuSigner robot client process:
+ * 1. Loads local configuration and initializes the API client
+ * 2. Authenticates against the backend API via ROBOT_KEY
+ * 3. Retrieves system configuration and registers initial heartbeat
+ * 4. Starts the job runner and polling scheduler with graceful shutdown handlers
+ * @returns {Promise<void>}
+ */
 async function bootstrap() {
   console.log("==================================================");
   console.log("🤖 Robô RPA DocuSigner - Gestor de Oportunidades");
@@ -69,3 +77,4 @@ async function bootstrap() {
 }
 
 bootstrap();
+

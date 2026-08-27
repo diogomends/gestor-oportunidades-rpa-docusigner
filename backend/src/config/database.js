@@ -1,6 +1,11 @@
 // src/config/database.js
 import mongoose from "mongoose";
 
+/**
+ * Establishes the primary MongoDB connection for the application (db_crm_funil).
+ * Exits the process if the connection fails.
+ * @returns {Promise<void>}
+ */
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI);
@@ -13,6 +18,10 @@ const connectDB = async () => {
 
 let contractsConnection = null;
 
+/**
+ * Initializes and caches the MongoDB connection for the contracts database ('crm_contracts').
+ * @returns {Promise<import("mongoose").Connection>} The Mongoose connection instance for crm_contracts.
+ */
 export const connectContractsDB = async () => {
   if (contractsConnection) return contractsConnection;
   contractsConnection = mongoose.connection.useDb("crm_contracts", {
@@ -23,6 +32,10 @@ export const connectContractsDB = async () => {
   return contractsConnection;
 };
 
+/**
+ * Returns the cached MongoDB connection for the contracts database ('crm_contracts'), initializing if necessary.
+ * @returns {import("mongoose").Connection} The Mongoose connection instance for crm_contracts.
+ */
 export const getContractsConnection = () => {
   if (!contractsConnection) {
     contractsConnection = mongoose.connection.useDb("crm_contracts", {
@@ -35,6 +48,10 @@ export const getContractsConnection = () => {
 
 let aclConnection = null;
 
+/**
+ * Initializes and caches the MongoDB connection for the ACL database ('crm_acl').
+ * @returns {Promise<import("mongoose").Connection>} The Mongoose connection instance for crm_acl.
+ */
 export const connectAclDB = async () => {
   if (aclConnection) return aclConnection;
   aclConnection = mongoose.connection.useDb("crm_acl", {
@@ -45,6 +62,10 @@ export const connectAclDB = async () => {
   return aclConnection;
 };
 
+/**
+ * Returns the cached MongoDB connection for the ACL database ('crm_acl'), initializing if necessary.
+ * @returns {import("mongoose").Connection} The Mongoose connection instance for crm_acl.
+ */
 export const getAclDb = () => {
   if (!aclConnection) {
     aclConnection = mongoose.connection.useDb("crm_acl", {
@@ -56,3 +77,4 @@ export const getAclDb = () => {
 };
 
 export default connectDB;
+

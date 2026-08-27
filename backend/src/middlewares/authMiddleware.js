@@ -1,6 +1,15 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
+/**
+ * Express middleware to protect routes requiring authentication.
+ * Validates JWT bearer tokens from the Authorization header or query parameter 'token',
+ * populates `req.user` with user record excluding password, and checks active status.
+ * @param {import("express").Request} req - Express request object.
+ * @param {import("express").Response} res - Express response object.
+ * @param {import("express").NextFunction} next - Express next function.
+ * @returns {Promise<void|import("express").Response>}
+ */
 export const protect = async (req, res, next) => {
   let token;
 
@@ -69,3 +78,4 @@ export const protect = async (req, res, next) => {
     res.status(401).json({ message: "Não autorizado, sem token" });
   }
 };
+

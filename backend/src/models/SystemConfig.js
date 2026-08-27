@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
 
+/**
+ * Mongoose schema representing dynamic key-value system configurations (e.g. robot_docusign credentials, access restrictions).
+ */
 const SystemConfigSchema = new mongoose.Schema(
   {
     key: {
@@ -22,4 +25,9 @@ const SystemConfigSchema = new mongoose.Schema(
   }
 );
 
+/**
+ * SystemConfig Mongoose model.
+ * @type {import("mongoose").Model<import("mongoose").Document>}
+ */
 export default mongoose.model("SystemConfig", SystemConfigSchema);
+

@@ -19,6 +19,11 @@ import {
 import { getAllInstances } from "./controllers/robotInstanceController.js";
 import instanceRoutes from "./routes/robotInstanceRoutes.js";
 
+/**
+ * Express router exposing operational and administrative endpoints for DocuSign RPA automation.
+ * Prefix: /api/robot-docusign
+ * @type {import("express").Router}
+ */
 const router = express.Router();
 
 // Sub-roteador de instâncias do robô (com seu próprio controle de auth pública + protegida sob /instance)
@@ -43,3 +48,4 @@ router.get("/queue", getQueue);
 router.post("/process-pending", processPending);
 
 export default router;
+

@@ -1,3 +1,9 @@
+/**
+ * Express middleware factory to restrict route access by user role(s).
+ * Checks if `req.user.cargo` is included in allowed roles; responds with HTTP 403 if forbidden.
+ * @param {...string} roles - Allowed role names (e.g. "admin", "robot").
+ * @returns {import("express").RequestHandler} Express middleware handler.
+ */
 export const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -12,3 +18,4 @@ export const authorize = (...roles) => {
     next();
   };
 };
+
