@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { sendEnvelope, checkEnvelopeStatus } from "./browser/docusign.js";
+import logger from "./utils/logger.js";
 
 // Compatibility shim for Node.js 18.20.4 up to 20+
 if (typeof process !== "undefined" && process.versions && process.versions.node) {
@@ -107,17 +108,19 @@ export class JobRunner {
     let browser = null;
     let context = null;
 
-    console.log(`[JobRunner] Iniciando execução do job ${jobId} (Contrato: ${contractId}, Ação: ${action})...`);
+    logger.step("JobRunner", `Iniciando execução do job ${jobId} (Contrato: ${contractId}, Ação: ${action})...`);
 
     try {
       // 1. Download seguro do PDF se necessário para a ação 'send'
       if (action === "send" && pdfUrl) {
+        logger.step("JobRunner", `Baixando PDF do contrato via API central (${pdfUrl})...`);
         await this.api.updateJobStatus(jobId, {
           status: "processing",
           step: { name: "download_temp_pdf", status: "running" },
         });
 
         tempPdfPath = await this.api.downloadPdfToTemp(pdfUrl);
+        logger.success("JobRunner", `PDF baixado com sucesso em arquivo temporário: ${tempPdfPath}`);
 
         await this.api.updateJobStatus(jobId, {
           status: "processing",
@@ -126,6 +129,7 @@ export class JobRunner {
       }
 
       // 2. Inicialização do navegador Playwright
+      logger.step("JobRunner", `Inicializando navegador Playwright (Modo: ${this.headless ? "Headless" : "Headed"})...`);
       await this.api.updateJobStatus(jobId, {
         status: "processing",
         step: { name: "launch_browser", status: "running" },
@@ -149,6 +153,7 @@ export class JobRunner {
       });
 
       const page = await context.newPage();
+      logger.success("JobRunner", "Navegador Playwright inicializado com sucesso.");
 
       await this.api.updateJobStatus(jobId, {
         status: "processing",
@@ -158,6 +163,7 @@ export class JobRunner {
       // 3. Execução da automação
       let result = null;
       if (action === "send") {
+        logger.step("JobRunner", "Executando automação de envio de contrato na DocuSign...");
         await this.api.updateJobStatus(jobId, {
           status: "processing",
           step: { name: "docusign_send", status: "running" },
@@ -179,6 +185,7 @@ export class JobRunner {
           step: { name: "docusign_send", status: "success" },
         });
       } else if (action === "status") {
+        logger.step("JobRunner", `Consultando status do envelope ${job.envelopeId}...`);
         result = await checkEnvelopeStatus(page, job.envelopeId, credentials);
         await this.api.updateJobStatus(jobId, {
           status: "completed",
@@ -187,10 +194,10 @@ export class JobRunner {
         });
       }
 
-      console.log(`[JobRunner] Job ${jobId} finalizado com sucesso!`);
+      logger.success("JobRunner", `Job ${jobId} finalizado com sucesso!`);
       return { success: true, result };
     } catch (error) {
-      console.error(`[JobRunner] Erro no processamento do job ${jobId}:`, error);
+      logger.error("JobRunner", `Falha no processamento do job ${jobId}: ${error.message}`);
 
       await this.api
         .updateJobStatus(jobId, {
@@ -198,7 +205,7 @@ export class JobRunner {
           error: error.message,
           step: { name: "execution_error", status: "failed", error: error.message },
         })
-        .catch((e) => console.warn(`[JobRunner] Falha ao reportar erro do job: ${e.message}`));
+        .catch((e) => logger.warn("JobRunner", `Falha ao reportar erro do job: ${e.message}`));
 
       throw error;
     } finally {
@@ -209,9 +216,9 @@ export class JobRunner {
       if (tempPdfPath && fs.existsSync(tempPdfPath)) {
         try {
           fs.unlinkSync(tempPdfPath);
-          console.log(`[JobRunner] Arquivo temporário ${tempPdfPath} excluído com sucesso.`);
+          logger.step("JobRunner", `Arquivo temporário excluído com sucesso: ${tempPdfPath}`);
         } catch (e) {
-          console.warn(`[JobRunner] Falha ao excluir arquivo temporário: ${e.message}`);
+          logger.warn("JobRunner", `Falha ao excluir arquivo temporário: ${e.message}`);
         }
       }
     }
