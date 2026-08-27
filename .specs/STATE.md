@@ -30,19 +30,19 @@ graph LR
 ```
 
 ### Fluxo de Dados
-1. **Servidor** recebe job via API (`POST /trigger`) ou scheduler automático.
-2. **Robô standalone** faz polling autenticado (`GET /queue`) e busca jobs pendentes.
+1. **Servidor** recebe job via API (`POST /api/robot-docusign/trigger`) ou scheduler automático (`POST /process-pending`).
+2. **Robô** faz polling autenticado (`GET /instance/next-job` com lock atômico) e busca jobs pendentes.
 3. **Robô** executa a automação Playwright no DocuSign (login, envio, download).
-4. **Robô** reporta progresso/status via heartbeat e endpoints de sessão.
-5. **Servidor** atualiza status do job no MongoDB e notifica frontends via SSE.
+4. **Robô** reporta progresso/status via `PATCH /instance/job/:jobId/status` e `POST /instance/heartbeat`.
+5. **Servidor** atualiza status do job no MongoDB e notifica frontends via SSE (`GET /jobs/:jobId/stream`).
 
 ## Fluxo de Dados Principal (RPA DocuSign)
-1. **Disparo:** Job criado via API (`POST /api/robot-docusign/trigger`) ou automaticamente pelo scheduler.
+1. **Disparo:** Job criado via API (`POST /api/robot-docusign/trigger`) ou automaticamente pelo scheduler (`POST /process-pending`).
 2. **Fila:** Job registrado no MongoDB com status `pending`.
-3. **Polling:** Robô standalone faz polling autenticado e resgata jobs pendentes.
+3. **Polling:** Robô faz polling autenticado (`GET /instance/next-job` com lock atômico) e resgata jobs pendentes.
 4. **Execução:** Playwright automatiza login, envio e download no DocuSign.
-5. **Progresso:** Robô reporta status via heartbeat e endpoints de instância.
-6. **Conclusão:** Servidor atualiza job (`completed`/`failed`) e notifica via SSE.
+5. **Progresso:** Robô reporta status via `PATCH /instance/job/:jobId/status` e `POST /instance/heartbeat`.
+6. **Conclusão:** Servidor atualiza job (`completed`/`failed`) e notifica via SSE (`GET /jobs/:jobId/stream`).
 
 > **Nota:** Este repositório é o serviço RPA. O CRM frontend (`gestor-oportunidades`) é um projeto separado que consome a API deste servidor.
 
@@ -80,16 +80,16 @@ Eliminação de arquivos `config.json` em texto plano na distribuição dos exec
 `POST /api/robot-docusign/instance/auth` aceita dois fluxos: (1) **API Key** via header `X-Robot-Key` ou campo `robot_key` — a chave é hasheada com SHA-256 e comparada contra a coleção `robot_api_keys` (banco `crm_acl`, conectado via `getAclDb()`), herdando cargo/permissões do usuário criador (`created_by`); (2) **legado** via `email`/`senha`. O token JWT emitido inclui `isRobot: true`, dura 30 dias, registra/atualiza a `RobotInstance` e grava `last_used_at`/`last_used_ip` na chave.
 
 ### AD-015: Dois Componentes num Mesmo Repositório (2026-08-17)
-Projeto dividido em **Servidor Central** (`src/`) e **Robô Standalone** (`robot-standalone/`) no mesmo repositório. O servidor roda em produção (porta 3111) e gerencia a fila de jobs, autenticação e monitoramento. O robô é empacotado como `.exe` via pipeline de 4 etapas (esbuild → obfuscator → bytenode → pkg) e distribuído para as máquinas dos agentes. Comunicação via HTTP (polling + heartbeat). O robô standalone tem zero dependências de servidor — apenas Playwright.
+Projeto dividido em **Servidor Central** (`backend/src/`) e **Robô** (`robot/`) no mesmo repositório. O servidor roda em produção (porta 3111) e gerencia a fila de jobs, autenticação e monitoramento. O robô é empacotado como `.exe` via pipeline de 4 etapas (esbuild → obfuscator → bytenode → pkg) e distribuído para as máquinas dos agentes. Comunicação via HTTP (polling + heartbeat). O robô tem zero dependências de servidor — apenas Playwright.
 
 ### AD-016: Build Simplificado e Identificação Dinâmica da Instância (2026-08-17)
-O pipeline de build do robô standalone foi simplificado para aceitar exclusivamente 3 parâmetros essenciais: `--key`, `--api-url` e `--headless`. As referências estáticas a `ROBOT_ID`, `ROBOT_EMAIL` e `ROBOT_PASS` foram eliminadas do código cliente e dos defines do `esbuild`. A identificação do robô (`instance_id`) passou a ser resolvida dinamicamente pelo servidor central na resposta da autenticação (`POST /api/robot-docusign/instance/auth`), reduzindo complexidade e risco de exposição de credenciais.
+O pipeline de build do robô foi simplificado para aceitar exclusivamente 3 parâmetros essenciais: `--key`, `--api-url` e `--headless`. As referências estáticas a `ROBOT_ID`, `ROBOT_EMAIL` e `ROBOT_PASS` foram eliminadas do código cliente e dos defines do `esbuild`. A identificação do robô (`instance_id`) passou a ser resolvida dinamicamente pelo servidor central na resposta da autenticação (`POST /api/robot-docusign/instance/auth`), reduzindo complexidade e risco de exposição de credenciais.
 
-### AD-017: Build Multi-Chave para Robôs Standalone (2026-08-17)
-O script de compilação `robot-standalone/build/build.js` e o comando `make build-robot` suportam geração em lote de executáveis para múltiplas instâncias. Quando `--key` não é especificado na CLI, o script varre automaticamente o `.env.dev` / `.env` coletando todas as chaves no padrão `ROBOT_API_KEY_\d+` (ordenadas por índice) e executa o pipeline isoladamente para cada chave com arquivos nomeados sequencialmente (`robot-docusigner-1.exe`, `main-robot-docusigner-1.jsc`, `robot-docusigner-2.exe`, etc.). Caso `--key` seja fornecido na CLI, mantém retrocompatibilidade gerando um único executável.
+### AD-017: Build Multi-Chave para Robôs (2026-08-17)
+O script de compilação `robot/build/build.js` e o comando `make build-robot` suportam geração em lote de executáveis para múltiplas instâncias. Quando `--key` não é especificado na CLI, o script varre automaticamente o `.env.dev` / `.env` coletando todas as chaves no padrão `ROBOT_API_KEY_\d+` (ordenadas por índice) e executa o pipeline isoladamente para cada chave com arquivos nomeados sequencialmente (`robot-docusigner-1.exe`, `main-robot-docusigner-1.jsc`, `robot-docusigner-2.exe`, etc.). Caso `--key` seja fornecido na CLI, mantém retrocompatibilidade gerando um único executável.
 
 ### AD-018: Extração Headless de MFA via Protocolo IMAP (2026-08-27)
-Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegação visual no Webmail Roundcube via Playwright, o robô utiliza conexão direta via socket TLS nativo (`node:tls`) aos dados de `token_notification_email` configurados no `gestor-oportunidades` (`host`, `port`, `tls`, `email`, `password`). A extração ocorre em ~1s sem abrir abas adicionais no navegador, mantendo `roundcube.js` como contingência/fallback.
+Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegação visual no Webmail Roundcube via Playwright, o robô utiliza conexão direta via socket TLS nativo (`node:tls`) aos dados de `token_notification_email` configurados no `gestor-oportunidades` (`host`, `port`, `tls`, `email`, `password`). A extração ocorre em ~1s sem abrir abas adicionais no navegador, mantendo `roundcube.js` como contingência/fallback. Config validada em `PUT /api/robot-docusign/config` (Zod `token_notification_email` com `host`/`port`/`tls`, senha cifrada via `encryptText`).
 
 ## Dependências Externas
 - **MongoDB Atlas/Local:** Persistência de dados (servidor central).

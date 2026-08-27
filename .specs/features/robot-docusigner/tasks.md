@@ -1,6 +1,6 @@
 # Robot-DocuSigner — Tasks de Implementação
 
-> **Arquitetura de 2 Componentes**: Este projeto possui o **Servidor Central** (`src/`) e o **Robô Standalone** (`robot-standalone/`). As tasks abaixo cobrem ambos — Fases 1-5 e 8 referem-se ao servidor; a sub-spec `build-executor/` cobre o standalone e seu pipeline de build.
+> **Arquitetura de 2 Componentes**: Este projeto possui o **Servidor Central** (`backend/src/`) e o **Robô** (`robot/`). As tasks abaixo cobrem ambos — Fases 1-5 e 8 referem-se ao servidor; a sub-spec `build-executor/` cobre o robô e seu pipeline de build.
 
 ## Execution Protocol
 
@@ -213,7 +213,7 @@ npm run typecheck         # Type check (se disponível)
 - `src/modules/robot-docusign/index.js` (novo — barrel export)
 - `src/app.js` (montar rotas)
 
-**Endpoints**:
+**Endpoints** (`backend/src/modules/robot-docusign/routes.js` + `routes/robotInstanceRoutes.js`):
 
 | Método | Rota | Auth |
 |--------|------|------|
@@ -221,12 +221,22 @@ npm run typecheck         # Type check (se disponível)
 | POST | `/trigger-batch` | protect, admin |
 | GET | `/status/:jobId` | protect |
 | GET | `/jobs` | protect |
+| GET | `/jobs/:jobId/stream` | protect |
 | GET | `/metrics` | protect |
 | GET | `/logs/:jobId` | protect |
 | GET | `/config` | protect |
 | PUT | `/config` | protect, admin |
 | POST | `/test-login` | protect, admin |
 | GET | `/queue` | protect |
+| POST | `/process-pending` | protect |
+| GET | `/instances` | protect, admin |
+| POST | `/instance/auth` | público |
+| GET | `/instance/instances` | protect, admin |
+| GET | `/instance/config` | protect |
+| GET | `/instance/next-job` | protect |
+| PATCH | `/instance/job/:jobId/status` | protect |
+| POST | `/instance/heartbeat` | protect |
+| GET | `/instance/contracts/:contractId/pdf` | protect |
 
 **Tests**: supertest (cada endpoint, auth, validação, erros)
 
@@ -281,24 +291,24 @@ npm run typecheck         # Type check (se disponível)
 
 ## Fase 5 — Agendamento (Sequencial)
 
-### T09: DO Function + Cron
+### T09: Scheduler Interno + Rota process-pending
 
 - **Req**: REQ-011
 - **Status**: [x] Done (2026-08-11)
 - **Esforço**: 1h | Paralelável: Não
 - **Depende de**: T06
 
-**O quê**: Function serverless + cron 5min para processar contratos pendentes.
+**O quê**: Scheduler interno (`robotScheduler.start()`/`stop()` + `processPendingJobs()`) + rota `POST /process-pending` para trigger manual/cron externo.
 
-**Onde**: Arquivo de function + configuração de cron (DO ou GitHub Actions)
+**Onde**: `backend/src/modules/robot-docusign/services/robotScheduler.js`, `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `backend/src/server.js` (bootstrap)
 
-**Fluxo**: a cada 5min → verificar habilitado → horário válido → pegar 1 contrato `gerado` → orchestrator.trigger() → resultado
+**Fluxo**: a cada intervalo → verificar habilitado → horário válido + concorrência → pegar 1 contrato `gerado` → orchestrator.trigger() → resultado
 
 **Restrições**: máx 1 contrato/execução, respeitar horário, skip se desabilitado
 
 **Tests**: Mock orchestrator + simulação de cron (execução, horário, skip)
 
-**Feito quando**: Function executa a cada 5min, 1 contrato/vez, respeita horário, testes passam.
+**Feito quando**: Scheduler executa periodicamente, 1 contrato/vez, respeita horário, testes passam.
 
 ---
 

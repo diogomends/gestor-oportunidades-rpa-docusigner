@@ -70,23 +70,36 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 
 ## Rotas
 
-Todas sob prefixo `/api/robot-docusign`:
+Prefixo `/api/robot-docusign` (exceto `/health` na raiz):
 
-| Método  | Rota                           | Auth     | Descrição                          |
-| ------- | ------------------------------ | -------- | ---------------------------------- |
-| POST    | `/trigger`                     | Bearer   | Dispara job individual             |
-| POST    | `/trigger-batch`               | admin    | Dispara job em lote                |
-| GET     | `/status/:jobId`               | Bearer   | Status de um job                   |
-| GET     | `/jobs`                        | Bearer   | Lista jobs                         |
-| GET     | `/jobs/:jobId/stream`          | Bearer   | SSE stream de progresso do job     |
-| GET     | `/metrics`                     | Bearer   | Métricas                           |
-| GET     | `/logs/:jobId`                 | Bearer   | Logs de um job                     |
-| GET/PUT | `/config`                      | admin    | Configuração do robô               |
-| POST    | `/test-login`                  | admin    | Testa login no DocuSign            |
-| GET     | `/queue`                       | Bearer   | Fila de jobs                       |
-| POST    | `/process-pending`             | Bearer   | Processa jobs pendentes            |
-| `/instance/*`                     | público   | Sub-rotas de instâncias (ver `robotInstanceRoutes.js`) — `POST /auth` aceita API Key (`X-Robot-Key`) ou email/senha |
-| GET     | `/health`                      | público  | Health check (rota raiz em `app.js`) |
+| Método | Rota | Auth | Descrição |
+| ------ | ---- | ---- | --------- |
+| POST | `/trigger` | `protect` | Dispara job individual (body: `contractId`/`contract_id`) |
+| POST | `/trigger-batch` | `protect` + `authorize("admin")` | Dispara jobs em lote |
+| GET | `/status/:jobId` | `protect` | Status de um job (busca por `_id` ou `contract_id`) |
+| GET | `/jobs` | `protect` | Lista jobs (filtros + paginação) |
+| GET | `/jobs/:jobId/stream` | `protect` | SSE stream de progresso do job |
+| GET | `/metrics` | `protect` | Métricas agregadas |
+| GET | `/logs/:jobId` | `protect` | Logs detalhados de um job |
+| GET | `/config` | `protect` | Buscar config do robô |
+| PUT | `/config` | `protect` + `authorize("admin")` | Atualizar config do robô |
+| POST | `/test-login` | `protect` + `authorize("admin")` | Testa login no DocuSign (aceita `otpCode` opcional) |
+| GET | `/queue` | `protect` | Fila de jobs pendentes/em processamento |
+| POST | `/process-pending` | `protect` | Processa até 1 contrato pendente (scheduler) |
+| GET | `/instances` | `protect` + `authorize("admin")` | Lista instâncias do robô (fleet monitoring) |
+| POST | `/instance/auth` | público | Autenticação da instância (`X-Robot-Key` ou `email`/`senha`) |
+| GET | `/instance/instances` | `protect` + `authorize("admin")` | Lista instâncias (via sub-router) |
+| GET | `/instance/config` | `protect` | Config da instância |
+| GET | `/instance/next-job` | `protect` | Próximo job pendente (polling do robô `.exe`) |
+| PATCH | `/instance/job/:jobId/status` | `protect` | Atualiza status do job |
+| POST | `/instance/heartbeat` | `protect` | Heartbeat da instância |
+| GET | `/instance/contracts/:contractId/pdf` | `protect` | Download de PDF do contrato |
+
+Fora do prefixo:
+
+| Método | Rota | Auth | Descrição |
+| ------ | ---- | ---- | --------- |
+| GET | `/health` | público | Health check (rota raiz em `app.js:15`) |
 
 ## Banco de Dados
 

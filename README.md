@@ -88,8 +88,10 @@ O repositório está integrado com **GitHub Actions**:
 | `DOCUSIGN_RSA_PRIVATE_KEY_PATH` | Não | — | Caminho para chave privada RSA |
 | `DOCUSIGN_HMAC_KEY` | Não | — | Chave HMAC DocuSign |
 | `DOCUSIGN_BASE_PATH` | Não | na.docusign.net | Base URL da API DocuSign |
-| `USUARIO_DOCUSIGNER` | Não | — | Usuário para login no robô |
-| `SENHA_DOCUSIGNER` | Não | — | Senha para login no robô |
+| `USUARIO_DOCUSIGNER`    | Não         | —           | Usuário para login no robô |
+| `SENHA_DOCUSIGNER`      | Não         | —           | Senha para login no robô |
+| `GESTOR_API_URL`        | Sim         | `http://localhost:3000/api` | URL da API do gestor-oportunidades |
+| `ROBOT_API_KEY`         | Sim         | —           | Chave de API do robô (validada no bootstrap) |
 
 > As credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback.
 
@@ -212,32 +214,46 @@ O executável protegido será gerado em `robot/dist/robot-docusigner-X/robot-doc
 
 ## API REST
 
-Todas as rotas estão sob o prefixo `/api/robot-docusign`:
+Prefixo `/api/robot-docusign` (exceto `/health` na raiz em `app.js:15`):
 
 | Método | Rota | Auth | Descrição |
 |--------|------|------|-----------|
-| POST | `/trigger` | Bearer | Dispara job individual |
-| POST | `/trigger-batch` | admin | Dispara job em lote |
-| GET | `/status/:jobId` | Bearer | Status de um job |
-| GET | `/jobs` | Bearer | Lista jobs |
-| GET | `/jobs/:jobId/stream` | Bearer | SSE stream de progresso |
-| GET | `/metrics` | Bearer | Métricas |
-| GET | `/logs/:jobId` | Bearer | Logs de um job |
-| GET/PUT | `/config` | admin | Configuração do robô |
-| POST | `/test-login` | admin | Testa login no DocuSign |
-| GET | `/queue` | Bearer | Fila de jobs |
-| POST | `/process-pending` | Bearer | Processa jobs pendentes |
-| `/instance/*` | público | Sub-rotas de instâncias |
-| GET | `/health` | público | Health check |
+| POST | `/trigger` | `protect` | Dispara job individual (body: `contractId`/`contract_id`) |
+| POST | `/trigger-batch` | `protect` + `authorize("admin")` | Dispara jobs em lote |
+| GET | `/status/:jobId` | `protect` | Status de um job (busca por `_id` ou `contract_id`) |
+| GET | `/jobs` | `protect` | Lista jobs (filtros + paginação) |
+| GET | `/jobs/:jobId/stream` | `protect` | SSE stream de progresso do job |
+| GET | `/metrics` | `protect` | Métricas agregadas |
+| GET | `/logs/:jobId` | `protect` | Logs detalhados de um job |
+| GET | `/config` | `protect` | Buscar config do robô |
+| PUT | `/config` | `protect` + `authorize("admin")` | Atualizar config do robô |
+| POST | `/test-login` | `protect` + `authorize("admin")` | Testa login no DocuSign (aceita `otpCode` opcional) |
+| GET | `/queue` | `protect` | Fila de jobs pendentes/em processamento |
+| POST | `/process-pending` | `protect` | Processa até 1 contrato pendente (scheduler) |
+| GET | `/instances` | `protect` + `authorize("admin")` | Lista instâncias do robô (fleet monitoring) |
+| POST | `/instance/auth` | público | Autenticação da instância (`X-Robot-Key` ou `email`/`senha`) |
+| GET | `/instance/instances` | `protect` + `authorize("admin")` | Lista instâncias (via sub-router) |
+| GET | `/instance/config` | `protect` | Config da instância |
+| GET | `/instance/next-job` | `protect` | Próximo job pendente (polling do robô `.exe`) |
+| PATCH | `/instance/job/:jobId/status` | `protect` | Atualiza status do job |
+| POST | `/instance/heartbeat` | `protect` | Heartbeat da instância |
+| GET | `/instance/contracts/:contractId/pdf` | `protect` | Download de PDF do contrato |
+
+Fora do prefixo:
+
+| Método | Rota | Auth | Descrição |
+|--------|------|------|-----------|
+| GET | `/health` | público | Health check (`app.js:15`) |
 
 ## Banco de Dados
 
-| Database | Variável de Conexão | Quem Usa |
-|----------|---------------------|----------|
-| `db_crm_funil` | `MONGO_URI` | User, SystemConfig |
-| `crm_contracts` | `MONGO_CONTRACTS_URI` | Contract |
+| Database | Variável de Conexão | Quem Usa | Observação |
+|----------|---------------------|----------|------------|
+| `db_crm_funil` | `MONGO_URI` (default) | User, SystemConfig | Banco principal |
+| `crm_contracts` | `MONGO_CONTRACTS_URI` | Contract, RobotJob, RobotSession | Conecta via `useDb("crm_contracts")` |
+| `crm_acl` | (mesma conexão, `useDb("crm_acl")` via `getAclDb()`) | RobotInstance, robot_api_keys | Disponível mas não chamada no boot — lazy |
 
-> `MONGO_CONTRACTS_URI` aponta para o mesmo servidor de `MONGO_URI`. O `database.js` faz `useDb("crm_contracts")` na mesma conexão mongoose.
+> `MONGO_CONTRACTS_URI` e `crm_acl` usam a mesma conexão mongoose via `useDb()` — não precisam de URI separada.
 
 ## Projeto Relacionado
 

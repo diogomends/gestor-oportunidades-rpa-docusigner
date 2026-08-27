@@ -11,8 +11,8 @@ O robot opera como um serviço de contingência/bridge: enquanto a API não é a
 | Aspecto | Decisão |
 |---------|---------|
 | Engine | Playwright (headless) — já presente no projeto |
-| Autenticação | Credenciais (email/senha) armazenadas em SystemConfig |
-| Execução | DigitalOcean Functions (serverless), a cada 5min (7h-19h) + trigger manual |
+| Autenticação | Credenciais (email/senha) armazenadas em SystemConfig + API Key (`X-Robot-Key`) |
+| Execução | `robotScheduler` interno (intervalo configurável) + `POST /process-pending` + trigger manual |
 | Storage sessão | MongoDB (1 documento sobrescrito por login, sem crescimento) |
 | Seletores UI | JSON separado no módulo (`selectors/docusign-ui.json`) |
 | Anti-detecção | Delay randômico entre ações |
@@ -28,13 +28,13 @@ O projeto é dividido em **2 componentes independentes** no mesmo repositório:
 
 | Componente | Diretório | Onde roda | Responsabilidade |
 |------------|-----------|-----------|------------------|
-| **Servidor Central** | `src/` | Servidor de produção (porta 3111) | API REST, fila de jobs, autenticação JWT/API Key, monitoramento de instâncias, orquestração |
-| **Robô Standalone** | `robot-standalone/` | Máquinas dos vendedores/agentes (`.exe`) | Polling autenticado, execução Playwright, download de PDFs, heartbeat |
+| **Servidor Central** | `backend/src/` | Servidor de produção (porta 3111) | API REST, fila de jobs, autenticação JWT/API Key, monitoramento de instâncias, orquestração |
+| **Robô** | `robot/` | Máquinas dos vendedores/agentes (`.exe`) | Polling autenticado, execução Playwright, download de PDFs, heartbeat |
 
 ```
 ┌─────────────────────────────────┐         ┌──────────────────────────────────┐
-│   SERVIDOR CENTRAL (produção)   │         │   ROBÔ STANDALONE (.exe local)   │
-│   src/ → node src/server.js     │         │   robot-standalone/ → .exe       │
+│   SERVIDOR CENTRAL (produção)   │         │       ROBÔ (.exe local)          │
+│   backend/src/ → node server.js │         │   robot/ → .exe                  │
 │                                 │  HTTP   │                                  │
 │  ┌───────────────────────────┐  │◄───────►│  ┌────────────────────────────┐  │
 │  │ API REST (porta 3111)     │  │ polling │  │ Scheduler (polling fila)   │  │
@@ -50,13 +50,13 @@ O projeto é dividido em **2 componentes independentes** no mesmo repositório:
 ```
 
 **Fluxo resumido:**
-1. Servidor recebe job via API (`POST /trigger`) ou scheduler automático.
-2. Robô standalone faz polling autenticado (`GET /instance/next-job`) e busca jobs pendentes.
+1. Servidor recebe job via API (`POST /api/robot-docusign/trigger`) ou scheduler automático (`POST /process-pending`).
+2. Robô faz polling autenticado (`GET /instance/next-job` com lock atômico) e busca jobs pendentes.
 3. Robô executa automação Playwright no DocuSign (login, envio, download).
-4. Robô reporta progresso/status via heartbeat e endpoints de instância.
-5. Servidor atualiza status do job no MongoDB e notifica frontends via SSE.
+4. Robô reporta progresso/status via heartbeat e `PATCH /instance/job/:jobId/status`.
+5. Servidor atualiza status do job no MongoDB e notifica frontends via SSE (`GET /jobs/:jobId/stream`).
 
-**Comunicação:** HTTP autenticada via JWT (emitido pelo servidor via `POST /instance/auth`). O robô standalone tem zero dependências de servidor — apenas Playwright.
+**Comunicação:** HTTP autenticada via JWT (emitido via `POST /instance/auth` com `X-Robot-Key`). O robô tem zero dependências de servidor — apenas Playwright.
 
 ## Requisitos Funcionais
 
@@ -185,21 +185,32 @@ O projeto é dividido em **2 componentes independentes** no mesmo repositório:
 
 ### [REQ-006] Controller API
 
-- **Localização**: `src/modules/robot-docusign/controllers/robotDocusignController.js`
-- **Endpoints**:
+- **Localização**: `backend/src/modules/robot-docusign/controllers/robotDocusignController.js` + `robotInstanceController.js`
+- **Endpoints** (`backend/src/modules/robot-docusign/routes.js` + `routes/robotInstanceRoutes.js`):
 
 | Método | Path | Auth | Descrição |
 |--------|------|------|-----------|
-| `POST` | `/api/robot-docusign/trigger/:contractId` | protect + admin | Trigger manual para 1 contrato |
+| `POST` | `/api/robot-docusign/trigger` | protect | Trigger manual para 1 contrato (body: `contractId`/`contract_id`) |
 | `POST` | `/api/robot-docusign/trigger-batch` | protect + admin | Trigger para múltiplos (body: `{ contractIds: [] }`) |
-| `GET` | `/api/robot-docusign/status/:jobId` | protect | Status de uma execução |
+| `GET` | `/api/robot-docusign/status/:jobId` | protect | Status de uma execução (busca por _id ou contract_id) |
 | `GET` | `/api/robot-docusign/jobs` | protect | Lista de jobs (query: `?status=&page=&limit=`) |
-| `GET` | `/api/robot-docusign/metrics` | protect + admin | Métricas agregadas (enviados/dia, taxa sucesso, erros) |
+| `GET` | `/api/robot-docusign/jobs/:jobId/stream` | protect | SSE stream de progresso do job |
+| `GET` | `/api/robot-docusign/metrics` | protect | Métricas agregadas (enviados/dia, taxa sucesso, erros) |
 | `GET` | `/api/robot-docusign/logs/:jobId` | protect | Logs detalhados de um job |
-| `GET` | `/api/robot-docusign/config` | protect + admin | Buscar config do robot |
+| `GET` | `/api/robot-docusign/config` | protect | Buscar config do robot |
 | `PUT` | `/api/robot-docusign/config` | protect + admin | Atualizar config do robot |
-| `POST` | `/api/robot-docusign/test-login` | protect + admin | Testar credenciais na DocuSign |
+| `POST` | `/api/robot-docusign/test-login` | protect + admin | Testar credenciais na DocuSign (aceita `otpCode` opcional) |
 | `GET` | `/api/robot-docusign/queue` | protect | Fila de contratos pendentes |
+| `POST` | `/api/robot-docusign/process-pending` | protect | Processa até 1 contrato pendente (scheduler manual) |
+| `GET` | `/api/robot-docusign/instances` | protect + admin | Lista instâncias do robô (fleet monitoring) |
+| `POST` | `/api/robot-docusign/instance/auth` | público | Auth da instância (`X-Robot-Key` ou email/senha) |
+| `GET` | `/api/robot-docusign/instance/instances` | protect + admin | Lista instâncias (via sub-router, alias) |
+| `GET` | `/api/robot-docusign/instance/config` | protect | Config da instância |
+| `GET` | `/api/robot-docusign/instance/next-job` | protect | Próximo job pendente (polling do robô) |
+| `PATCH` | `/api/robot-docusign/instance/job/:jobId/status` | protect | Atualiza status do job |
+| `POST` | `/api/robot-docusign/instance/heartbeat` | protect | Heartbeat da instância |
+| `GET` | `/api/robot-docusign/instance/contracts/:contractId/pdf` | protect | Download de PDF do contrato |
+| `GET` | `/health` | público | Health check (fora do prefixo, `backend/src/app.js:15`) |
 
 - **Criterios de Aceite**:
   1. WHEN `trigger/:contractId` é chamado THEN um RobotJob SHALL ser criado e a execução SHALL iniciar
@@ -210,8 +221,8 @@ O projeto é dividido em **2 componentes independentes** no mesmo repositório:
 
 ### [REQ-007] Rotas
 
-- **Localização**: `src/modules/robot-docusign/routes.js`
-- **Montagem**: `app.use("/api/robot-docusign", robotDocusignRoutes)` em `src/app.js`
+- **Localização**: `backend/src/modules/robot-docusign/routes.js` + `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js`
+- **Montagem**: `app.use("/api/robot-docusign", robotDocusignModule.routes)` em `backend/src/app.js` + `app.get("/health")` na raiz
 - **Criterios de Aceite**:
   1. WHEN o módulo é carregado THEN todas as rotas SHALL estar disponíveis em `/api/robot-docusign/*`
   2. WHEN proteção está ativa THEN todas as rotas SHALL requerer token JWT válido
@@ -268,16 +279,15 @@ O projeto é dividido em **2 componentes independentes** no mesmo repositório:
   3. WHEN credenciais são salvas THEN elas SHALL ser criptografadas antes de persistir
   4. WHEN robot está em execução THEN o toggle geral SHALL ficar disabled
 
-### [REQ-011] Agendamento (DO Functions)
+### [REQ-011] Agendamento (Scheduler Interno)
 
-- **Endpoint**: HTTP Function acionada por cron externo (DO cron ou GitHub Actions)
+- **Implementação**: `backend/src/modules/robot-docusign/services/robotScheduler.js` (`start()`/`stop()` + `processPendingJobs()`) iniciado em `backend/src/server.js` via `robotScheduler.start()`. Rota manual `POST /api/robot-docusign/process-pending` exposta para trigger externo/cron.
 - **Fluxo**:
-  1. Function recebe request HTTP
-  2. Verifica config `robot_docusign.enabled` no SystemConfig
-  3. Verifica horário e dia da semana
-  4. Se válido → busca próximo contrato com status `gerado`
-  5. Processa um contrato via `robotOrchestrator`
-  6. Retorna resultado (success/failure + jobId)
+  1. Scheduler interno verifica config `robot_docusign.enabled` no SystemConfig
+  2. Verifica horário e dia da semana (`isTimeAccessAllowed`) e concorrência (`max_concurrent`)
+  3. Se válido → busca próximo contrato com status `gerado` ou próximo RobotJob pendente
+  4. Processa um contrato via `robotOrchestrator`
+  5. Retorna resultado (success/failure + jobId)
 - **Criterios de Aceite**:
   1. WHEN cron aciona function THEN a function SHALL processar no máximo 1 contrato
   2. WHEN nenhum contrato pendente THEN a function SHALL retornar `{ processed: 0 }`
@@ -298,30 +308,33 @@ O projeto é dividido em **2 componentes independentes** no mesmo repositório:
 ## Estrutura de Arquivos
 
 ```
-src/modules/robot-docusign/
+backend/src/modules/robot-docusign/
 ├── index.js                              # Barrel export
-├── routes.js                             # Rotas Express
+├── routes.js                             # Rotas Express (prefixo /api/robot-docusign)
+├── routes/
+│   └── robotInstanceRoutes.js            # Sub-rotas /instance (auth, next-job, heartbeat, pdf)
 ├── models/
-│   └── RobotJob.js                       # Schema RobotJob
+│   ├── RobotJob.js                       # Schema RobotJob
+│   ├── RobotSession.js                   # Sessão persistida
+│   └── RobotInstance.js                  # Instâncias do robô (fleet)
 ├── services/
 │   ├── robotOrchestrator.js              # Orquestrador principal
 │   ├── robotBrowser.js                   # Core Playwright (automação)
 │   ├── robotSession.js                   # Gerenciamento de sessão
-│   └── robotSelectors.js                 # Loader de seletores JSON
+│   ├── robotSelectors.js                 # Loader de seletores JSON
+│   └── robotScheduler.js                 # Scheduler interno (start/stop/processPendingJobs)
 ├── selectors/
 │   └── docusign-ui.json                  # Seletores CSS/XPath da UI DocuSign
 └── controllers/
-    └── robotDocusignController.js        # Endpoints API
+    ├── robotDocusignController.js        # Endpoints principais
+    └── robotInstanceController.js        # Endpoints de instância (auth, heartbeat, pdf)
 
-public/modules/contratos/
-├── contratos.html                        # Modificação: indicador modo no step 6
-├── contratos.js                          # Modificação: lógica toggle Robot/API
-└── services/
-    └── docusignService.js                # Modificação: chamar robot quando toggle ativo
-
-public/modules/config-sistema/
-├── config-sistema.html                   # Modificação: novo card robot-docusign
-└── config-sistema.js                     # Modificação: handlers do card robot
+robot/
+├── src/
+│   ├── main.js, config.js, api-client.js, job-runner.js, scheduler.js
+│   └── browser/ (docusign.js, selectors.js, roundcube.js, imapClient.js)
+├── build/build.js                        # Pipeline: esbuild → obfuscator → bytenode → pkg
+└── scripts/setup.bat                     # Instalador Windows
 ```
 
 ## Restrições & Preservação (Impact Protector)

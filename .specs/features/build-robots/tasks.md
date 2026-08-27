@@ -19,10 +19,10 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 | Code Layer | Required Test Type | Coverage Expectation | Location Pattern | Run Command |
 |------------|-------------------|---------------------|------------------|-------------|
-| Config | none | build gate only | `robot-standalone/src/config.js` | build gate |
-| API Client | unit | auth flow: instance_id from response | `robot-standalone/src/api-client.js` | `node --test` |
-| Build Script | none | manual verification (gera .exe) | `robot-standalone/build/build.js` | manual |
-| Main | none | build gate only | `robot-standalone/src/main.js` | build gate |
+| Config | none | build gate only | `robot/src/config.js` | build gate |
+| API Client | unit | auth flow: instance_id from response | `robot/src/api-client.js` | `node --test` |
+| Build Script | none | manual verification (gera .exe) | `robot/build/build.js` | manual |
+| Main | none | build gate only | `robot/src/main.js` | build gate |
 
 ## Parallelism Assessment
 
@@ -30,7 +30,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 | Test Type | Parallel-Safe? | Isolation Model | Evidence |
 |-----------|---------------|-----------------|----------|
-| unit | Yes | per-test mock | `robot-standalone/src/` (sem shared state) |
+| unit | Yes | per-test mock | `robot/src/` (sem shared state) |
 
 ## Gate Check Commands
 
@@ -38,8 +38,8 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 | Gate Level | When to Use | Command |
 |------------|-------------|---------|
-| Quick | After tasks with unit tests only | `cd robot-standalone && npm test` |
-| Build | After phase completion | `cd robot-standalone && npm run build` |
+| Quick | After tasks with unit tests only | `cd robot && npm test` |
+| Build | After phase completion | `cd robot && npm run build` |
 
 ---
 
@@ -76,9 +76,9 @@ T4 → T5
 ### T1: Atualizar config.js — remover ROBOT_ID, ROBOT_EMAIL, ROBOT_PASS
 
 **What**: Remover chaves `ROBOT_ID`, `ROBOT_EMAIL`, `ROBOT_PASS` do objeto retornado por `loadConfig()`
-**Where**: `robot-standalone/src/config.js`
+**Where**: `robot/src/config.js`
 **Depends on**: None
-**Reuses**: `robot-standalone/src/config.js` (existente)
+**Reuses**: `robot/src/config.js` (existente)
 
 **Tools**:
 - MCP: NONE
@@ -94,16 +94,16 @@ T4 → T5
 **Tests**: none (config layer — build gate only)
 **Gate**: quick
 
-**Commit**: `refactor(robot-standalone): remove ROBOT_ID, ROBOT_EMAIL, ROBOT_PASS from config`
+**Commit**: `refactor(robot): remove ROBOT_ID, ROBOT_EMAIL, ROBOT_PASS from config`
 
 ---
 
 ### T2: Atualizar api-client.js — instanceId via auth response
 
 **What**: Modificar `ApiClient` para não requerer `instanceId` no construtor; gravar `instance_id` da resposta do `/instance/auth`
-**Where**: `robot-standalone/src/api-client.js`
+**Where**: `robot/src/api-client.js`
 **Depends on**: T1
-**Reuses**: `robot-standalone/src/api-client.js` (existente)
+**Reuses**: `robot/src/api-client.js` (existente)
 
 **Tools**:
 - MCP: NONE
@@ -121,16 +121,16 @@ T4 → T5
 **Tests**: unit (auth flow — instance_id from response)
 **Gate**: quick
 
-**Commit**: `refactor(robot-standalone): get instance_id from auth response instead of constructor`
+**Commit**: `refactor(robot): get instance_id from auth response instead of constructor`
 
 ---
 
 ### T3: Atualizar main.js — remover ROBOT_ID do fluxo
 
 **What**: Modificar `main.js` para não passar `ROBOT_ID` ao `ApiClient` e usar `instance_id` retornado da auth
-**Where**: `robot-standalone/src/main.js`
+**Where**: `robot/src/main.js`
 **Depends on**: T2
-**Reuses**: `robot-standalone/src/main.js` (existente)
+**Reuses**: `robot/src/main.js` (existente)
 
 **Tools**:
 - MCP: NONE
@@ -146,16 +146,16 @@ T4 → T5
 **Tests**: none (integration layer — build gate only)
 **Gate**: build
 
-**Commit**: `refactor(robot-standalone): use auth-returned instance_id in main`
+**Commit**: `refactor(robot): use auth-returned instance_id in main`
 
 ---
 
 ### T4: Simplificar build.js — aceitar apenas --key, --api-url, --headless
 
 **What**: Modificar `build.js` para aceitar apenas 3 parâmetros; remover `--ids`, `--emails`, `--passwords`; remover `--define` de `ROBOT_ID`
-**Where**: `robot-standalone/build/build.js`
+**Where**: `robot/build/build.js`
 **Depends on**: T3
-**Reuses**: `robot-standalone/build/build.js` (existente)
+**Reuses**: `robot/build/build.js` (existente)
 
 **Tools**:
 - MCP: NONE
@@ -176,14 +176,14 @@ T4 → T5
 **Tests**: none (build script — manual verification)
 **Gate**: build
 
-**Commit**: `refactor(robot-standalone): simplify build to --key, --api-url, --headless only`
+**Commit**: `refactor(robot): simplify build to --key, --api-url, --headless only`
 
 ---
 
 ### T5: Atualizar Makefile e config.json.example
 
 **What**: Simplificar target `build-robot` no Makefile e limpar `config.json.example`
-**Where**: `Makefile`, `robot-standalone/config.json.example`
+**Where**: `Makefile`, `robot/config.json.example`
 **Depends on**: T4
 **Reuses**: `Makefile` (existente)
 
@@ -201,7 +201,7 @@ T4 → T5
 **Tests**: none
 **Gate**: build
 
-**Commit**: `docs(robot-standalone): update Makefile and config example for simplified build`
+**Commit**: `docs(robot): update Makefile and config example for simplified build`
 
 ---
 
