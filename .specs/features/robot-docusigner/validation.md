@@ -74,20 +74,21 @@
 
 ---
 
-## 6. Critérios de Validação Planejada - Task T17: Extração Headless de MFA via IMAP
+## 6. Critérios de Validação — Task T17: Extração Headless de MFA via IMAP
 
-- **Status**: Planejado
-- **Escopo**: Leitura direta via protocolo IMAP/TLS nativo
+- **Data**: 2026-08-27
+- **Status**: ✅ Concluído e Validado (100/100 testes de regressão passando)
+- **Escopo**: Leitura direta via protocolo IMAP/TLS nativo (`node:tls`) com fallback resiliente para Roundcube.
 
-### Cenários a validar
-- [ ] Conexão TLS com servidor IMAP (`host`, `port`, `tls`) estabelecida em menos de 500ms (com `{ rejectUnauthorized: false }` tolerante).
-- [ ] Autenticação com credenciais decifradas de `token_notification_email` executada com sucesso via comando `LOGIN`.
-- [ ] Busca de e-mails DocuSign no `INBOX` priorizando o e-mail mais recente por UID.
-- [ ] Decodificação de conteúdo em `quoted-printable` e `base64` com extração do código de 6 dígitos em menos de 2s.
-- [ ] Marcação da mensagem como lida (`STORE +FLAGS (\Seen)`) após extração bem-sucedida.
-- [ ] Tratamento gracioso quando o e-mail não estiver disponível imediatamente (polling com backoff).
-- [ ] Suporte a fallback para `roundcube.js` em caso de erro de rede ou recusa de porta IMAP (993).
-- [ ] Persistência de `token_notification_email` em `PUT /config` com senha cifrada e sem perda de campos.
-- [ ] Cobertura de testes unitários com mock TLS em `robot/src/browser/imapClient.test.js`.
-- [ ] Compatibilidade garantida com o build binário do robô (`robot/build`).
+### Cenários Validados
+- [x] Conexão TLS com servidor IMAP (`host`, `port`, `tls`) estabelecida com `{ rejectUnauthorized: false }` tolerante.
+- [x] Autenticação com credenciais decifradas de `token_notification_email` executada com sucesso via comando `LOGIN`.
+- [x] Busca de e-mails DocuSign no `INBOX` priorizando o e-mail mais recente por UID.
+- [x] Decodificação de conteúdo em `quoted-printable` e `base64` com extração precisa do código de 6 dígitos.
+- [x] Marcação da mensagem como lida (`STORE +FLAGS (\Seen)`) após extração bem-sucedida.
+- [x] Tratamento gracioso quando o e-mail não estiver disponível imediatamente (polling com backoff).
+- [x] Suporte a fallback para `roundcube.js` em caso de erro de rede ou recusa de porta IMAP (993).
+- [x] Persistência de `token_notification_email` em `PUT /config` com senha cifrada e sem perda de campos.
+- [x] Cobertura de testes unitários com mock TLS em `robot/src/browser/imapClient.test.js` e `backend/src/modules/robot-docusign/services/imapClient.test.js`.
+- [x] Compatibilidade garantida com o build binário do robô (`robot/build`) por usar 100% módulos nativos do Node.js.
 

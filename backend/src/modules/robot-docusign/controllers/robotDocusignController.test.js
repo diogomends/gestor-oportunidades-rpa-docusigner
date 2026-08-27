@@ -345,6 +345,32 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
       assert.strictEqual(res.body.success, true);
     });
 
+    it("deve atualizar config com token_notification_email para admin", async () => {
+      mock.method(SystemConfig, "findOne", () => ({
+        lean: async () => null,
+      }));
+      mock.method(SystemConfig, "findOneAndUpdate", async (_query, update) => ({
+        value: update.$set ? update.$set.value : update.value,
+      }));
+
+      const res = await request(app)
+        .put("/api/robot-docusign/config")
+        .set("Authorization", `Bearer ${tokenAdmin}`)
+        .send({
+          token_notification_email: {
+            email: "notificacao@unitynordeste.com.br",
+            password: "emailpassword123",
+            host: "mail.unitynordeste.com.br",
+            port: 993,
+            tls: true,
+          },
+        })
+        .expect(200);
+
+      assert.strictEqual(res.body.success, true);
+      assert.ok(res.body.config);
+    });
+
     it("deve retornar 400 para dados inválidos", async () => {
       const res = await request(app)
         .put("/api/robot-docusign/config")

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import selectors from "./selectors.js";
 import { fetchMfaCodeFromRoundcube } from "./roundcube.js";
+import { fetchMfaCodeViaImap } from "./imapClient.js";
 
 /**
  * Aplica um delay randômico entre ações para anti-detecção de bots.
@@ -58,12 +59,28 @@ export async function ensureAuthenticated(page, credentials) {
     const mfaInput = await page.$(mfaSel.input || "input[type='tel']").catch(() => null);
 
     if (mfaInput) {
-      console.log("[Browser] Tela de MFA/2FA detectada. Buscando código no Webmail Roundcube...");
+      console.log("[Browser] Tela de MFA/2FA detectada. Buscando código de segurança...");
       const mailCreds = credentials.token_notification_email || credentials;
-      const otpCode = await fetchMfaCodeFromRoundcube(page.context(), mailCreds);
+      let otpCode = null;
+
+      // 1. Consulta prioritária rápida e headless via protocolo IMAP nativo
+      if (mailCreds?.email && mailCreds?.password) {
+        try {
+          console.log("[Browser] Tentando obter código MFA via protocolo IMAP...");
+          otpCode = await fetchMfaCodeViaImap(mailCreds, { maxWaitMs: 30000 });
+        } catch (imapErr) {
+          console.warn("[Browser] Consulta IMAP falhou:", imapErr.message);
+        }
+      }
+
+      // 2. Fallback visual para Roundcube Webmail caso IMAP não encontre ou falhe
+      if (!otpCode) {
+        console.log("[Browser] Fallback: buscando código MFA no Webmail Roundcube...");
+        otpCode = await fetchMfaCodeFromRoundcube(page.context(), mailCreds);
+      }
 
       if (!otpCode) {
-        throw new Error("DocuSign solicitou código MFA, mas não foi possível extrair o código de segurança do Webmail.");
+        throw new Error("DocuSign solicitou código MFA, mas não foi possível extrair o código de segurança do e-mail.");
       }
 
       console.log(`[Browser] Preenchendo código MFA: ${otpCode}...`);
