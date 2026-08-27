@@ -116,14 +116,14 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
-### [5.50.0] - Planned
+### [5.50.0] - 2026-08-27
 
-#### Planejado
+#### Adicionado / Aprimorado
 - **Hardening, Resiliência e Otimização do Cliente IMAP Nativo (T18)**:
-  - Implementar tratamento instantâneo de erros e fechamento de conexão no `sendCommand` do `ImapClient`.
-  - Configurar polling com backoff adaptativo e reuso de sessão no `fetchMfaCodeViaImap` para mitigar bloqueios por rate-limit de autenticação.
-  - Adicionar critério temporal `SINCE <DD-Mon-YYYY>` na busca `UID SEARCH` do protocolo IMAP para limitar o escopo ao dia corrente.
-  - Expandir testes unitários de resiliência com simulação de queda de socket e desconexão prematura.
+  - `robot/src/browser/imapClient.js`: Implementado tratamento imediato de desconexão de socket (`error` e `close`) durante `sendCommand`, cancelando a espera sem reter o timeout de 15 segundos.
+  - `robot/src/browser/imapClient.js`: Implementada função `formatImapDate` e inclusão do filtro temporal `SINCE <DD-Mon-YYYY>` nas buscas `UID SEARCH` priorizando mensagens do dia corrente e preservando fallback sem restrição de data.
+  - `robot/src/browser/imapClient.js`: Adicionado suporte a backoff adaptativo e reuso de polling no `fetchMfaCodeViaImap` para proteção de limites de requisições por minuto do servidor de correio (ex: Dovecot/cPanel).
+  - `robot/src/browser/imapClient.test.js` e `backend/src/modules/robot-docusign/services/imapClient.test.js`: Expandida cobertura de testes unitários para validar queda prematura de socket, filtro `SINCE` e formatação RFC 3501.
 
 ### [5.49.0] - 2026-08-27
 

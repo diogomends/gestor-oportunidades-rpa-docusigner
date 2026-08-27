@@ -97,13 +97,13 @@
 ## 7. Critérios de Validação — Task T18: Hardening e Resiliência do Cliente IMAP
 
 - **Data**: 2026-08-27
-- **Status**: 🔲 Planejado
+- **Status**: ✅ Aprovado
 - **Escopo**: Resiliência contra queda prematura de socket, otimização de rate-limit e filtro temporal `SINCE`.
 
-### Cenários de Validação Planejados
-- [ ] Encerramento abrupto ou queda do socket durante `sendCommand` rejeita a Promise imediatamente sem aguardar 15 segundos de timeout.
-- [ ] O comando `UID SEARCH` inclui filtro temporal formatado (`SINCE <DD-Mon-YYYY>`) evitando falsos positivos com mensagens legadas.
-- [ ] Estratégia de polling com backoff adaptativo previne esgotamento de conexões e mitigação de bloqueios por firewall/antispam.
-- [ ] Regressão: 100% dos testes unitários do backend e do robô passam sem falhas via `node --test`.
+### Cenários de Validação Executados
+- [x] Encerramento abrupto ou queda do socket durante `sendCommand` rejeita a Promise imediatamente sem aguardar 15 segundos de timeout.
+- [x] O comando `UID SEARCH` inclui filtro temporal formatado (`SINCE <DD-Mon-YYYY>`) evitando falsos positivos com mensagens legadas.
+- [x] Estratégia de polling com backoff adaptativo previne esgotamento de conexões e mitigação de bloqueios por firewall/antispam.
+- [x] Regressão: 100% dos testes unitários do backend e do robô passam sem falhas via `node --test`.
 
 

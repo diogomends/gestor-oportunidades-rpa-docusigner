@@ -47,15 +47,15 @@
 
 ---
 
-### [ ] T18: Hardening e Resiliência do Cliente IMAP Nativo (2026-08-27)
+### [x] T18: Hardening e Resiliência do Cliente IMAP Nativo (2026-08-27)
 - **Objetivo**: Implementar melhorias de robustez para tratamento imediato de desconexões, controle de rate-limit com backoff e filtro temporal `SINCE`.
 - **Arquivos**:
   - `robot/src/browser/imapClient.js`
   - `robot/src/browser/imapClient.test.js`
   - `backend/src/modules/robot-docusign/services/imapClient.test.js`
 - **Ações**:
-  1. [ ] **T18.1**: Adicionar listeners temporários de `error` e `close` durante `sendCommand` no `ImapClient` para abortar imediatamente caso a conexão caia.
-  2. [ ] **T18.2**: Configurar suporte a backoff adaptativo e reuso de sessão no polling de `fetchMfaCodeViaImap`.
-  3. [ ] **T18.3**: Incluir critério temporal `SINCE <data_hoje>` na busca `UID SEARCH` do protocolo IMAP.
-  4. [ ] **T18.4**: Validar resiliência e ausência de regressão com testes unitários `node --test`.
+  1. [x] **T18.1**: Adicionar listeners temporários de `error` e `close` durante `sendCommand` no `ImapClient` para abortar imediatamente caso a conexão caia.
+  2. [x] **T18.2**: Configurar suporte a backoff adaptativo e reuso de sessão no polling de `fetchMfaCodeViaImap`.
+  3. [x] **T18.3**: Incluir critério temporal `SINCE <data_hoje>` na busca `UID SEARCH` do protocolo IMAP.
+  4. [x] **T18.4**: Validar resiliência e ausência de regressão com testes unitários `node --test`.
 

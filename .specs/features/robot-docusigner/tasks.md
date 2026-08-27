@@ -606,7 +606,7 @@ Ao autenticar na DocuSign pelo robô, quando um novo dispositivo ou sessão exig
 ### T18: Hardening, Resiliência e Otimização do Cliente IMAP Nativo
 
 - **Req**: REQ-MFA-IMAP-02, REQ-MFA-IMAP-04, REQ-MFA-IMAP-05
-- **Status**: [ ] Planned (2026-08-27)
+- **Status**: [x] Complete (2026-08-27)
 - **Esforço**: 1.5h | Paralelizável: Sim
 - **Depende de**: T17
 
@@ -628,10 +628,10 @@ A Task T17 implementou com sucesso a extração headless via protocolo IMAP dire
 - `robot/src/browser/imapClient.test.js` e `backend/src/modules/robot-docusign/services/imapClient.test.js` (testes de resiliência e socket drops)
 
 **Feito quando**:
-- [ ] Quedas de socket durante `sendCommand` rejeitam a operação imediatamente com erro descritivo.
-- [ ] Busca `UID SEARCH` inclui critério temporal `SINCE` sem quebrar compatibilidade com servidores IMAP padrão.
-- [ ] Estratégia de polling com backoff previne esgotamento de conexões simultâneas/limites de autenticação.
-- [ ] 100% dos testes unitários novos e existentes passam com sucesso via `node --test`.
+- [x] Quedas de socket durante `sendCommand` rejeitam a operação imediatamente com erro descritivo.
+- [x] Busca `UID SEARCH` inclui critério temporal `SINCE` sem quebrar compatibilidade com servidores IMAP padrão.
+- [x] Estratégia de polling com backoff previne esgotamento de conexões simultâneas/limites de autenticação.
+- [x] 100% dos testes unitários novos e existentes passam com sucesso via `node --test`.
 
 ---
 
