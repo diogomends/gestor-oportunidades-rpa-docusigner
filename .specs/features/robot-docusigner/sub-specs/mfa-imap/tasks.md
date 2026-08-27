@@ -10,13 +10,14 @@
 ## Tasks
 
 ### T17.1: Criação do Utilitário de Conexão e Consulta IMAP (`imapClient.js`)
-- **Objetivo**: Implementar conexão via socket TLS (`node:tls`) para autenticação IMAP, busca no `INBOX` e extração de texto da mensagem mais recente da DocuSign.
+- **Objetivo**: Implementar conexão via socket TLS (`node:tls`) nativo para autenticação IMAP, busca no `INBOX`, decodificação MIME (Quoted-Printable/Base64) e extração de texto da mensagem mais recente da DocuSign.
 - **Arquivo**: `robot/src/browser/imapClient.js`
 - **Ações**:
-  1. Conexão TCP/TLS nativa para `host` e `port` com suporte a `tls: true/false`.
-  2. Envio de comandos IMAP: `LOGIN`, `SELECT INBOX`, `SEARCH UNSEEN / ALL SUBJECT "Verificar"`, `FETCH BODY[TEXT]`, `LOGOUT`.
-  3. Extração regex do código de 6 dígitos.
-  4. Retorno estruturado do token `{ code: "123456", success: true }`.
+  1. Conexão TCP/TLS nativa para `host` e `port` com suporte a `tls: true/false` e tolerância a certificados autoassinados (`rejectUnauthorized: false`).
+  2. Envio de comandos IMAP: `LOGIN`, `SELECT INBOX`, `UID SEARCH UNSEEN / ALL SUBJECT "Verificar"`, `UID FETCH <id> BODY[TEXT]`, `STORE +FLAGS (\Seen)`, `LOGOUT`.
+  3. Decodificador MIME leve integrado para `quoted-printable` e `base64`.
+  4. Extração regex do código de 6 dígitos.
+  5. Retorno estruturado do token `{ code: "123456", success: true }`.
 
 ### T17.2: Atualização do Schema Zod e Persistência no Backend Central
 - **Objetivo**: Garantir que `token_notification_email` com `host`, `port`, `tls`, `email` e `password` cifrada seja completamente aceito e persistido no `updateConfig` e `getRobotConfig`.
@@ -40,6 +41,6 @@
   3. Manter `roundcube.js` como contingência/fallback caso o servidor IMAP não responda.
 
 ### T17.4: Testes Unitários e Validação de Regressão
-- **Objetivo**: Criar testes com mock de servidor IMAP e verificar integridade com `node --test`.
+- **Objetivo**: Criar testes com mock de servidor IMAP testando fluxos com TLS direto, encoding Quoted-Printable, Base64 e verificação de integridade com `node --test`.
 - **Arquivo**: `robot/src/browser/imapClient.test.js`
 - **Critérios**: 100% dos testes passando sem afetar outros fluxos.

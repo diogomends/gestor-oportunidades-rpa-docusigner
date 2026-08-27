@@ -80,11 +80,14 @@
 - **Escopo**: Leitura direta via protocolo IMAP/TLS nativo
 
 ### Cenários a validar
-- [ ] Conexão TLS com servidor IMAP (`host`, `port`, `tls`) estabelecida em menos de 500ms.
-- [ ] Autenticação com credenciais decifradas de `token_notification_email` executada com sucesso.
-- [ ] Busca de e-mails DocuSign no `INBOX` com extração do código numérico de 6 dígitos em menos de 2s.
+- [ ] Conexão TLS com servidor IMAP (`host`, `port`, `tls`) estabelecida em menos de 500ms (com `{ rejectUnauthorized: false }` tolerante).
+- [ ] Autenticação com credenciais decifradas de `token_notification_email` executada com sucesso via comando `LOGIN`.
+- [ ] Busca de e-mails DocuSign no `INBOX` priorizando o e-mail mais recente por UID.
+- [ ] Decodificação de conteúdo em `quoted-printable` e `base64` com extração do código de 6 dígitos em menos de 2s.
+- [ ] Marcação da mensagem como lida (`STORE +FLAGS (\Seen)`) após extração bem-sucedida.
 - [ ] Tratamento gracioso quando o e-mail não estiver disponível imediatamente (polling com backoff).
 - [ ] Suporte a fallback para `roundcube.js` em caso de erro de rede ou recusa de porta IMAP (993).
 - [ ] Persistência de `token_notification_email` em `PUT /config` com senha cifrada e sem perda de campos.
 - [ ] Cobertura de testes unitários com mock TLS em `robot/src/browser/imapClient.test.js`.
+- [ ] Compatibilidade garantida com o build binário do robô (`robot/build`).
 
