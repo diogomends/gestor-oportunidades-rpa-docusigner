@@ -6,6 +6,11 @@ import os from "node:os";
  * Cliente HTTP para comunicação segura com a API Central do Gestor de Oportunidades.
  */
 export class ApiClient {
+  /**
+   * Cria uma instância do ApiClient.
+   * @param {string} baseUrl - URL base da API central (ex: http://localhost:3111).
+   * @param {string|null} [instanceId=null] - Identificador da instância do robô.
+   */
   constructor(baseUrl, instanceId = null) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.instanceId = instanceId;
@@ -15,6 +20,8 @@ export class ApiClient {
 
   /**
    * Autentica na API via Chave de API (X-Robot-Key) e armazena o token JWT e instance_id.
+   * @param {string} robotKey - Chave de API do robô (ROBOT_API_KEY).
+   * @returns {Promise<Object>} Dados de autenticação retornados pela API ({ token, instance_id, user }).
    */
   async authenticate(robotKey) {
     if (!robotKey) {
@@ -62,7 +69,8 @@ export class ApiClient {
   }
 
   /**
-   * Helper para headers autenticados.
+   * Retorna headers autenticados para requisições à API central.
+   * @returns {{'Content-Type': string, Authorization: string}} Headers com Bearer token.
    */
   getHeaders() {
     return {
@@ -73,6 +81,7 @@ export class ApiClient {
 
   /**
    * Obtém as configurações de sistema (horários, limites, intervalo de polling).
+   * @returns {Promise<Object>} Configuração do robô retornada pela API.
    */
   async getConfig() {
     const url = `${this.baseUrl}/api/robot-docusign/instance/config`;
@@ -85,6 +94,7 @@ export class ApiClient {
 
   /**
    * Busca atomicamente o próximo job atribuído a esta instância.
+   * @returns {Promise<{hasJob: boolean, jobId?: string, contractId?: string, [key: string]: any}>} Payload do próximo job ou { hasJob: false }.
    */
   async getNextJob() {
     if (!this.instanceId) {
@@ -99,7 +109,10 @@ export class ApiClient {
   }
 
   /**
-   * Atualiza o status e os steps do job.
+   * Atualiza o status e os steps do job na API central.
+   * @param {string} jobId - Identificador do job.
+   * @param {Object} statusPayload - Payload de status ({ status, step, result, error, envelopeId }).
+   * @returns {Promise<Object>} Resposta da API após atualização.
    */
   async updateJobStatus(jobId, statusPayload) {
     if (!this.instanceId) {
@@ -122,6 +135,10 @@ export class ApiClient {
 
   /**
    * Envia heartbeat informando estado da máquina.
+   * @param {string} [status="idle"] - Status atual da instância (idle | busy).
+   * @param {string|null} [currentJobId=null] - ID do job em execução, se houver.
+   * @param {number} [jobsCount=0] - Total de jobs processados no dia.
+   * @returns {Promise<Object|void>} Resposta da API ou void em caso de falha silenciosa.
    */
   async sendHeartbeat(status = "idle", currentJobId = null, jobsCount = 0) {
     const url = `${this.baseUrl}/api/robot-docusign/instance/heartbeat`;
@@ -148,6 +165,8 @@ export class ApiClient {
 
   /**
    * Baixa o arquivo PDF do contrato para um arquivo temporário no os.tmpdir().
+   * @param {string} relativePdfUrl - URL relativa do PDF (ex: /api/robot-docusign/instance/contracts/:id/pdf).
+   * @returns {Promise<string>} Caminho absoluto do arquivo temporário criado.
    */
   async downloadPdfToTemp(relativePdfUrl) {
     const fullUrl = `${this.baseUrl}${relativePdfUrl.startsWith("/") ? "" : "/"}${relativePdfUrl}`;

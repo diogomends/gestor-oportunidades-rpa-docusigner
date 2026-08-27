@@ -170,6 +170,7 @@ export async function processPendingJobs(options = {}) {
   }
 }
 
+/** Timer do loop periódico do scheduler. @type {NodeJS.Timeout|null} */
 let timerId = null;
 
 /**
@@ -211,6 +212,10 @@ export function stop() {
   }
 }
 
+/**
+ * Exportação padrão do scheduler do robô.
+ * @type {{processPendingJobs: function, start: function, stop: function}}
+ */
 export default {
   processPendingJobs,
   start,

@@ -268,3 +268,4 @@ Este projeto interage com `gestor-oportunidades`. Consulte-o antes de alterar sc
 - **Autorização**: `protect` (JWT Bearer) + `authorize("admin")`
 - **Testes**: `node --test` nativo (sem Jest)
 - **Idioma**: pt-BR em mensagens e documentação
+- **JSDoc obrigatório**: Toda função, método ou classe criada/alterada DEVE ter JSDoc (`@param`, `@returns`, `@throws`/`@async` quando aplicável; `@class` no constructor; `@typedef`+`@type` em Models; `@param {import('express').Request}` em middlewares)

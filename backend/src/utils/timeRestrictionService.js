@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Validação de acesso por horário comercial (America/Sao_Paulo).
+ * @module utils/timeRestrictionService
+ */
+
+/**
  * Service to validate system access based on business hours configuration.
  */
 

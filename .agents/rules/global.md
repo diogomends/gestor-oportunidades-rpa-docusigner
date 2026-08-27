@@ -12,6 +12,12 @@ trigger: always_on
 - **Sub-agentes e Distribuição de Carga**: Em todas as tarefas, sempre que for possível, utilize sub-agentes paralelos para distribuir a carga de trabalho, realizar pesquisas/investigações simultâneas e evitar execuções sequenciais desnecessárias.
 - **Verificação de Especificações (.specs/)**: Antes de responder a qualquer pergunta, solicitação de ajuste, verificação de erro ou refatoração (bem como planejamento, fix ou nova feature), consulte obrigatoriamente o diretório `.specs/` para verificar se existem especificações ou diretrizes lá definidas.
 - **Aplicação Continuada de PonyTail e SOLID**: Em qualquer resposta, análise, refatoração ou implementação, aplique rigorosamente os princípios **SOLID** (arquitetura limpa, responsabilidade única) e a prática do **PonyTail** (eliminação de sobre-engenharia, simplicidade e revisão constante).
+- **JSDoc obrigatório**: Toda função, método ou classe criada ou alterada DEVE ter JSDoc completo. Sem exceção.
+  - Funções/métodos: `@param`, `@returns`, `@throws` quando aplicável, `@async` se async.
+  - Classes: `@class` + `@param` no `constructor`.
+  - Models Mongoose: `@typedef` para schema + `@type {import('mongoose').Model<Doc>}` no export.
+  - Middlewares Express: `@param {import('express').Request}` / `@param {import('express').Response}` / `@param {import('express').NextFunction}`.
+  - Constantes/config: `@constant` + `@type`.
 - não rodar testes sem ser solicitado
 - verificar se há comando de teste em makefile
 - autorizado rodar testes se for de skill instaladas

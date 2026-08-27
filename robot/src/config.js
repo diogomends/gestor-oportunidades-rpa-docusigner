@@ -44,5 +44,9 @@ export function loadConfig() {
   return config;
 }
 
+/**
+ * Exportação padrão do módulo de configuração.
+ * @type {{loadConfig: typeof loadConfig}}
+ */
 export default { loadConfig };
 

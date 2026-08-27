@@ -1,5 +1,10 @@
+/**
+ * @fileoverview Utilitários de criptografia AES-256-CBC para credenciais do robô.
+ * @module utils/crypto
+ */
 import crypto from "crypto";
 
+/** Chave AES-256 derivada de JWT_SECRET via SHA-256. @type {Buffer} */
 const ENCRYPTION_KEY = crypto
   .createHash("sha256")
   .update(process.env.JWT_SECRET || "gestor_oportunidades_robot_secret_key")

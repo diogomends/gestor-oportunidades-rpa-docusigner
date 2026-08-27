@@ -8,6 +8,7 @@ import RobotSession from "../models/RobotSession.js";
  */
 export const MFA_TIMEOUT = 90000;
 
+/** Seletor CSS composto para campo de código MFA/OTP. @type {string} */
 const DEFAULT_MFA_SELECTOR =
   "input[type='tel'], input[data-testid='mfa-code'], input[autocomplete='one-time-code'], input[name='mfa-code'], input[id*='otp']";
 
@@ -360,6 +361,10 @@ export async function invalidateSession(email) {
   return (result?.deletedCount ?? 0) > 0;
 }
 
+/**
+ * Exportação padrão agregando utilitários de sessão do robô.
+ * @type {{captureDebugScreenshot: function, saveSession: function, getSession: function, isSessionValid: function, applySessionToContext: function, loginAndSaveSession: function, getOrRefreshSession: function, invalidateSession: function}}
+ */
 export default {
   captureDebugScreenshot,
   saveSession,

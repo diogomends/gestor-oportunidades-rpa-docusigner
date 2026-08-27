@@ -3,11 +3,19 @@ dotenv.config();
 
 const DEFAULT_TIMEOUT_MS = 10000;
 
+/**
+ * Obtém a URL base da API do Gestor de Oportunidades.
+ * @returns {string} URL base sem barra final.
+ */
 const getBaseUrl = () => {
   const url = process.env.GESTOR_API_URL || "http://localhost:3000/api";
   return url.replace(/\/+$/, "");
 };
 
+/**
+ * Obtém a chave de API do robô a partir das variáveis de ambiente.
+ * @returns {string} Chave de API ou string vazia se não configurada.
+ */
 const getRobotApiKey = () => {
   return process.env.ROBOT_API_KEY || "";
 };
@@ -203,6 +211,10 @@ export const updateContractStatus = async (contractId, payload, options = {}) =>
   }
 };
 
+/**
+ * Cliente padrão do Gestor API com métodos de validação e contratos.
+ * @type {{validateApiKey: Function, fetchPendingContracts: Function, updateContractStatus: Function}}
+ */
 export default {
   validateApiKey,
   fetchPendingContracts,

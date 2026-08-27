@@ -83,5 +83,13 @@ robotSessionSchema.pre("save", function (next) {
 });
 
 const conn = getContractsConnection();
+/**
+ * Model Mongoose para sessões do robô DocuSign (collection: robot_sessions).
+ * @type {import('mongoose').Model}
+ */
 export const RobotSession = conn.models.RobotSession || conn.model("RobotSession", robotSessionSchema, "robot_sessions");
+/**
+ * Model padrão de RobotSession para import default.
+ * @type {import('mongoose').Model}
+ */
 export default RobotSession;

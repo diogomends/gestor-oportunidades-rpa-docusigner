@@ -686,6 +686,10 @@ export const streamJobProgress = async (req, res) => {
   }
 };
 
+/**
+ * Exportação padrão dos handlers do controller DocuSign.
+ * @type {{triggerJob: function, triggerBatch: function, getJobStatus: function, listJobs: function, getMetrics: function, getJobLogs: function, getConfig: function, updateConfig: function, testLogin: function, getQueue: function, processPending: function, streamJobProgress: function}}
+ */
 export default {
   triggerJob,
   triggerBatch,

@@ -99,6 +99,14 @@ export function formatImapDate(date = new Date()) {
  * Cliente IMAP nativo em socket TCP/TLS sem dependências externas.
  */
 export class ImapClient {
+  /**
+   * Cria uma instância do cliente IMAP nativo.
+   * @param {Object} [options={}] - Opções de conexão.
+   * @param {string} [options.host="unitynordeste.com.br"] - Host do servidor IMAP.
+   * @param {number|string} [options.port=993] - Porta do servidor IMAP.
+   * @param {boolean} [options.tls=true] - Se deve usar TLS.
+   * @param {number} [options.timeout=15000] - Timeout de conexão/comandos em ms.
+   */
   constructor(options = {}) {
     this.host = options.host || "unitynordeste.com.br";
     this.port = Number(options.port) || 993;
