@@ -15,7 +15,14 @@ const {
   RecipientViewRequest,
 } = docusign;
 
+/**
+ * Service responsible for interacting with the DocuSign eSignature REST API.
+ * Handles JWT authentication, envelope lifecycle, recipient views, and status polling.
+ */
 class DocuSignService {
+  /**
+   * Initializes the DocuSign API client and default timeout.
+   */
   constructor() {
     this.apiClient = new ApiClient();
     this.apiClient.setBasePath(
@@ -25,6 +32,10 @@ class DocuSignService {
     this.apiClient.timeout = parseInt(process.env.DOCUSIGN_TIMEOUT_MS, 10) || 15000;
   }
 
+  /**
+   * Validates required environment variables and private key files for DocuSign JWT integration.
+   * @returns {string[]} List of missing configuration keys or file errors.
+   */
   getConfigIssues() {
     const missing = [];
     if (!process.env.DOCUSIGN_INTEGRATION_KEY)
@@ -43,6 +54,11 @@ class DocuSignService {
     return missing;
   }
 
+  /**
+   * Generates the OAuth consent URL required for DocuSign JWT impersonation.
+   * @returns {string} The consent authorization URL.
+   * @throws {Error} If DOCUSIGN_INTEGRATION_KEY or DOCUSIGN_REDIRECT_URI is missing.
+   */
   getConsentUrl() {
     const redirectUri = process.env.DOCUSIGN_REDIRECT_URI;
     const integrationKey = process.env.DOCUSIGN_INTEGRATION_KEY;
@@ -70,6 +86,11 @@ class DocuSignService {
     return `${baseUrl}?${params.toString()}`;
   }
 
+  /**
+   * Obtains a valid JWT user access token from DocuSign and sets it on the API client.
+   * @returns {Promise<string>} Bearer access token string.
+   * @throws {Error} If configuration is invalid, private key is missing, or DocuSign API returns an error.
+   */
   async getAccessToken() {
     try {
       const configIssues = this.getConfigIssues();
@@ -133,6 +154,13 @@ class DocuSignService {
     }
   }
 
+  /**
+   * Creates and sends a DocuSign envelope with signer tabs, documents, and optional webhook callback.
+   * @param {{ name: string, email: string, cpf?: string }} signer - Signer information.
+   * @param {Array<{ name: string, path: string }>} pdfFiles - List of PDF files to attach.
+   * @param {string} [callbackUrl] - Webhook URL for envelope status event notifications.
+   * @returns {Promise<Object>} DocuSign EnvelopeSummary creation result.
+   */
   async sendEnvelope(signer, pdfFiles, callbackUrl) {
     await this.getAccessToken();
 
@@ -221,6 +249,11 @@ class DocuSignService {
     return results;
   }
 
+  /**
+   * Retrieves current status and details of a DocuSign envelope.
+   * @param {string} envelopeId - DocuSign Envelope ID.
+   * @returns {Promise<Object>} DocuSign Envelope details.
+   */
   async getEnvelopeStatus(envelopeId) {
     await this.getAccessToken();
     const envelopesApi = new EnvelopesApi(this.apiClient);
@@ -228,6 +261,11 @@ class DocuSignService {
     return await envelopesApi.getEnvelope(accountId, envelopeId);
   }
 
+  /**
+   * Downloads the combined signed documents for an envelope.
+   * @param {string} envelopeId - DocuSign Envelope ID.
+   * @returns {Promise<Buffer|string>} Combined document buffer/content.
+   */
   async getSignedDocuments(envelopeId) {
     await this.getAccessToken();
     const envelopesApi = new EnvelopesApi(this.apiClient);
@@ -235,6 +273,11 @@ class DocuSignService {
     return await envelopesApi.getDocument(accountId, envelopeId, "combined");
   }
 
+  /**
+   * Resends notification emails to current envelope recipients.
+   * @param {string} envelopeId - DocuSign Envelope ID.
+   * @returns {Promise<Object>} DocuSign updateRecipients response.
+   */
   async resendEnvelope(envelopeId) {
     try {
       console.log(`[DocuSign Service] Resending envelope notification. EnvelopeId: ${envelopeId}`);
@@ -258,6 +301,12 @@ class DocuSignService {
     }
   }
 
+  /**
+   * Generates an embedded recipient signing URL (embedded view).
+   * @param {string} envelopeId - DocuSign Envelope ID.
+   * @param {{ clientUserId?: string, name: string, email: string, returnUrl: string }} recipientParams - Recipient view parameters.
+   * @returns {Promise<string>} Embedded signing view URL.
+   */
   async getRecipientViewUrl(envelopeId, recipientParams) {
     await this.getAccessToken();
     const envelopesApi = new EnvelopesApi(this.apiClient);

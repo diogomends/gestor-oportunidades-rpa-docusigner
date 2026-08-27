@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import { getContractsConnection } from "../config/database.js";
 
+/**
+ * Mongoose schema representing contracts stored in the 'crm_contracts' database.
+ * Includes client details, negotiations, portability lines, document links, status, and DocuSign token trigger info.
+ */
 const contractSchema = new mongoose.Schema(
   {
     opportunityId: {
@@ -134,4 +138,10 @@ const contractSchema = new mongoose.Schema(
 );
 
 const conn = getContractsConnection();
+
+/**
+ * Contract Mongoose model compiled on the 'crm_contracts' database connection.
+ * @type {import("mongoose").Model<import("mongoose").Document>}
+ */
 export default conn.model("Contract", contractSchema);
+
