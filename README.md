@@ -162,8 +162,10 @@ robot/
 │   ├── api-client.js   # Cliente HTTP autenticado (JWT) para o servidor
 │   ├── job-runner.js   # Executor isolado de jobs Playwright
 │   ├── scheduler.js    # Loop de polling + heartbeat
+│   ├── utils/
+│   │   └── logger.js   # Sistema de logs coloridos ANSI (verde=sucesso, azul=etapa, vermelho=erro)
 │   └── browser/
-│       ├── docusign.js   # Automação DocuSign (login, envio, status)
+│       ├── docusign.js   # Automação DocuSign (login, detecção de MFA, envio, status)
 │       ├── imapClient.js # Extração headless de código MFA via socket IMAP/TLS nativo
 │       ├── roundcube.js  # Fallback de extração visual de MFA via Webmail Roundcube
 │       └── selectors.js  # Seletores CSS
