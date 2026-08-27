@@ -93,7 +93,7 @@ O repositório está integrado com **GitHub Actions**:
 | `GESTOR_API_URL`        | Sim         | `http://localhost:3000/api` | URL da API do gestor-oportunidades |
 | `ROBOT_API_KEY`         | Sim         | —           | Chave de API do robô (validada no bootstrap) |
 
-> As credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback.
+> As credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. A resolução de MFA (2FA) da DocuSign utiliza as credenciais de e-mail de notificação (`token_notification_email`: `email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), permitindo extração rápida em ~1s via protocolo IMAP direto com fallback para Roundcube Webmail.
 
 ## Comandos
 
@@ -163,8 +163,10 @@ robot/
 │   ├── job-runner.js   # Executor isolado de jobs Playwright
 │   ├── scheduler.js    # Loop de polling + heartbeat
 │   └── browser/
-│       ├── docusign.js  # Automação DocuSign (login, envio, status)
-│       └── selectors.js # Seletores CSS
+│       ├── docusign.js   # Automação DocuSign (login, envio, status)
+│       ├── imapClient.js # Extração headless de código MFA via socket IMAP/TLS nativo
+│       ├── roundcube.js  # Fallback de extração visual de MFA via Webmail Roundcube
+│       └── selectors.js  # Seletores CSS
 ├── build/
 │   └── build.js        # Pipeline: esbuild → obfuscator → bytenode → pkg
 ├── scripts/

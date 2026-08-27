@@ -44,3 +44,18 @@
 - **Objetivo**: Criar testes com mock de servidor IMAP testando fluxos com TLS direto, encoding Quoted-Printable, Base64 e verificação de integridade com `node --test`.
 - **Arquivo**: `robot/src/browser/imapClient.test.js` e `backend/src/modules/robot-docusign/services/imapClient.test.js`
 - **Critérios**: [x] 100% dos testes passando (100/100 testes, 0 falhas).
+
+---
+
+### [ ] T18: Hardening e Resiliência do Cliente IMAP Nativo (2026-08-27)
+- **Objetivo**: Implementar melhorias de robustez para tratamento imediato de desconexões, controle de rate-limit com backoff e filtro temporal `SINCE`.
+- **Arquivos**:
+  - `robot/src/browser/imapClient.js`
+  - `robot/src/browser/imapClient.test.js`
+  - `backend/src/modules/robot-docusign/services/imapClient.test.js`
+- **Ações**:
+  1. [ ] **T18.1**: Adicionar listeners temporários de `error` e `close` durante `sendCommand` no `ImapClient` para abortar imediatamente caso a conexão caia.
+  2. [ ] **T18.2**: Configurar suporte a backoff adaptativo e reuso de sessão no polling de `fetchMfaCodeViaImap`.
+  3. [ ] **T18.3**: Incluir critério temporal `SINCE <data_hoje>` na busca `UID SEARCH` do protocolo IMAP.
+  4. [ ] **T18.4**: Validar resiliência e ausência de regressão com testes unitários `node --test`.
+

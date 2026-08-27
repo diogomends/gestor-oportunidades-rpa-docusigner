@@ -92,3 +92,18 @@
 - [x] Cobertura de testes unitários com mock TLS em `robot/src/browser/imapClient.test.js` e `backend/src/modules/robot-docusign/services/imapClient.test.js`.
 - [x] Compatibilidade garantida com o build binário do robô (`robot/build`) por usar 100% módulos nativos do Node.js.
 
+---
+
+## 7. Critérios de Validação — Task T18: Hardening e Resiliência do Cliente IMAP
+
+- **Data**: 2026-08-27
+- **Status**: 🔲 Planejado
+- **Escopo**: Resiliência contra queda prematura de socket, otimização de rate-limit e filtro temporal `SINCE`.
+
+### Cenários de Validação Planejados
+- [ ] Encerramento abrupto ou queda do socket durante `sendCommand` rejeita a Promise imediatamente sem aguardar 15 segundos de timeout.
+- [ ] O comando `UID SEARCH` inclui filtro temporal formatado (`SINCE <DD-Mon-YYYY>`) evitando falsos positivos com mensagens legadas.
+- [ ] Estratégia de polling com backoff adaptativo previne esgotamento de conexões e mitigação de bloqueios por firewall/antispam.
+- [ ] Regressão: 100% dos testes unitários do backend e do robô passam sem falhas via `node --test`.
+
+

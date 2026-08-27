@@ -45,6 +45,7 @@ npm run typecheck         # Type check (se disponível)
 | REQ-OTP-02 | T15 | ✅ Erros MFA_REQUIRED / OTP_INVALID | ✅ Timeouts estendidos MFA | — |
 | REQ-MFA-AUTO-01 | T16 | ✅ roundcube.js | ✅ docusign.js ensureAuth | — |
 | REQ-MFA-IMAP-01 | T17 | ✅ imapClient.test.js | ✅ IMAP integration | — |
+| REQ-MFA-IMAP-02 | T18 | 🔲 imapClient.test.js | 🔲 IMAP Hardening & Resilience | — |
 
 ---
 
@@ -597,6 +598,40 @@ Ao autenticar na DocuSign pelo robô, quando um novo dispositivo ou sessão exig
  - [x] `updateConfig` persiste `token_notification_email` com senha cifrada sem perda de dados.
  - [x] Fluxo Playwright preenche o código na DocuSign sem abrir abas de webmail.
  - [x] Testes unitários com mock IMAP passam com 100% de sucesso.
+
+---
+
+## Fase 12 — Refinamento e Resiliência do Cliente IMAP
+
+### T18: Hardening, Resiliência e Otimização do Cliente IMAP Nativo
+
+- **Req**: REQ-MFA-IMAP-02, REQ-MFA-IMAP-04, REQ-MFA-IMAP-05
+- **Status**: [ ] Planned (2026-08-27)
+- **Esforço**: 1.5h | Paralelizável: Sim
+- **Depende de**: T17
+
+**Contexto**:
+A Task T17 implementou com sucesso a extração headless via protocolo IMAP direto. Para elevar a resiliência e estabilidade em ambientes corporativos adversos (com limites de autenticações por minuto ou caixas postais densas), esta task introduz tratamento instantâneo de erros de conexão no socket, mitigação de rate-limit com backoff e filtro temporal (`SINCE`).
+
+**O quê**:
+1. **Tratamento Imediato de Queda de Conexão no `sendCommand`**:
+   - Anexar listeners temporários de `error` e `close` durante a execução de comandos IMAP para rejeitar a Promise imediatamente se o socket for encerrado/cair, sem reter o processo até o timeout de 15s.
+2. **Mitigação de Rate-Limit e Backoff no Polling**:
+   - Ajustar o intervalo padrão de polling para 3s e implementar reuso de sessão / backoff linear adaptativo para proteger contra limites rígidos de login por minuto (ex: Dovecot/cPanel).
+3. **Filtro Temporal IMAP (`SINCE`)**:
+   - Adicionar critério temporal (`SINCE <DD-Mon-YYYY>`) na consulta `UID SEARCH` para limitar o escopo de busca a mensagens recebidas no dia corrente, evitando processamento de mensagens legadas antigas em caixas densas.
+4. **Testes Unitários de Resiliência**:
+   - Atualizar a suíte de testes unitários para cobrir desconexões forçadas durante `sendCommand`, filtro `SINCE` e tratamento de erros do socket.
+
+**Onde**:
+- `robot/src/browser/imapClient.js` (adicionar listeners de socket no sendCommand, filtro temporal e opções de polling)
+- `robot/src/browser/imapClient.test.js` e `backend/src/modules/robot-docusign/services/imapClient.test.js` (testes de resiliência e socket drops)
+
+**Feito quando**:
+- [ ] Quedas de socket durante `sendCommand` rejeitam a operação imediatamente com erro descritivo.
+- [ ] Busca `UID SEARCH` inclui critério temporal `SINCE` sem quebrar compatibilidade com servidores IMAP padrão.
+- [ ] Estratégia de polling com backoff previne esgotamento de conexões simultâneas/limites de autenticação.
+- [ ] 100% dos testes unitários novos e existentes passam com sucesso via `node --test`.
 
 ---
 

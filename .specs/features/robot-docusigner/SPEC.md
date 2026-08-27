@@ -408,7 +408,9 @@ robot/
 | REQ-ROBOT-KEY-01 | US-011 | 8 - Service Account Auth | Done |
 | REQ-ROBOT-KEY-02 | US-011 | 8 - Contracts HTTP Client | Done |
 | REQ-ROBOT-KEY-03 | US-011 | 8 - Bootstrap Guard | Done |
-| REQ-MFA-IMAP-01 | US-012 | 11 - Headless IMAP MFA | Planejado |
+| REQ-MFA-IMAP-01 | US-012 | 11 - Headless IMAP MFA | Done |
+| REQ-MFA-IMAP-02 | US-012 | 11 - Fallback & Resilient Polling | Done |
+| REQ-MFA-IMAP-03 | US-012 | 11 - Bytecode & Build Compatibility | Done |
 
 ## Variações da Implementação & Notas Técnicas
 

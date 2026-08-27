@@ -54,7 +54,8 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │               └── routes/            # robotInstanceRoutes.js
 ├── robot/
 │   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, bytenode, esbuild)
-│   ├── src/               # Código-fonte da automação do robô (main, job-runner, browser)
+│   ├── src/               # Código-fonte da automação (main, job-runner, scheduler)
+│   │   └── browser/       # docusign.js, imapClient.js (MFA IMAP nativo), roundcube.js (fallback), selectors.js
 │   ├── build/             # Pipeline de compilação/ofuscação/empacotamento (.exe)
 │   ├── scripts/           # Scripts de instalação e inicialização do robô
 │   ├── dist/              # Saída do build: subpastas por chave (robot-docusigner-1/, robot-docusigner-2/, ...)
@@ -131,7 +132,7 @@ Fora do prefixo:
 | `GESTOR_API_URL`        | Sim         | `http://localhost:3000/api` |
 | `ROBOT_API_KEY`         | Sim         | —           |
 
-Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback.
+Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. A resolução de MFA (2FA) DocuSign consome as credenciais de `token_notification_email` (`email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), operando via socket IMAP direto com fallback para Roundcube Webmail.
 
 
 ## Convenções de Código
