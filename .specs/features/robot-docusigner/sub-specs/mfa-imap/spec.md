@@ -38,6 +38,11 @@ Esta especificação define a substituição/evolução da extração via navega
 ### [REQ-MFA-IMAP-03] Compatibilidade com Build e Bytecode do Robô
 - A implementação deve utilizar exclusivamente módulos nativos do Node.js (`node:tls`, `node:net`, `node:crypto`, `node:buffer`), garantindo 100% de compatibilidade com o pipeline de ofuscação (`bytenode`), empacotamento (`@yao-pkg/pkg`) e geração do executável `.exe` sem dependências binárias externas.
 
+### [REQ-MFA-IMAP-04] Detecção de Tela MFA por Texto e Novos Atributos de Input
+- O robô Playwright deve detectar a exigência de MFA através do texto visível *"Get Code From Your Email"* ou da presença dos campos de código.
+- Se houver botão/opção intermediária para solicitar envio do código para o e-mail (`Get Code From Your Email`), o robô deve clicar no elemento antes de aguardar o input.
+- Os seletores de input devem abranger: `name="security_code"`, `placeholder="Enter code"`, `pattern="[0-9]{6}"`, além dos seletores legados (`input[type='tel']`, `input[data-testid='mfa-code']`, `#code`).
+
 ---
 
 ## 3. Preservação de Escopo e Componentes Intocados (Impact Protector)

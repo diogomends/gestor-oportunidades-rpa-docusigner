@@ -88,4 +88,17 @@
    3. [x] **M3**: Eliminar duplicação de arquivos de teste apontando `backend/.../imapClient.test.js` para `robot/.../imapClient.test.js`.
    4. [x] **M4**: Alinhar constantes padrão de polling (`pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000`, `maxWaitMs: 30000`).
 
+---
 
+### [x] T21: Detecção de MFA por Texto e Novos Atributos de Input (2026-08-27)
+- **Objetivo**: Identificar tela de MFA através do texto *"Get Code From Your Email"* com acionamento do botão correspondente e suportar inputs com `name="security_code"`, `placeholder="Enter code"` e `pattern="[0-9]{6}"`.
+- **Arquivos**:
+  - `robot/src/browser/selectors.js`
+  - `robot/src/browser/docusign.js`
+  - `backend/src/modules/robot-docusign/selectors/docusign-ui.json`
+  - `backend/src/modules/robot-docusign/services/robotSelectors.js`
+  - `backend/src/modules/robot-docusign/services/robotSession.js`
+- **Ações**:
+  1. [x] **T21.1**: Adicionar seletores para `name="security_code"`, `placeholder="Enter code"`, `pattern="[0-9]{6}"` e botão `Get Code From Your Email`.
+  2. [x] **T21.2**: Implementar verificação por texto (`page.locator("text=/Get Code From Your Email/i")`) e clique preparatório antes de aguardar o input.
+  3. [x] **T21.3**: Sincronizar fallbacks no backend (`robotSession.js`, `robotSelectors.js`, `docusign-ui.json`).

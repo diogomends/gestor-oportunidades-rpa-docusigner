@@ -133,7 +133,7 @@ Fora do prefixo:
 | `GESTOR_API_URL`        | Sim         | `http://localhost:3000/api` |
 | `ROBOT_API_KEY`         | Sim         | —           |
 
-Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. A resolução de MFA (2FA) DocuSign consome as credenciais de `token_notification_email` (`email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), operando via socket IMAP direto com fallback para Roundcube Webmail.
+Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. A resolução de MFA (2FA) DocuSign consome as credenciais de `token_notification_email` (`email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), operando via socket IMAP direto com fallback para Roundcube Webmail. O robô detecta a tela de MFA pelo texto ("Get Code From Your Email") e por seletores com `name="security_code"`, `pattern="[0-9]{6}"` e `placeholder="Enter code"`.
 
 
 ## Convenções de Código
