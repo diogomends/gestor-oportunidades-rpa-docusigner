@@ -1,7 +1,7 @@
-# Validation Report: Simplify Robot Build
+# Validation Report: Build Robots
 
-**Feature**: Simplify Robot Build
-**Spec**: `.specs/features/simplify-build/spec.md`
+**Feature**: Build Robots
+**Spec**: `.specs/features/build-robots/spec.md`
 **Verdict**: PASS ✅
 
 ---

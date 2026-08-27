@@ -1,4 +1,4 @@
-# Simplify Robot Build Tasks
+# Build Robots Tasks
 
 ## Execution Protocol (MANDATORY -- do not skip)
 
@@ -8,7 +8,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 ---
 
-**Design**: `.specs/features/simplify-build/spec.md`
+**Design**: `.specs/features/build-robots/spec.md`
 **Status**: Complete
 
 ---
