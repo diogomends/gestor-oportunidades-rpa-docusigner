@@ -32,11 +32,22 @@ export const selectors = {
   resend: {
     resend_button: "button[data-testid='resend-button'], button[data-action='resend']",
   },
-  reports: {
-    url: "https://app.docusign.com/reports",
-    total_sent: "[data-testid='metric-total-sent']",
-    total_completed: "[data-testid='metric-total-completed']",
-    total_pending: "[data-testid='metric-total-pending']",
+  mfa: {
+    input: "input[type='tel'], input[data-testid='mfa-code'], input[autocomplete='one-time-code'], #code, input[name='code']",
+    verify_button: "button[data-testid='mfa-submit'], button[data-testid='verify-btn'], button[data-testid='submit-btn'], button[type='submit']",
+  },
+  roundcube: {
+    login_url: "https://unitynordeste.com.br:2096/",
+    user_input: "#user, input[name='user']",
+    pass_input: "#pass, input[name='pass']",
+    login_button: "#login_submit, button[type='submit']",
+    roundcube_app_btn: "a#rcmloginroundcube, a[href*='roundcube'], button#open_webmail_client",
+    message_list: "#messagelist, table.messagelist, #layout-content table",
+    message_row: "tr.message, tr[id^='rcmrow']",
+    sender_docusign: "td.from, span.from, .from",
+    subject_text: "td.subject, span.subject, .subject",
+    refresh_button: "a.button.checkmail, a[data-command='checkmail'], a#rcmbtn101, button.checkmail",
+    message_body: "#messagebody, #messagecontframe, iframe#messagecontframe, .message-part, #message-body",
   },
 };
 

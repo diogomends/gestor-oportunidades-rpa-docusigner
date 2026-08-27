@@ -82,6 +82,10 @@ export const DEFAULT_ROBOT_DOCUSIGN_CONFIG = {
     email: "",
     password: "",
   },
+  token_notification_email: {
+    email: "",
+    password: "",
+  },
 };
 
 /**
@@ -109,10 +113,18 @@ export async function getRobotConfig() {
       ...DEFAULT_ROBOT_DOCUSIGN_CONFIG.credentials,
       ...(savedValue.credentials || {}),
     },
+    token_notification_email: {
+      ...DEFAULT_ROBOT_DOCUSIGN_CONFIG.token_notification_email,
+      ...(savedValue.token_notification_email || {}),
+    },
   };
 
   if (config.credentials?.password) {
     config.credentials.password = decryptText(config.credentials.password);
+  }
+
+  if (config.token_notification_email?.password) {
+    config.token_notification_email.password = decryptText(config.token_notification_email.password);
   }
 
   return config;

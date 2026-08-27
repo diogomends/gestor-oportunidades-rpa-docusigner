@@ -447,6 +447,12 @@ O script de compilação `robot-standalone/build/build.js` e o comando `make bui
 
 ### [5.12.1] - 2026-08-07
 
+### [5.48.0] - 2026-08-27
+
+#### Adicionado
+
+- **Extração Automática de Código MFA no Webmail Roundcube (T16)**: Implementado utilitário `fetchMfaCodeFromRoundcube` em `robot/src/browser/roundcube.js` para interceptação e resolução autônoma do 2FA/MFA da DocuSign. Quando a tela de MFA aparece pós-login, o robô abre aba de background, autentica no cPanel Webmail (`https://unitynordeste.com.br:2096/`), navega até a Caixa de entrada do Roundcube com polling/refresh automático, localiza o e-mail mais recente com assunto `"Verificar um novo dispositivo"`, extrai o código de 6 dígitos e realiza o auto-fill/submit no DocuSign. No backend, `getRobotConfig` (`robotOrchestrator.js`) e `getInstanceConfig`/`getNextJob` (`robotInstanceController.js`) suportam `token_notification_email` com decifragem automática AES-256.
+
 ### [5.47.0] - 2026-08-25
 
 #### Adicionado

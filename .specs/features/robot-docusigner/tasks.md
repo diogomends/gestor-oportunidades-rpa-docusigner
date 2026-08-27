@@ -511,6 +511,46 @@ O frontend do `gestor-oportunidades` (PR #461, commit `986e358`, já mergeado) a
 
 ---
 
+## Fase 10 — Resolução Automática de MFA/OTP via Webmail Roundcube
+
+### T16: Extração Automática de Código MFA no Webmail Roundcube
+
+- **Req**: REQ-MFA-AUTO-01
+- **Status**: [x] Done (2026-08-27)
+- **Esforço**: 2.5h | Paralelizável: Não
+- **Depende de**: T15
+
+**Contexto**:
+Ao autenticar na DocuSign pelo robô, quando um novo dispositivo ou sessão exige verificação MFA ("Get Code From Your Email"), a DocuSign envia um e-mail para a conta configurada com o assunto `"Verificar um novo dispositivo"` contendo um código numérico de 6 dígitos dentro de um card com o texto `"Seu código de verificação da Docusign é:"`.
+
+**O quê**:
+1. Obter credenciais do webmail (`token_notification_email: { email, password }`) via pull do `SystemConfig` (`/api/system-config/robot-docusign` e `/api/robot-docusign/instance/config`).
+2. Criar utilitário `fetchMfaCodeFromRoundcube(context, mailCredentials)` em `robot/src/browser/roundcube.js`:
+   - Abre uma aba e acessa `https://unitynordeste.com.br:2096/`.
+   - Realiza login no cPanel Webmail com `#user` e `#pass`.
+   - Na Caixa de entrada do Roundcube, localiza a mensagem mais recente de `"Docusign Account"` com assunto `"Verificar um novo dispositivo"`.
+   - Abre o e-mail, lê o texto e extrai o código de 6 dígitos via regex `/Seu c[oó]digo de verifica[cç][aã]o da Docusign [eé]:\s*(\d{6})/i`.
+   - Fecha a aba do webmail e retorna o código.
+3. Integrar com o fluxo de autenticação DocuSign (`robot/src/browser/docusign.js` e `backend/src/modules/robot-docusign/services/robotSession.js`):
+   - Ao detectar a tela de MFA pós-senha, chama a extração automática.
+   - Preenche o código de verificação no input da DocuSign e clica em `"Verify"`.
+   - Aguarda o redirecionamento com `MFA_TIMEOUT` (90s).
+
+**Onde**:
+- `robot/src/browser/roundcube.js` (novo)
+- `robot/src/browser/docusign.js` (modificar `ensureAuthenticated`)
+- `robot/src/browser/selectors.js` (seletores Roundcube e MFA DocuSign)
+- `backend/src/modules/robot-docusign/services/robotOrchestrator.js` (incluir decifragem de `token_notification_email`)
+- `backend/src/modules/robot-docusign/controllers/robotInstanceController.js` (expor `token_notification_email` em `getInstanceConfig`)
+
+**Feito quando**:
+- [x] `roundcube.js` acessa o webmail, autentica e localiza o e-mail de verificação.
+- [x] Código de 6 dígitos extraído com precisão a partir do padrão visual do e-mail.
+- [x] Tela de MFA da DocuSign preenchida automaticamente e login concluído.
+- [x] `token_notification_email` integrado via pull nas configurações.
+
+---
+
 ## Riscos Identificados
 
 | Risco | Impacto | Mitigação |
@@ -521,4 +561,6 @@ O frontend do `gestor-oportunidades` (PR #461, commit `986e358`, já mergeado) a
 | Sessão expira rapidamente | Médio | Testar duração real; ajustar intervalo de re-login |
 | Timeout DO Functions (30s) | Médio | Processar 1 contrato; monitoring de duração |
 | Gestor offline na inicialização do robô | Médio | Log claro e retry ou exit defensivo com indicação de causa |
+| Delay no recebimento do e-mail de verificação | Médio | Polling com retries de até 45s e clique no botão 'Atualizar' do webmail |
+
 
