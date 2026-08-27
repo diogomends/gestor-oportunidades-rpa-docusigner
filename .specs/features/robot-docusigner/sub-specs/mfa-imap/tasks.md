@@ -82,10 +82,10 @@
   - `robot/src/browser/imapClient.js`
   - `robot/src/browser/imapClient.test.js`
   - `backend/src/modules/robot-docusign/services/imapClient.test.js`
-- **Ações**:
-  1. [x] **M1**: Reduzir 8 buscas sequenciais `UID SEARCH` para 2 padrões (`SINCE <data>` com fallback `ALL`), filtrando assunto no cliente.
-  2. [x] **M2**: Manter e reutilizar a mesma conexão IMAP autenticada durante o polling em `fetchMfaCodeViaImap`.
-  3. [x] **M3**: Eliminar duplicação de arquivos de teste apontando `backend/.../imapClient.test.js` para `robot/.../imapClient.test.js`.
-  4. [x] **M4**: Alinhar constantes padrão de polling (`pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000`).
+ - **Ações**:
+   1. [x] **M1**: Reduzir 8 buscas sequenciais `UID SEARCH` para 2 padrões (`SINCE <data>` com fallback `ALL`), filtrando assunto no cliente com iteração descending por UIDs.
+   2. [x] **M2**: Manter e reutilizar a mesma conexão IMAP autenticada durante o polling em `fetchMfaCodeViaImap`.
+   3. [x] **M3**: Eliminar duplicação de arquivos de teste apontando `backend/.../imapClient.test.js` para `robot/.../imapClient.test.js`.
+   4. [x] **M4**: Alinhar constantes padrão de polling (`pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000`, `maxWaitMs: 30000`).
 
 

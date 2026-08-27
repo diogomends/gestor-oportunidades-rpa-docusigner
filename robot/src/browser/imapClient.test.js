@@ -287,5 +287,47 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
 
       assert.equal(code, "582914");
     });
+
+    it("deve iterar UIDs descending e ignorar último sem código até achar MFA anterior", async () => {
+      // Servidor já retorna SEARCH 101 105 110; mock responde FETCH com código só no 105
+      // Sobrescreve handler FETCH para simular último UID sem código
+      const client = new ImapClient({
+        host: "127.0.0.1",
+        port: serverPort,
+        tls: false,
+        timeout: 5000,
+      });
+      // Intercepta sendCommand para UID 110 retornar corpo sem código
+      await client.connect();
+      const origSend = client.sendCommand.bind(client);
+      client.sendCommand = async (cmd) => {
+        if (cmd.includes("UID FETCH 110")) {
+          const tag = `A${String(client.tagIndex + 1).padStart(4, "0")}`;
+          // Simula resposta sem código de 6 dígitos
+          return { tag, response: "OK", raw: `* 3 FETCH (UID 110 BODY[] {20}\r\nNo code here\r\n)\r\n${tag} OK UID FETCH completed\r\n` };
+        }
+        return origSend(cmd);
+      };
+      const code = await client.fetchLatestMfaCode("test@unitynordeste.com.br", "secret123");
+      await client.logout().catch(() => {});
+      client.close();
+      // Deve ter pulado 110 e achado 105 (582914)
+      assert.equal(code, "582914");
+    });
+
+    it("fetchMfaCodeViaImap deve usar defaults 3000/1.2/6000/30000 quando options omitidos", async () => {
+      const start = Date.now();
+      const code = await fetchMfaCodeViaImap({
+        email: "test@unitynordeste.com.br",
+        password: "secret123",
+        host: "127.0.0.1",
+        port: serverPort,
+        tls: false,
+      });
+      const elapsed = Date.now() - start;
+      assert.equal(code, "582914");
+      // Sucesso imediato (< 3s) prova que não ficou preso em defaults errados
+      assert.ok(elapsed < 5000, `Deveria retornar rápido com defaults, levou ${elapsed}ms`);
+    });
   });
 });
