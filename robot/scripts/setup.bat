@@ -17,9 +17,11 @@ echo [INFO] Verificando "%LOCALAPPDATA%\ms-playwright\chromium-*" >> "!LOG_FILE!
 set "CHROMIUM_FOUND=0"
 set "CHROMIUM_DIR="
 
-for /d %%D in ("%LOCALAPPDATA%\ms-playwright\chromium-*") do (
-    set "CHROMIUM_FOUND=1"
-    set "CHROMIUM_DIR=%%D"
+if exist "%LOCALAPPDATA%\ms-playwright" (
+    for /d %%D in ("%LOCALAPPDATA%\ms-playwright\chromium-*") do (
+        set "CHROMIUM_FOUND=1"
+        set "CHROMIUM_DIR=%%D"
+    )
 )
 
 if "!CHROMIUM_FOUND!"=="1" (
