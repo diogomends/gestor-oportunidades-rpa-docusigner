@@ -38,10 +38,17 @@ Esta especificação define a substituição/evolução da extração via navega
 ### [REQ-MFA-IMAP-03] Compatibilidade com Build e Bytecode do Robô
 - A implementação deve utilizar exclusivamente módulos nativos do Node.js (`node:tls`, `node:net`, `node:crypto`, `node:buffer`), garantindo 100% de compatibilidade com o pipeline de ofuscação (`bytenode`), empacotamento (`@yao-pkg/pkg`) e geração do executável `.exe` sem dependências binárias externas.
 
-### [REQ-MFA-IMAP-04] Detecção de Tela MFA por Texto e Novos Atributos de Input
+### [REQ-MFA-IMAP-04] Detecção de Tela MFA por Texto e Novos Atributos de Input e Confirmação
 - O robô Playwright deve detectar a exigência de MFA através do texto visível *"Get Code From Your Email"* ou da presença dos campos de código.
 - Se houver botão/opção intermediária para solicitar envio do código para o e-mail (`Get Code From Your Email`), o robô deve clicar no elemento antes de aguardar o input.
 - Os seletores de input devem abranger: `name="security_code"`, `placeholder="Enter code"`, `pattern="[0-9]{6}"`, além dos seletores legados (`input[type='tel']`, `input[data-testid='mfa-code']`, `#code`).
+- O botão de confirmação e submissão do código de segurança deve incluir suporte explícito a `button[data-qa='verify-code']`, `button:has-text('Verify')`, `[data-qa='verify-code']` com fallback para `button[data-testid='mfa-submit']`, `button[type='submit']` e tecla Enter.
+
+### [REQ-MFA-IMAP-05] Detecção de Código Inválido e Retentativa Automática
+- Caso a DocuSign rejeite o código informando *"The code entered is invalid. Please try again."*, o robô deve detectar o erro via `text=/The code entered is invalid/i` ou seletor de erro.
+- O campo de input deve ser limpo imediatamente (`page.fill(selector, '')`).
+- Uma nova consulta IMAP/Webmail deve ser disparada passando a lista de códigos já testados (`excludedCodes`) para obter exclusivamente o novo token gerado.
+- O robô deve permitir até 3 tentativas antes de encerrar com erro descritivo.
 
 ---
 
@@ -63,3 +70,5 @@ Esta especificação define a substituição/evolução da extração via navega
 3. **WHEN** múltiplos e-mails existirem na caixa, **THEN** o robô SHALL considerar apenas o e-mail mais recente (maior UID).
 4. **WHEN** o código for retornado, **THEN** o Playwright SHALL preencher o input MFA e avançar a autenticação sem abrir abas extras no navegador.
 5. **WHEN** as credenciais IMAP não estiverem configuradas ou o servidor falhar, **THEN** o sistema SHALL cair em fallback controlado sem quebrar o processo.
+6. **WHEN** o código inserido for rejeitado pelo DocuSign (*"The code entered is invalid. Please try again."*), **THEN** o robô SHALL limpar o campo, desconsiderar o código anterior e buscar o novo token recém-gerado via IMAP em até 3 tentativas.
+

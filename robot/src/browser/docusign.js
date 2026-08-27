@@ -92,48 +92,113 @@ export async function ensureAuthenticated(page, credentials) {
     }
 
     if (mfaInput) {
-      logger.step("Browser", "🔍 Tela de verificação (MFA/2FA) da DocuSign localizada! Buscando código de segurança...");
+      logger.step("Browser", "🔍 Tela de verificação (MFA/2FA) da DocuSign localizada! Iniciando resolução de código...");
       const mailCreds = credentials.token_notification_email || credentials;
-      let otpCode = null;
+      const testedCodes = [];
+      const MAX_MFA_ATTEMPTS = 3;
+      let authenticated = false;
 
-      // 1. Consulta prioritária rápida e headless via protocolo IMAP nativo
-      if (mailCreds?.email && mailCreds?.password) {
-        try {
-          logger.step("Browser", "Iniciando consulta ao servidor de e-mail via IMAP nativo...");
-          otpCode = await fetchMfaCodeViaImap(mailCreds, { maxWaitMs: 30000 });
-        } catch (imapErr) {
-          logger.warn("Browser", `Consulta IMAP retornou erro: ${imapErr.message}`);
+      for (let attempt = 1; attempt <= MAX_MFA_ATTEMPTS; attempt++) {
+        logger.step("Browser", `Tentativa de verificação MFA ${attempt}/${MAX_MFA_ATTEMPTS}...`);
+        let otpCode = null;
+
+        // 1. Consulta prioritária rápida e headless via protocolo IMAP nativo
+        if (mailCreds?.email && mailCreds?.password) {
+          try {
+            logger.step("Browser", "Iniciando consulta ao servidor de e-mail via IMAP nativo...");
+            otpCode = await fetchMfaCodeViaImap(mailCreds, {
+              maxWaitMs: 30000,
+              excludedCodes: testedCodes,
+            });
+          } catch (imapErr) {
+            logger.warn("Browser", `Consulta IMAP retornou erro: ${imapErr.message}`);
+          }
+        }
+
+        // 2. Fallback visual para Roundcube Webmail caso IMAP não encontre ou falhe
+        if (!otpCode) {
+          logger.step("Browser", "IMAP não retornou código. Executando fallback via Webmail Roundcube...");
+          otpCode = await fetchMfaCodeFromRoundcube(page.context(), mailCreds);
+          if (otpCode && testedCodes.includes(otpCode)) {
+            logger.warn("Browser", `Código obtido via Roundcube (${otpCode}) já foi rejeitado anteriormente.`);
+            otpCode = null;
+          }
+        }
+
+        if (!otpCode) {
+          const err = new Error(`DocuSign solicitou código MFA (tentativa ${attempt}), mas não foi possível extrair um novo código de segurança do e-mail.`);
+          logger.error("Browser", err.message);
+          throw err;
+        }
+
+        testedCodes.push(otpCode);
+        logger.success("Browser", `Código de verificação obtido: ${otpCode}. Preenchendo campo na tela DocuSign...`);
+
+        // Limpa o campo antes de preencher
+        await page.fill(mfaSel.input || "input[type='tel']", "").catch(() => {});
+        await randomDelay(200, 400);
+        await page.fill(mfaSel.input || "input[type='tel']", otpCode);
+        await randomDelay(500, 1000);
+
+        const verifyBtn = await page.$(mfaSel.verify_button).catch(() => null);
+        if (verifyBtn) {
+          logger.step("Browser", "Clicando no botão de verificação/confirmação...");
+          await verifyBtn.click();
+        } else {
+          logger.step("Browser", "Submetendo verificação via teclado (Enter)...");
+          await page.keyboard.press("Enter");
+        }
+
+        // Aguarda resposta da tela
+        await randomDelay(2000, 3500);
+
+        const afterUrl = page.url();
+        const stillInAuth =
+          afterUrl.includes("account.docusign.com") ||
+          afterUrl.includes("/oauth/") ||
+          afterUrl.includes("/login") ||
+          afterUrl.includes("identity.");
+
+        // Detecta se a mensagem de código inválido apareceu
+        const invalidErrorLocator = page.locator("text=/The code entered is invalid/i").first();
+        const hasInvalidError = await invalidErrorLocator.isVisible().catch(() => false);
+
+        if (!stillInAuth) {
+          logger.success("Browser", "Código de verificação aceito! Navegação pós-login bem-sucedida.");
+          authenticated = true;
+          break;
+        }
+
+        if (hasInvalidError) {
+          logger.warn("Browser", `⚠️ DocuSign rejeitou o código ${otpCode} ('The code entered is invalid. Please try again.').`);
+          if (attempt < MAX_MFA_ATTEMPTS) {
+            logger.step("Browser", "Limpando campo de código e aguardando chegada do novo e-mail da DocuSign...");
+            await page.fill(mfaSel.input || "input[type='tel']", "").catch(() => {});
+            await randomDelay(3000, 5000);
+            continue;
+          }
+        } else {
+          // Aguarda redirecionamento caso não haja erro imediato
+          await page.waitForNavigation({ waitUntil: "networkidle", timeout: 15000 }).catch(() => {});
+          const postCheckUrl = page.url();
+          const isStillLogin =
+            postCheckUrl.includes("account.docusign.com") ||
+            postCheckUrl.includes("/oauth/") ||
+            postCheckUrl.includes("/login") ||
+            postCheckUrl.includes("identity.");
+          if (!isStillLogin) {
+            logger.success("Browser", "Código de verificação aceito e login concluído!");
+            authenticated = true;
+            break;
+          }
         }
       }
 
-      // 2. Fallback visual para Roundcube Webmail caso IMAP não encontre ou falhe
-      if (!otpCode) {
-        logger.step("Browser", "IMAP não retornou código. Executando fallback via Webmail Roundcube...");
-        otpCode = await fetchMfaCodeFromRoundcube(page.context(), mailCreds);
-      }
-
-      if (!otpCode) {
-        const err = new Error("DocuSign solicitou código MFA, mas não foi possível extrair o código de segurança do e-mail.");
+      if (!authenticated) {
+        const err = new Error("Falha na validação do código MFA da DocuSign após múltiplas tentativas.");
         logger.error("Browser", err.message);
         throw err;
       }
-
-      logger.success("Browser", `Código de verificação obtido: ${otpCode}. Preenchendo campo na tela DocuSign...`);
-      await page.fill(mfaSel.input || "input[type='tel']", otpCode);
-      await randomDelay(500, 1000);
-
-      const verifyBtn = await page.$(mfaSel.verify_button).catch(() => null);
-      if (verifyBtn) {
-        logger.step("Browser", "Clicando no botão de verificação/confirmação...");
-        await verifyBtn.click();
-      } else {
-        logger.step("Browser", "Submetendo verificação via teclado (Enter)...");
-        await page.keyboard.press("Enter");
-      }
-
-      await page.waitForNavigation({ waitUntil: "networkidle", timeout: 90000 }).catch(() => {});
-      await randomDelay(2000, 4000);
-      logger.success("Browser", "Código de verificação submetido com sucesso!");
     } else {
       logger.step("Browser", "Nenhuma tela de verificação (MFA) exigida nesta sessão. Aguardando redirecionamento...");
       await page.waitForNavigation({ waitUntil: "networkidle", timeout: 45000 }).catch(() => {});
