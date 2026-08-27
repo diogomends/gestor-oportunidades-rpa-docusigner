@@ -69,7 +69,27 @@ export async function ensureAuthenticated(page, credentials) {
     await randomDelay(2500, 4000);
 
     const mfaSel = selectors.mfa || {};
-    const mfaInput = await page.$(mfaSel.input || "input[type='tel']").catch(() => null);
+
+    // Verifica se a tela de MFA está presente pelo texto ou seletor específico
+    const textLocator = page.locator("text=/Get Code From Your Email/i").first();
+    const hasTextTrigger = await textLocator.isVisible().catch(() => false);
+
+    if (hasTextTrigger) {
+      logger.step("Browser", "🔍 Detectada indicação de MFA com texto 'Get Code From Your Email'.");
+      const emailOptionBtn = page.locator(mfaSel.email_option_btn || "text=/Get Code From Your Email/i").first();
+      if (await emailOptionBtn.isVisible().catch(() => false)) {
+        logger.step("Browser", "Clicando na opção 'Get Code From Your Email' para solicitar código...");
+        await emailOptionBtn.click().catch(() => {});
+        await randomDelay(1500, 2500);
+      }
+    }
+
+    let mfaInput = await page.$(mfaSel.input || "input[name='security_code'], input[placeholder='Enter code'], input[type='tel']").catch(() => null);
+
+    if (!mfaInput && hasTextTrigger) {
+      logger.step("Browser", "Aguardando campo de código MFA renderizar na tela...");
+      mfaInput = await page.waitForSelector(mfaSel.input, { timeout: 10000 }).catch(() => null);
+    }
 
     if (mfaInput) {
       logger.step("Browser", "🔍 Tela de verificação (MFA/2FA) da DocuSign localizada! Buscando código de segurança...");

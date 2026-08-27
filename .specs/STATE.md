@@ -541,6 +541,7 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 
 #### Alterado
 
+- **Identificação de MFA DocuSign por Texto e Novos Atributos**: Atualizados os seletores e o fluxo de login em `robot/src/browser/selectors.js`, `robot/src/browser/docusign.js`, `backend/src/modules/robot-docusign/selectors/docusign-ui.json`, `backend/src/modules/robot-docusign/services/robotSelectors.js` e `backend/src/modules/robot-docusign/services/robotSession.js` para suportar identificação da tela de verificação pelo texto *"Get Code From Your Email"* (incluindo clique em gatilho/opção quando exigido) e suporte a inputs com `name="security_code"`, `placeholder="Enter code"` e `pattern="[0-9]{6}"`.
 - **Visual KPI Cards no Dashboard**: cards de métricas (`.kpi-card`) agora vivem dentro de um wrapper `.glass-panel` unificado, eliminando fundo opaco individual (`var(--surface-dark)`) em favor de `rgba(255, 255, 255, 0.03)` — sem dupla camada visual. Arquivos: `public/dashboard.html`, `public/css/dashboard.css`.
 
 ### [5.12.0] - 2026-07-21

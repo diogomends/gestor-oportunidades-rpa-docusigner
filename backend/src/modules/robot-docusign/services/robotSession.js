@@ -10,7 +10,7 @@ export const MFA_TIMEOUT = 90000;
 
 /** Seletor CSS composto para campo de código MFA/OTP. @type {string} */
 const DEFAULT_MFA_SELECTOR =
-  "input[type='tel'], input[data-testid='mfa-code'], input[autocomplete='one-time-code'], input[name='mfa-code'], input[id*='otp']";
+  "input[name='security_code'], input[placeholder='Enter code'], input[pattern='[0-9]{6}'], input[type='tel'], input[data-testid='mfa-code'], input[autocomplete='one-time-code'], input[name='mfa-code'], input[id*='otp'], #code, input[name='code']";
 
 /**
  * Captura um screenshot de depuração e salva em tmp/robot-debug/.
@@ -132,23 +132,24 @@ function createAuthError(code, message) {
 }
 
 /**
- * Verifica se a URL ainda está em alguma tela de login/OAuth da DocuSign.
+ * Verifica se a URL atual ainda pertence ao fluxo de login/MFA da DocuSign.
  *
- * @param {string} url - URL atual.
- * @returns {boolean} True se estiver na tela de login/OAuth.
+ * @param {string} url - URL a ser verificada.
+ * @returns {boolean} True se estiver na tela de login/MFA.
  */
 function isLoginUrl(url) {
+  if (!url) return false;
   return (
     url.includes("account.docusign.com") ||
     url.includes("apps.docusign.com") ||
-    url.includes("/oauth/") ||
-    url.includes("/login")
+    url.includes("/auth?") ||
+    url.includes("/oauth/")
   );
 }
 
 /**
  * Detecta se a tela de MFA/2FA apareceu após a submissão da senha.
- * Usa Promise.race entre o input MFA e a navegação para fora do login,
+ * Usa Promise.race entre o input MFA (com suporte a detecção por texto) e a navegação para fora do login,
  * evitando esperar o timeout completo (MFA_TIMEOUT) em logins sem MFA.
  *
  * @param {Object} page - Página do Playwright.
@@ -179,13 +180,27 @@ async function detectMfaScreen(page, mfaSelector) {
     if (typeof timer.unref === "function") timer.unref();
   });
 
-  const selectorPromise =
-    typeof page.waitForSelector === "function"
-      ? page
+  const selectorPromise = (async () => {
+    try {
+      if (typeof page.locator === "function") {
+        const textOption = page.locator("text=/Get Code From Your Email/i").first();
+        if (await textOption.isVisible().catch(() => false)) {
+          if (typeof textOption.click === "function") {
+            await textOption.click().catch(() => {});
+          }
+        }
+      }
+      if (typeof page.waitForSelector === "function") {
+        const el = await page
           .waitForSelector(mfaSelector, { timeout: MFA_TIMEOUT })
-          .then((el) => (el ? "mfa" : "none"))
-          .catch(() => "none")
-      : Promise.resolve("none");
+          .catch(() => null);
+        return el ? "mfa" : "none";
+      }
+    } catch {
+      return "none";
+    }
+    return "none";
+  })();
 
   const outcome = await Promise.race([selectorPromise, navPromise]);
   settled = true;
@@ -254,7 +269,7 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
 
       // Etapa opcional de MFA/2FA: se a tela de código aparecer, exige otpCode
       // e usa timeout estendido (MFA_TIMEOUT) na detecção e navegação.
-      const mfaSelector = selectors.mfa || DEFAULT_MFA_SELECTOR;
+      const mfaSelector = selectors.mfa?.input || selectors.mfa || DEFAULT_MFA_SELECTOR;
       const mfaRequired = await detectMfaScreen(page, mfaSelector);
 
       if (mfaRequired) {
