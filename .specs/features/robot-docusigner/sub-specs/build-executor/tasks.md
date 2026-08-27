@@ -19,4 +19,5 @@
 - [x] **T-SMI-17**: Patch no `coreBundle.js` da distribuição `node_modules/playwright-core` no pipeline `robot/build/build.js` para aplicar shim seguro do `node:inspector` evitando `ERR_INSPECTOR_NOT_AVAILABLE` no runtime empacotado.
 - [x] **T-SMI-18**: Inclusão de registro automático de inicialização com o Windows (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`) no script `robot/scripts/setup.bat` e atualização do template de documentação `README.txt`.
 - [x] **T-SMI-19**: Correção de sintaxe e validação prévia de existência do diretório `%LOCALAPPDATA%\ms-playwright` no `setup.bat` antes do loop `for /d` com curinga, prevenindo erro de token inesperado (`. was unexpected at this time`) em máquinas clientes limpas.
+- [x] **T-SMI-20**: Implementação de módulo de logger com cores ANSI (verde para sucesso, azul para etapas, vermelho para erros) e logs detalhados para rastreabilidade de conexão/envio/recebimento via IMAP e identificação explícita da tela de verificação MFA na DocuSign.
 

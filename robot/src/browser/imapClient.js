@@ -1,5 +1,6 @@
 import tls from "node:tls";
 import net from "node:net";
+import logger from "../utils/logger.js";
 
 /**
  * Decodifica texto codificado em Quoted-Printable para UTF-8.
@@ -134,13 +135,16 @@ export class ImapClient {
    * @returns {Promise<boolean>} Retorna true se conectado e recebido o greeting do servidor.
    */
   async connect() {
+    logger.step("IMAP", `Iniciando conexão de socket com o servidor de e-mail (${this.host}:${this.port}, TLS: ${this.tls})...`);
     return new Promise((resolve, reject) => {
       let greetingReceived = false;
 
       const timer = setTimeout(() => {
         cleanup();
         if (this.socket) this.socket.destroy();
-        reject(new Error(`Timeout na conexão IMAP com ${this.host}:${this.port}`));
+        const err = new Error(`Timeout na conexão IMAP com ${this.host}:${this.port}`);
+        logger.error("IMAP", err.message);
+        reject(err);
       }, this.timeout);
 
       const cleanup = () => {
@@ -158,19 +162,23 @@ export class ImapClient {
           greetingReceived = true;
           this.buffer = "";
           cleanup();
+          logger.success("IMAP", `Conexão estabelecida e servidor IMAP pronto (${this.host}:${this.port}).`);
           resolve(true);
         }
       };
 
       const onError = (err) => {
         cleanup();
+        logger.error("IMAP", `Erro na comunicação de socket IMAP: ${err.message}`);
         reject(err);
       };
 
       const onClose = () => {
         if (!greetingReceived) {
           cleanup();
-          reject(new Error(`Conexão fechada antes do greeting inicial do servidor IMAP (${this.host}:${this.port})`));
+          const err = new Error(`Conexão fechada antes do greeting inicial do servidor IMAP (${this.host}:${this.port})`);
+          logger.error("IMAP", err.message);
+          reject(err);
         }
       };
 
@@ -217,7 +225,9 @@ export class ImapClient {
       let cmdBuffer = "";
       const timer = setTimeout(() => {
         cleanup();
-        reject(new Error(`Timeout aguardando resposta do comando IMAP: ${command}`));
+        const err = new Error(`Timeout aguardando resposta do comando IMAP: ${command.split(" ")[0]}`);
+        logger.error("IMAP", err.message);
+        reject(err);
       }, this.timeout);
 
       const cleanup = () => {
@@ -231,11 +241,13 @@ export class ImapClient {
 
       const onError = (err) => {
         cleanup();
+        logger.error("IMAP", `Erro no socket durante comando (${command.split(" ")[0]}): ${err.message}`);
         reject(new Error(`Erro no socket durante comando IMAP (${command}): ${err.message}`));
       };
 
       const onClose = () => {
         cleanup();
+        logger.warn("IMAP", `Socket IMAP fechado durante comando: ${command.split(" ")[0]}`);
         reject(new Error(`Socket IMAP fechado inesperadamente durante comando: ${command}`));
       };
 
@@ -264,13 +276,16 @@ export class ImapClient {
    */
   async login(email, password) {
     if (this.authenticated) return;
+    logger.step("IMAP", `Enviando credenciais de autenticação IMAP (${email})...`);
     const escapedEmail = escapeImapString(email);
     const escapedPassword = escapeImapString(password);
     const loginRes = await this.sendCommand(`LOGIN "${escapedEmail}" "${escapedPassword}"`);
     if (!loginRes.raw.includes(" OK")) {
+      logger.error("IMAP", `Falha na autenticação IMAP: ${loginRes.raw.trim()}`);
       throw new Error(`Falha no comando IMAP LOGIN: ${loginRes.raw.trim()}`);
     }
     this.authenticated = true;
+    logger.success("IMAP", `Usuário IMAP autenticado com sucesso (${email}).`);
   }
 
   /**
@@ -279,11 +294,14 @@ export class ImapClient {
    */
   async selectInbox() {
     if (this.inboxSelected) return;
+    logger.step("IMAP", "Selecionando pasta de entrada (INBOX)...");
     const selectRes = await this.sendCommand("SELECT INBOX");
     if (!selectRes.raw.includes(" OK")) {
+      logger.error("IMAP", `Falha ao selecionar INBOX: ${selectRes.raw.trim()}`);
       throw new Error(`Falha ao selecionar INBOX: ${selectRes.raw.trim()}`);
     }
     this.inboxSelected = true;
+    logger.success("IMAP", "Pasta INBOX selecionada com sucesso.");
   }
 
   /**
@@ -300,32 +318,39 @@ export class ImapClient {
 
     // 1. Busca mensagens do dia atual (SINCE)
     const todaySince = formatImapDate();
+    logger.step("IMAP", `Pesquisando e-mails recentes (SINCE ${todaySince})...`);
     let searchRes = await this.sendCommand(`UID SEARCH SINCE ${todaySince}`);
     let uids = this.parseUidsFromSearch(searchRes.raw);
 
     // 2. Fallback caso timezone/servidor não corresponda ao SINCE
     if (uids.length === 0) {
+      logger.step("IMAP", "Nenhum e-mail retornado com filtro SINCE. Executando busca geral (UID SEARCH ALL)...");
       searchRes = await this.sendCommand("UID SEARCH ALL");
       uids = this.parseUidsFromSearch(searchRes.raw);
     }
 
     if (uids.length === 0) {
+      logger.warn("IMAP", "Nenhum e-mail encontrado na caixa de entrada.");
       return null;
     }
 
+    logger.step("IMAP", `${uids.length} e-mail(s) encontrado(s). Analisando mensagens recentes para extração do código DocuSign...`);
+
     // 3. Itera UIDs em ordem decrescente — previne falso positivo se última msg não for MFA
-    // ponytail: 1 FETCH por UID até achar código; evita marcar Seen errado no Math.max único
     const sortedUids = [...uids].sort((a, b) => b - a);
     for (const uid of sortedUids) {
+      logger.step("IMAP", `Lendo mensagem UID ${uid}...`);
       const fetchRes = await this.sendCommand(`UID FETCH ${uid} (BODY.PEEK[])`);
       const code = extractMfaCodeFromText(fetchRes.raw);
       if (code) {
+        logger.success("IMAP", `Código de segurança da DocuSign localizado e extraído com sucesso: ${code}`);
         // 4. Marca apenas a mensagem que continha o código como lida (\Seen)
         await this.sendCommand(`UID STORE ${uid} +FLAGS (\\Seen)`).catch(() => {});
         return code;
       }
     }
 
+    logger.warn("IMAP", "E-mails analisados, mas nenhum código de verificação DocuSign foi identificado.");
     return null;
   }
 
@@ -350,6 +375,7 @@ export class ImapClient {
    */
   async logout() {
     if (this.socket && !this.socket.destroyed && this.authenticated) {
+      logger.step("IMAP", "Encerrando sessão IMAP (LOGOUT)...");
       await this.sendCommand("LOGOUT").catch(() => {});
       this.authenticated = false;
       this.inboxSelected = false;
@@ -381,6 +407,7 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
   const password = mailCredentials?.password;
 
   if (!email || !password) {
+    logger.warn("IMAP", "Credenciais de e-mail não informadas para consulta IMAP.");
     return null;
   }
 
@@ -394,6 +421,8 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
 
   const startedAt = Date.now();
   let client = null;
+
+  logger.step("IMAP", `Iniciando rotina de verificação de código MFA (E-mail: ${email}, Servidor: ${host}:${port}, Tempo máx: ${maxWaitMs / 1000}s)...`);
 
   try {
     while (Date.now() - startedAt < maxWaitMs) {
@@ -411,7 +440,7 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
         const code = await client.fetchLatestMfaCode(email, password);
 
         if (code) {
-          console.log(`[IMAP] Código MFA extraído com sucesso via protocolo IMAP: ${code}`);
+          logger.success("IMAP", `Código de verificação MFA recebido com sucesso: ${code}`);
           await client.logout().catch(() => {});
           client.close();
           client = null;
@@ -422,13 +451,14 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
           client.close();
           client = null;
         }
-        console.warn(`[IMAP] Tentativa de consulta IMAP falhou (${err.message}). Aguardando próximo ciclo...`);
+        logger.warn("IMAP", `Tentativa de consulta IMAP falhou (${err.message}). Tentando novamente em breve...`);
       }
 
       const remainingMs = maxWaitMs - (Date.now() - startedAt);
       if (remainingMs <= 0) break;
 
       const waitTime = Math.min(currentIntervalMs, remainingMs);
+      logger.step("IMAP", `Aguardando ${waitTime / 1000}s para checar nova mensagem de verificação da DocuSign...`);
       await new Promise((resolve) => setTimeout(resolve, waitTime));
 
       currentIntervalMs = Math.min(Math.round(currentIntervalMs * backoffFactor), maxPollIntervalMs);
@@ -441,6 +471,7 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
     }
   }
 
+  logger.error("IMAP", `Tempo limite esgotado (${maxWaitMs / 1000}s). Nenhum código de verificação recebido via IMAP.`);
   return null;
 }
 

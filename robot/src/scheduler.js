@@ -1,3 +1,5 @@
+import logger from "./utils/logger.js";
+
 /**
  * Scheduler em loop para busca e processamento contínuo de jobs na máquina do agente.
  */
@@ -25,12 +27,12 @@ export class Scheduler {
    */
   async start() {
     this.running = true;
-    console.log(`[Scheduler] Agendador iniciado. Intervalo de verificação: ${this.pollIntervalMs / 1000}s`);
+    logger.step("Scheduler", `Agendador iniciado com sucesso. Intervalo de verificação: ${this.pollIntervalMs / 1000}s`);
 
     // Iniciar timer de Heartbeat a cada 30 segundos
     this.heartbeatTimer = setInterval(async () => {
       if (this.running) {
-        await this.api.sendHeartbeat("idle", null, this.jobsProcessedCount);
+        await this.api.sendHeartbeat("idle", null, this.jobsProcessedCount).catch(() => {});
       }
     }, 30000);
 
@@ -38,7 +40,7 @@ export class Scheduler {
       try {
         await this.tick();
       } catch (error) {
-        console.error("[Scheduler] Erro no ciclo de polling:", error.message);
+        logger.error("Scheduler", `Erro no ciclo de polling: ${error.message}`);
       }
 
       if (this.running) {
@@ -57,16 +59,16 @@ export class Scheduler {
       const liveConfig = await this.api.getConfig();
       this.config = liveConfig;
     } catch (e) {
-      console.warn(`[Scheduler] Não foi possível atualizar config da API: ${e.message}`);
+      logger.warn("Scheduler", `Não foi possível atualizar config da API: ${e.message}`);
     }
 
     if (!this.config.enabled) {
-      console.log("[Scheduler] Robô desabilitado no Gestor de Oportunidades. Aguardando...");
+      logger.step("Scheduler", "Robô desabilitado no Gestor de Oportunidades. Aguardando...");
       return;
     }
 
     if (this.config.isAllowedNow === false) {
-      console.log("[Scheduler] Fora do horário de expediente permitido pelo sistema. Aguardando...");
+      logger.step("Scheduler", "Fora do horário de expediente permitido pelo sistema. Aguardando...");
       return;
     }
 
@@ -79,14 +81,15 @@ export class Scheduler {
     }
 
     // 3. Executa o job recebido
-    console.log(`[Scheduler] Job recebido: ${jobResponse.jobId} (Contrato: ${jobResponse.contractId})`);
+    logger.success("Scheduler", `Job recebido da fila: ${jobResponse.jobId} (Contrato: ${jobResponse.contractId})`);
     await this.api.sendHeartbeat("busy", jobResponse.jobId, this.jobsProcessedCount);
 
     try {
       await this.runner.processJob(jobResponse);
       this.jobsProcessedCount++;
+      logger.success("Scheduler", `Job ${jobResponse.jobId} concluído com sucesso. Total processados hoje: ${this.jobsProcessedCount}`);
     } catch (err) {
-      console.error(`[Scheduler] Falha na execução do job ${jobResponse.jobId}:`, err.message);
+      logger.error("Scheduler", `Falha na execução do job ${jobResponse.jobId}: ${err.message}`);
     } finally {
       await this.api.sendHeartbeat("idle", null, this.jobsProcessedCount);
     }
@@ -99,7 +102,7 @@ export class Scheduler {
   stop() {
     this.running = false;
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
-    console.log("[Scheduler] Agendador parado.");
+    logger.step("Scheduler", "Agendador parado.");
   }
 }
 

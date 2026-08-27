@@ -519,6 +519,12 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
   - **Escaping RFC 3501 (E3)**: Implementado `escapeImapString` para escapar aspas duplas e barras invertidas no comando `LOGIN`.
   - **Formatação de Data (E4)**: Adicionado zero-padding no dia em `formatImapDate` para compatibilidade com servidores IMAP estritos.
 
+### [5.46.2] - 2026-08-27
+
+#### Adicionado
+
+- **Sistema de Logs Coloridos e Rastreabilidade IMAP/MFA no Robô RPA**: Implementado módulo utilitário `robot/src/utils/logger.js` com sequências ANSI nativas (verde para sucessos, azul/ciano para etapas, vermelho para erros e amarelo para avisos). Adicionados logs explícitos no `docusign.js` para identificação visual imediata da tela de verificação (MFA/2FA) da DocuSign, e detalhamento de cada comando enviado e resposta recebida no cliente de socket IMAP (`imapClient.js`).
+
 ### [5.46.1] - 2026-08-24
 
 #### Corrigido

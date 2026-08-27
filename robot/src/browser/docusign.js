@@ -3,6 +3,7 @@ import path from "node:path";
 import selectors from "./selectors.js";
 import { fetchMfaCodeFromRoundcube } from "./roundcube.js";
 import { fetchMfaCodeViaImap } from "./imapClient.js";
+import logger from "../utils/logger.js";
 
 /**
  * Aplica um delay randômico entre ações para anti-detecção de bots.
@@ -25,7 +26,7 @@ export async function randomDelay(minMs = 800, maxMs = 2000) {
  */
 export async function ensureAuthenticated(page, credentials) {
   const baseUrl = selectors.baseUrl || "https://app.docusign.com";
-  console.log(`[Browser] Acessando DocuSign: ${baseUrl}...`);
+  logger.step("Browser", `Navegando para DocuSign: ${baseUrl}...`);
 
   await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 45000 });
   await randomDelay(1000, 2000);
@@ -38,17 +39,20 @@ export async function ensureAuthenticated(page, credentials) {
     currentUrl.includes("identity.");
 
   if (isLoginPage) {
-    console.log(`[Browser] Tela de autenticação detectada (${currentUrl}). Preenchendo credenciais...`);
+    logger.step("Browser", `Tela de autenticação identificada (${currentUrl}). Preenchendo credenciais...`);
 
     const loginSel = selectors.login;
     const email = credentials?.email;
     const password = credentials?.password;
 
     if (!email || !password) {
-      throw new Error("Credenciais da DocuSign não fornecidas pela API central.");
+      const err = new Error("Credenciais da DocuSign não fornecidas pela API central.");
+      logger.error("Browser", err.message);
+      throw err;
     }
 
     // Preenche e submete e-mail
+    logger.step("Browser", `Inserindo e-mail DocuSign: ${email}...`);
     await page.fill(loginSel.email_input, email);
     await randomDelay(500, 1000);
     await page.keyboard.press("Enter");
@@ -56,61 +60,69 @@ export async function ensureAuthenticated(page, credentials) {
 
     // Aguarda campo de senha
     await page.waitForSelector(loginSel.password_input, { timeout: 15000 });
+    logger.step("Browser", "Inserindo senha DocuSign...");
     await page.fill(loginSel.password_input, password);
     await randomDelay(500, 1000);
     await page.keyboard.press("Enter");
 
     // Aguarda potencial tela de MFA ou redirecionamento direto
-    await randomDelay(2000, 3500);
+    await randomDelay(2500, 4000);
 
     const mfaSel = selectors.mfa || {};
     const mfaInput = await page.$(mfaSel.input || "input[type='tel']").catch(() => null);
 
     if (mfaInput) {
-      console.log("[Browser] Tela de MFA/2FA detectada. Buscando código de segurança...");
+      logger.step("Browser", "🔍 Tela de verificação (MFA/2FA) da DocuSign localizada! Buscando código de segurança...");
       const mailCreds = credentials.token_notification_email || credentials;
       let otpCode = null;
 
       // 1. Consulta prioritária rápida e headless via protocolo IMAP nativo
       if (mailCreds?.email && mailCreds?.password) {
         try {
-          console.log("[Browser] Tentando obter código MFA via protocolo IMAP...");
+          logger.step("Browser", "Iniciando consulta ao servidor de e-mail via IMAP nativo...");
           otpCode = await fetchMfaCodeViaImap(mailCreds, { maxWaitMs: 30000 });
         } catch (imapErr) {
-          console.warn("[Browser] Consulta IMAP falhou:", imapErr.message);
+          logger.warn("Browser", `Consulta IMAP retornou erro: ${imapErr.message}`);
         }
       }
 
       // 2. Fallback visual para Roundcube Webmail caso IMAP não encontre ou falhe
       if (!otpCode) {
-        console.log("[Browser] Fallback: buscando código MFA no Webmail Roundcube...");
+        logger.step("Browser", "IMAP não retornou código. Executando fallback via Webmail Roundcube...");
         otpCode = await fetchMfaCodeFromRoundcube(page.context(), mailCreds);
       }
 
       if (!otpCode) {
-        throw new Error("DocuSign solicitou código MFA, mas não foi possível extrair o código de segurança do e-mail.");
+        const err = new Error("DocuSign solicitou código MFA, mas não foi possível extrair o código de segurança do e-mail.");
+        logger.error("Browser", err.message);
+        throw err;
       }
 
-      console.log(`[Browser] Preenchendo código MFA: ${otpCode}...`);
+      logger.success("Browser", `Código de verificação obtido: ${otpCode}. Preenchendo campo na tela DocuSign...`);
       await page.fill(mfaSel.input || "input[type='tel']", otpCode);
       await randomDelay(500, 1000);
 
       const verifyBtn = await page.$(mfaSel.verify_button).catch(() => null);
       if (verifyBtn) {
+        logger.step("Browser", "Clicando no botão de verificação/confirmação...");
         await verifyBtn.click();
       } else {
+        logger.step("Browser", "Submetendo verificação via teclado (Enter)...");
         await page.keyboard.press("Enter");
       }
 
       await page.waitForNavigation({ waitUntil: "networkidle", timeout: 90000 }).catch(() => {});
       await randomDelay(2000, 4000);
+      logger.success("Browser", "Código de verificação submetido com sucesso!");
     } else {
-      // Aguarda redirecionamento normal pós-login
+      logger.step("Browser", "Nenhuma tela de verificação (MFA) exigida nesta sessão. Aguardando redirecionamento...");
       await page.waitForNavigation({ waitUntil: "networkidle", timeout: 45000 }).catch(() => {});
       await randomDelay(2000, 4000);
     }
 
-    console.log("[Browser] Login efetuado com sucesso.");
+    logger.success("Browser", "Autenticação na DocuSign concluída com sucesso.");
+  } else {
+    logger.success("Browser", `Sessão ativa detectada na DocuSign (${currentUrl}).`);
   }
 }
 
@@ -131,7 +143,7 @@ export async function sendEnvelope(page, envelopeData) {
 
   await ensureAuthenticated(page, credentials);
 
-  console.log(`[Browser] Iniciando envio de contrato para ${recipientName} (${recipientEmail})...`);
+  logger.step("Browser", `Iniciando envio de contrato para ${recipientName} (${recipientEmail})...`);
   const sendSel = selectors.send;
 
   await page.goto(sendSel.url, { waitUntil: "networkidle", timeout: 45000 });
@@ -139,20 +151,25 @@ export async function sendEnvelope(page, envelopeData) {
 
   // 1. Upload do Arquivo PDF
   if (pdfPath && fs.existsSync(pdfPath)) {
-    console.log(`[Browser] Anexando PDF: ${pdfPath}`);
+    logger.step("Browser", `Anexando arquivo PDF do contrato: ${pdfPath}`);
     await page.setInputFiles(sendSel.file_input, pdfPath);
     await randomDelay(3000, 5000);
+    logger.success("Browser", "Arquivo PDF anexado com sucesso na DocuSign.");
   } else {
-    throw new Error(`Arquivo PDF do contrato não encontrado localmente: ${pdfPath}`);
+    const err = new Error(`Arquivo PDF do contrato não encontrado localmente: ${pdfPath}`);
+    logger.error("Browser", err.message);
+    throw err;
   }
 
   // 2. Preenchimento de Destinatário
   if (recipientName) {
+    logger.step("Browser", `Preenchendo nome do destinatário: ${recipientName}`);
     await page.fill(sendSel.recipient_name, recipientName);
     await randomDelay(500, 1000);
   }
 
   if (recipientEmail) {
+    logger.step("Browser", `Preenchendo e-mail do destinatário: ${recipientEmail}`);
     await page.fill(sendSel.recipient_email, recipientEmail);
     await randomDelay(500, 1000);
   }
@@ -169,7 +186,7 @@ export async function sendEnvelope(page, envelopeData) {
   }
 
   // 4. Disparo do Envio
-  console.log("[Browser] Clicando no botão de envio...");
+  logger.step("Browser", "Clicando no botão de envio do envelope...");
   await page.click(sendSel.send_button);
   await randomDelay(3000, 6000);
 
@@ -178,7 +195,7 @@ export async function sendEnvelope(page, envelopeData) {
   const match = finalUrl.match(/\/envelopes\/([a-zA-Z0-9-]+)/i);
   const envelopeId = match ? match[1] : `env-${Date.now()}`;
 
-  console.log(`[Browser] Contrato enviado com sucesso! Envelope ID: ${envelopeId}`);
+  logger.success("Browser", `Contrato enviado com sucesso! Envelope ID: ${envelopeId}`);
   return {
     envelopeId,
     recipientName,
@@ -198,11 +215,13 @@ export async function sendEnvelope(page, envelopeData) {
 export async function checkEnvelopeStatus(page, envelopeId, credentials) {
   await ensureAuthenticated(page, credentials);
   const targetUrl = `${selectors.baseUrl}/documents/${envelopeId}`;
+  logger.step("Browser", `Consultando status do envelope: ${envelopeId}...`);
   await page.goto(targetUrl, { waitUntil: "networkidle", timeout: 30000 });
 
   const badgeEl = await page.$(selectors.status.status_badge);
   const statusText = badgeEl ? (await badgeEl.innerText()).trim().toLowerCase() : "unknown";
 
+  logger.success("Browser", `Status do envelope ${envelopeId}: ${statusText}`);
   return {
     envelopeId,
     status: statusText,
