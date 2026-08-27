@@ -85,6 +85,9 @@ export const DEFAULT_ROBOT_DOCUSIGN_CONFIG = {
   token_notification_email: {
     email: "",
     password: "",
+    host: "unitynordeste.com.br",
+    port: 993,
+    tls: true,
   },
 };
 

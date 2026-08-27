@@ -88,8 +88,8 @@ O pipeline de build do robô standalone foi simplificado para aceitar exclusivam
 ### AD-017: Build Multi-Chave para Robôs Standalone (2026-08-17)
 O script de compilação `robot-standalone/build/build.js` e o comando `make build-robot` suportam geração em lote de executáveis para múltiplas instâncias. Quando `--key` não é especificado na CLI, o script varre automaticamente o `.env.dev` / `.env` coletando todas as chaves no padrão `ROBOT_API_KEY_\d+` (ordenadas por índice) e executa o pipeline isoladamente para cada chave com arquivos nomeados sequencialmente (`robot-docusigner-1.exe`, `main-robot-docusigner-1.jsc`, `robot-docusigner-2.exe`, etc.). Caso `--key` seja fornecido na CLI, mantém retrocompatibilidade gerando um único executável.
 
-### AD-018: Extração Headless de MFA via Protocolo IMAP (Planejado - T17)
-Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegação visual no Webmail Roundcube via Playwright, o robô utilizará conexão direta via socket TLS nativo (`node:tls`) aos dados de `token_notification_email` configurados no `gestor-oportunidades` (`host`, `port`, `tls`, `email`, `password`). A extração ocorre em ~1s sem abrir abas adicionais no navegador, mantendo `roundcube.js` como contingência/fallback.
+### AD-018: Extração Headless de MFA via Protocolo IMAP (2026-08-27)
+Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegação visual no Webmail Roundcube via Playwright, o robô utiliza conexão direta via socket TLS nativo (`node:tls`) aos dados de `token_notification_email` configurados no `gestor-oportunidades` (`host`, `port`, `tls`, `email`, `password`). A extração ocorre em ~1s sem abrir abas adicionais no navegador, mantendo `roundcube.js` como contingência/fallback.
 
 ## Dependências Externas
 - **MongoDB Atlas/Local:** Persistência de dados (servidor central).
@@ -116,7 +116,17 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
-### [5.46.0] - 2026-08-21
+### [5.49.0] - 2026-08-27
+
+#### Adicionado / Aprimorado
+
+- **Extração Headless de Código MFA via Protocolo IMAP Nativo (T17 / AD-018)**:
+  - `robot/src/browser/imapClient.js`: Desenvolvido cliente IMAP/TLS nativo (`node:tls`, `node:net`) com zero dependências externas (100% compatível com empacotamento e bytecode V8). Realiza diálogo IMAP completo (`LOGIN`, `SELECT INBOX`, `UID SEARCH`, `UID FETCH`, `STORE \Seen`, `LOGOUT`), decodifica automaticamente Quoted-Printable e Base64 e extrai o código temporário de 6 dígitos em menos de 1 segundo.
+  - `robot/src/browser/docusign.js`: Integrada a chamada prioritária ao `fetchMfaCodeViaImap` no fluxo `ensureAuthenticated`, mantendo o `roundcube.js` como contingência/fallback resiliente.
+  - `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`: Atualizado `updateConfigSchema` no Zod para aceitar `token_notification_email` (`email`, `password`, `host`, `port`, `tls`) e aplicada criptografia AES-256 no campo `password` via `encryptText`.
+  - `backend/src/modules/robot-docusign/services/robotOrchestrator.js` e `robotInstanceController.js`: Propagação e decifragem de `token_notification_email` em `getRobotConfig` e `getInstanceConfig`.
+  - `backend/src/utils/crypto.js`: Corrigida inicialização de `createCipheriv` em `encryptText`.
+  - `backend/src/modules/robot-docusign/services/imapClient.test.js` e `robot/src/browser/imapClient.test.js`: Criada suíte de testes unitários e de regressão com mock server IMAP atingindo 100% de sucesso (100/100 testes passando).
 
 #### Corrigido
 

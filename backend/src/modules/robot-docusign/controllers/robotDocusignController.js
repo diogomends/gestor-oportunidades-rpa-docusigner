@@ -49,6 +49,15 @@ const updateConfigSchema = z.object({
       password: z.string().optional(),
     })
     .optional(),
+  token_notification_email: z
+    .object({
+      email: z.string().email().optional().or(z.literal("")),
+      password: z.string().optional(),
+      host: z.string().optional(),
+      port: z.number().int().optional(),
+      tls: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -430,10 +439,18 @@ export const updateConfig = async (req, res) => {
         ...currentConfig.credentials,
         ...(parseResult.data.credentials || {}),
       },
+      token_notification_email: {
+        ...currentConfig.token_notification_email,
+        ...(parseResult.data.token_notification_email || {}),
+      },
     };
 
     if (newConfigData.credentials?.password) {
       newConfigData.credentials.password = encryptText(newConfigData.credentials.password);
+    }
+
+    if (newConfigData.token_notification_email?.password) {
+      newConfigData.token_notification_email.password = encryptText(newConfigData.token_notification_email.password);
     }
 
     const doc = await SystemConfig.findOneAndUpdate(

@@ -13,7 +13,7 @@ const ENCRYPTION_KEY = crypto
 export const encryptText = (text) => {
   if (!text || text.startsWith("enc:")) return text;
   const iv = crypto.randomBytes(16);
-  const cipher = cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+  const cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
   return `enc:${iv.toString("hex")}:${encrypted}`;

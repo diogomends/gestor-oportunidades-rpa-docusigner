@@ -9,38 +9,38 @@
 
 ## Tasks
 
-### T17.1: Criação do Utilitário de Conexão e Consulta IMAP (`imapClient.js`)
+### [x] T17.1: Criação do Utilitário de Conexão e Consulta IMAP (`imapClient.js`) (2026-08-27)
 - **Objetivo**: Implementar conexão via socket TLS (`node:tls`) nativo para autenticação IMAP, busca no `INBOX`, decodificação MIME (Quoted-Printable/Base64) e extração de texto da mensagem mais recente da DocuSign.
 - **Arquivo**: `robot/src/browser/imapClient.js`
 - **Ações**:
-  1. Conexão TCP/TLS nativa para `host` e `port` com suporte a `tls: true/false` e tolerância a certificados autoassinados (`rejectUnauthorized: false`).
-  2. Envio de comandos IMAP: `LOGIN`, `SELECT INBOX`, `UID SEARCH UNSEEN / ALL SUBJECT "Verificar"`, `UID FETCH <id> BODY[TEXT]`, `STORE +FLAGS (\Seen)`, `LOGOUT`.
-  3. Decodificador MIME leve integrado para `quoted-printable` e `base64`.
-  4. Extração regex do código de 6 dígitos.
-  5. Retorno estruturado do token `{ code: "123456", success: true }`.
+  1. [x] Conexão TCP/TLS nativa para `host` e `port` com suporte a `tls: true/false` e tolerância a certificados autoassinados (`rejectUnauthorized: false`).
+  2. [x] Envio de comandos IMAP: `LOGIN`, `SELECT INBOX`, `UID SEARCH UNSEEN / ALL SUBJECT "Verificar"`, `UID FETCH <id> BODY[TEXT]`, `STORE +FLAGS (\Seen)`, `LOGOUT`.
+  3. [x] Decodificador MIME leve integrado para `quoted-printable` e `base64`.
+  4. [x] Extração regex do código de 6 dígitos.
+  5. [x] Retorno estruturado do token `{ code: "123456", success: true }`.
 
-### T17.2: Atualização do Schema Zod e Persistência no Backend Central
+### [x] T17.2: Atualização do Schema Zod e Persistência no Backend Central (2026-08-27)
 - **Objetivo**: Garantir que `token_notification_email` com `host`, `port`, `tls`, `email` e `password` cifrada seja completamente aceito e persistido no `updateConfig` e `getRobotConfig`.
 - **Arquivos**:
   - `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`
   - `backend/src/modules/robot-docusign/services/robotOrchestrator.js`
   - `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`
 - **Ações**:
-  1. Adicionar `token_notification_email` no `updateConfigSchema` (Zod).
-  2. Aplicar `encryptText` no campo `password` ao persistir em `SystemConfig`.
-  3. Propagar as credenciais completas (`host`, `port`, `tls`, `email`, `password`) no `getInstanceConfig` e no payload do job em `getNextJob`.
+  1. [x] Adicionar `token_notification_email` no `updateConfigSchema` (Zod).
+  2. [x] Aplicar `encryptText` no campo `password` ao persistir em `SystemConfig`.
+  3. [x] Propagar as credenciais completas (`host`, `port`, `tls`, `email`, `password`) no `getInstanceConfig` e no payload do job em `getNextJob`.
 
-### T17.3: Integração no Fluxo de Autenticação do Robô Playwright
+### [x] T17.3: Integração no Fluxo de Autenticação do Robô Playwright (2026-08-27)
 - **Objetivo**: Chamar o `imapClient.js` quando a tela de MFA for detectada durante o login.
 - **Arquivos**:
   - `robot/src/browser/docusign.js`
   - `backend/src/modules/robot-docusign/services/robotSession.js`
 - **Ações**:
-  1. Ao identificar `input[type='tel']` ou seletor MFA, invocar `fetchMfaCodeViaImap(mailCredentials)`.
-  2. Preencher o campo com o código retornado e submeter.
-  3. Manter `roundcube.js` como contingência/fallback caso o servidor IMAP não responda.
+  1. [x] Ao identificar `input[type='tel']` ou seletor MFA, invocar `fetchMfaCodeViaImap(mailCredentials)`.
+  2. [x] Preencher o campo com o código retornado e submeter.
+  3. [x] Manter `roundcube.js` como contingência/fallback caso o servidor IMAP não responda.
 
-### T17.4: Testes Unitários e Validação de Regressão
+### [x] T17.4: Testes Unitários e Validação de Regressão (2026-08-27)
 - **Objetivo**: Criar testes com mock de servidor IMAP testando fluxos com TLS direto, encoding Quoted-Printable, Base64 e verificação de integridade com `node --test`.
-- **Arquivo**: `robot/src/browser/imapClient.test.js`
-- **Critérios**: 100% dos testes passando sem afetar outros fluxos.
+- **Arquivo**: `robot/src/browser/imapClient.test.js` e `backend/src/modules/robot-docusign/services/imapClient.test.js`
+- **Critérios**: [x] 100% dos testes passando (100/100 testes, 0 falhas).

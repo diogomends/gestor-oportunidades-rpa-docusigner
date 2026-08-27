@@ -44,7 +44,7 @@ npm run typecheck         # Type check (se disponível)
 | REQ-OTP-01 | T15 | ✅ robotSession (passo MFA) | ✅ Controller test-login (otpCode) | — |
 | REQ-OTP-02 | T15 | ✅ Erros MFA_REQUIRED / OTP_INVALID | ✅ Timeouts estendidos MFA | — |
 | REQ-MFA-AUTO-01 | T16 | ✅ roundcube.js | ✅ docusign.js ensureAuth | — |
-| REQ-MFA-IMAP-01 | T17 | ⏳ imapClient.test.js | ⏳ IMAP integration | — |
+| REQ-MFA-IMAP-01 | T17 | ✅ imapClient.test.js | ✅ IMAP integration | — |
 
 ---
 
@@ -558,7 +558,7 @@ Ao autenticar na DocuSign pelo robô, quando um novo dispositivo ou sessão exig
 ### T17: Leitura Headless de Código MFA via Protocolo IMAP/POP3
  
  - **Req**: REQ-MFA-IMAP-01, REQ-MFA-IMAP-02, REQ-MFA-IMAP-03
- - **Status**: [ ] Planejado
+ - **Status**: [x] Done (2026-08-27)
  - **Esforço**: 2h | Paralelizável: Não
  - **Depende de**: T16
  
@@ -579,14 +579,14 @@ Ao autenticar na DocuSign pelo robô, quando um novo dispositivo ou sessão exig
  - `robot/src/browser/docusign.js` (modificar chamada de MFA)
  - `backend/src/modules/robot-docusign/controllers/robotDocusignController.js` (atualizar schema Zod e encryptText)
  - `backend/src/modules/robot-docusign/services/robotOrchestrator.js` (propagação de host/port/tls)
- - `robot/src/browser/imapClient.test.js` (novos testes unitários)
+ - `robot/src/browser/imapClient.test.js` e `backend/src/modules/robot-docusign/services/imapClient.test.js` (novos testes unitários)
  
  **Feito quando**:
- - [ ] Conexão TLS com servidor IMAP autentica e extrai o código de 6 dígitos em < 3 segundos.
- - [ ] Suporte a decodificação MIME (Quoted-Printable e Base64) testado e validado.
- - [ ] `updateConfig` persiste `token_notification_email` com senha cifrada sem perda de dados.
- - [ ] Fluxo Playwright preenche o código na DocuSign sem abrir abas de webmail.
- - [ ] Testes unitários com mock IMAP passam com 100% de sucesso.
+ - [x] Conexão TLS com servidor IMAP autentica e extrai o código de 6 dígitos em < 3 segundos.
+ - [x] Suporte a decodificação MIME (Quoted-Printable e Base64) testado e validado.
+ - [x] `updateConfig` persiste `token_notification_email` com senha cifrada sem perda de dados.
+ - [x] Fluxo Playwright preenche o código na DocuSign sem abrir abas de webmail.
+ - [x] Testes unitários com mock IMAP passam com 100% de sucesso.
 
 ---
 

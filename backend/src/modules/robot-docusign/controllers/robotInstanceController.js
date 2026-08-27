@@ -249,6 +249,9 @@ export const getInstanceConfig = async (req, res) => {
       token_notification_email: {
         email: robotConfig.token_notification_email?.email || "",
         password: robotConfig.token_notification_email?.password || "",
+        host: robotConfig.token_notification_email?.host || "unitynordeste.com.br",
+        port: Number(robotConfig.token_notification_email?.port) || 993,
+        tls: robotConfig.token_notification_email?.tls !== false,
       },
       limits: robotConfig.limits || { max_concurrent: 3 },
       retry: robotConfig.retry || { maxAttempts: 3, baseDelayMs: 2000 },
