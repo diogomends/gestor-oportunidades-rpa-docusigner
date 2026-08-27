@@ -20,18 +20,23 @@ Esta especificação define a substituição/evolução da extração via navega
 ### [REQ-MFA-IMAP-01] Módulo de Consulta IMAP Headless (`imapClient.js` / `imapMfaService.js`)
 - **Localização**: `robot/src/browser/imapClient.js` e/ou `backend/src/services/imapMfaService.js`
 - **Comportamento**:
-  1. Conectar via socket TLS (`node:tls`) ou cliente IMAP ao `host:port` com `tls: true/false`.
-  2. Autenticar com `email` e `password`.
-  3. Acessar a pasta `INBOX`.
-  4. Buscar mensagens não lidas ou recentes com remetente DocuSign (`docusign.net` / `docusign.com`) e/ou assunto `"Verificar um novo dispositivo"`.
-  5. Extrair o código de 6 dígitos com regex padrão:
+  1. Conectar via socket TLS (`node:tls`) ou socket TCP limpo ao `host:port` com `tls: true/false` e opção `{ rejectUnauthorized: false }` para tolerância de certificados autoassinados em servidores próprios.
+  2. Autenticar com `email` e `password` via comando `LOGIN`.
+  3. Acessar a pasta `INBOX` via `SELECT INBOX`.
+  4. Buscar mensagens não lidas ou recentes com remetente DocuSign (`docusign.net` / `docusign.com`) e/ou assunto `"Verificar um novo dispositivo"`, priorizando o UID mais recente.
+  5. Decodificar automaticamente o corpo do e-mail caso venha em `Content-Transfer-Encoding: quoted-printable` ou `base64` antes de aplicar a busca.
+  6. Extrair o código de 6 dígitos com regex padrão:
      - `/Seu c[oó]digo de verifica[cç][aã]o da Docusign [eé]:\s*(\d{6})/i`
      - `/\b(\d{6})\b/`
-  6. Encerrar a conexão IMAP (`LOGOUT`) e retornar a string do código de 6 dígitos.
+  7. Marcar mensagem processada como lida (`STORE <uid> +FLAGS (\Seen)`), encerrar a conexão IMAP (`LOGOUT`) e retornar a string do código de 6 dígitos.
 
 ### [REQ-MFA-IMAP-02] Fallback e Timeout Resiliente
 - Caso o e-mail não tenha chegado imediatamente, realizar polling IMAP a cada 2-3 segundos com timeout máximo de 45 segundos.
+- Suportar TLS implícito direto (porta 993) e conexão padrão (porta 143).
 - Caso o servidor IMAP esteja inacessível ou as credenciais falhem, registrar log defensivo e tentar fallback ou retornar `null` para propagar erro estruturado `MFA_REQUIRED`.
+
+### [REQ-MFA-IMAP-03] Compatibilidade com Build e Bytecode do Robô
+- A implementação deve utilizar exclusivamente módulos nativos do Node.js (`node:tls`, `node:net`, `node:crypto`, `node:buffer`), garantindo 100% de compatibilidade com o pipeline de ofuscação (`bytenode`), empacotamento (`@yao-pkg/pkg`) e geração do executável `.exe` sem dependências binárias externas.
 
 ---
 
@@ -49,6 +54,7 @@ Esta especificação define a substituição/evolução da extração via navega
 ## 4. Critérios de Aceite
 
 1. **WHEN** a tela de MFA aparecer no login DocuSign, **THEN** o robô SHALL invocar a rotina IMAP com `host`, `port`, `tls`, `email` e `password`.
-2. **WHEN** o e-mail for localizado, **THEN** o código de 6 dígitos SHALL ser extraído e retornado em menos de 3 segundos.
-3. **WHEN** o código for retornado, **THEN** o Playwright SHALL preencher o input MFA e avançar a autenticação sem abrir abas extras no navegador.
-4. **WHEN** as credenciais IMAP não estiverem configuradas, **THEN** o sistema SHALL cair em fallback controlado sem quebrar o processo.
+2. **WHEN** o e-mail for localizado (inclusive codificado em Quoted-Printable/Base64), **THEN** o código de 6 dígitos SHALL ser decodificado e extraído em menos de 3 segundos.
+3. **WHEN** múltiplos e-mails existirem na caixa, **THEN** o robô SHALL considerar apenas o e-mail mais recente (maior UID).
+4. **WHEN** o código for retornado, **THEN** o Playwright SHALL preencher o input MFA e avançar a autenticação sem abrir abas extras no navegador.
+5. **WHEN** as credenciais IMAP não estiverem configuradas ou o servidor falhar, **THEN** o sistema SHALL cair em fallback controlado sem quebrar o processo.

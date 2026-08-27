@@ -556,35 +556,37 @@ Ao autenticar na DocuSign pelo robô, quando um novo dispositivo ou sessão exig
 ## Fase 11 — Extração Headless de MFA via Protocolo IMAP
 
 ### T17: Leitura Headless de Código MFA via Protocolo IMAP/POP3
-
-- **Req**: REQ-MFA-IMAP-01
-- **Status**: [ ] Planejado
-- **Esforço**: 2h | Paralelizável: Não
-- **Depende de**: T16
-
-**Contexto**:
-O sistema `gestor-oportunidades` já persiste as configurações completas de conexão com o servidor de e-mail de segurança (`token_notification_email: { email, password, host, port, tls }`) em `SystemConfig`. A extração via Roundcube Webmail (Playwright) abre abas adicionais no navegador e consome ~15-20s. A leitura direta via protocolo IMAP/TLS obtém o código em ~1s com zero overhead de renderização visual.
-
-**O quê**:
-1. Criar utilitário `fetchMfaCodeViaImap(mailCredentials, options)` em `robot/src/browser/imapClient.js` usando sockets TLS nativos (`node:tls`) sem dependências pesadas extras.
-2. Realizar handshake com `host:port`, autenticar via `LOGIN`, acessar `INBOX`, buscar e-mails não lidos ou recentes da DocuSign e extrair o código de 6 dígitos via regex.
-3. No backend central (`robotDocusignController.js`):
-   - Atualizar `updateConfigSchema` no Zod para validar `token_notification_email`.
-   - Garantir criptografia de `password` com `encryptText` no salvamento.
-4. Integrar com `docusign.js` (`ensureAuthenticated`) chamando `fetchMfaCodeViaImap` com fallback defensivo para `roundcube.js` em caso de instabilidade do servidor IMAP.
-
-**Onde**:
-- `robot/src/browser/imapClient.js` (novo)
-- `robot/src/browser/docusign.js` (modificar chamada de MFA)
-- `backend/src/modules/robot-docusign/controllers/robotDocusignController.js` (atualizar schema Zod e encryptText)
-- `backend/src/modules/robot-docusign/services/robotOrchestrator.js` (propagação de host/port/tls)
-- `robot/src/browser/imapClient.test.js` (novos testes unitários)
-
-**Feito quando**:
-- [ ] Conexão TLS com servidor IMAP autentica e extrai o código de 6 dígitos em < 3 segundos.
-- [ ] `updateConfig` persiste `token_notification_email` com senha cifrada sem perda de dados.
-- [ ] Fluxo Playwright preenche o código na DocuSign sem abrir abas de webmail.
-- [ ] Testes unitários com mock IMAP passam com 100% de sucesso.
+ 
+ - **Req**: REQ-MFA-IMAP-01, REQ-MFA-IMAP-02, REQ-MFA-IMAP-03
+ - **Status**: [ ] Planejado
+ - **Esforço**: 2h | Paralelizável: Não
+ - **Depende de**: T16
+ 
+ **Contexto**:
+ O sistema `gestor-oportunidades` já persiste as configurações completas de conexão com o servidor de e-mail de segurança (`token_notification_email: { email, password, host, port, tls }`) em `SystemConfig`. A extração via Roundcube Webmail (Playwright) abre abas adicionais no navegador e consome ~15-20s. A leitura direta via protocolo IMAP/TLS obtém o código em ~1s com zero overhead de renderização visual.
+ 
+ **O quê**:
+ 1. Criar utilitário `fetchMfaCodeViaImap(mailCredentials, options)` em `robot/src/browser/imapClient.js` usando sockets TLS nativos (`node:tls`) sem dependências pesadas extras (100% compatível com build/bytecode).
+ 2. Realizar handshake com `host:port` (TLS direto na 993 ou STARTTLS na 143 com `{ rejectUnauthorized: false }`), autenticar via `LOGIN`, acessar `INBOX`, buscar e-mails mais recentes via UID, decodificar `quoted-printable`/`base64` e extrair o código de 6 dígitos via regex.
+ 3. Marcar e-mail processado como lido (`\Seen`) e encerrar conexão.
+ 4. No backend central (`robotDocusignController.js`):
+    - Atualizar `updateConfigSchema` no Zod para validar `token_notification_email`.
+    - Garantir criptografia de `password` com `encryptText` no salvamento.
+ 5. Integrar com `docusign.js` (`ensureAuthenticated`) chamando `fetchMfaCodeViaImap` com fallback defensivo para `roundcube.js` em caso de instabilidade do servidor IMAP.
+ 
+ **Onde**:
+ - `robot/src/browser/imapClient.js` (novo)
+ - `robot/src/browser/docusign.js` (modificar chamada de MFA)
+ - `backend/src/modules/robot-docusign/controllers/robotDocusignController.js` (atualizar schema Zod e encryptText)
+ - `backend/src/modules/robot-docusign/services/robotOrchestrator.js` (propagação de host/port/tls)
+ - `robot/src/browser/imapClient.test.js` (novos testes unitários)
+ 
+ **Feito quando**:
+ - [ ] Conexão TLS com servidor IMAP autentica e extrai o código de 6 dígitos em < 3 segundos.
+ - [ ] Suporte a decodificação MIME (Quoted-Printable e Base64) testado e validado.
+ - [ ] `updateConfig` persiste `token_notification_email` com senha cifrada sem perda de dados.
+ - [ ] Fluxo Playwright preenche o código na DocuSign sem abrir abas de webmail.
+ - [ ] Testes unitários com mock IMAP passam com 100% de sucesso.
 
 ---
 
