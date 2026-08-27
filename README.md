@@ -93,7 +93,7 @@ O repositório está integrado com **GitHub Actions**:
 | `GESTOR_API_URL`        | Sim         | `http://localhost:3000/api` | URL da API do gestor-oportunidades |
 | `ROBOT_API_KEY`         | Sim         | —           | Chave de API do robô (validada no bootstrap) |
 
-> As credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. A resolução de MFA (2FA) da DocuSign utiliza as credenciais de e-mail de notificação (`token_notification_email`: `email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), permitindo extração rápida em ~1s via protocolo IMAP direto com fallback para Roundcube Webmail. O robô detecta a tela de MFA pelo texto ("Get Code From Your Email") e por múltiplos seletores de formulário (`name="security_code"`, `pattern="[0-9]{6}"`, `placeholder="Enter code"`).
+> As credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. A resolução de MFA (2FA) da DocuSign utiliza as credenciais de e-mail de notificação (`token_notification_email`: `email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), permitindo extração rápida em ~1s via protocolo IMAP direto com fallback para Roundcube Webmail. O robô detecta a tela de MFA pelo texto ("Get Code From Your Email"), por múltiplos seletores de formulário (`name="security_code"`, `pattern="[0-9]{6}"`, `placeholder="Enter code"`) e submete pelo botão de confirmação (`data-qa="verify-code"`, texto "Verify" ou tecla Enter).
 
 ## Comandos
 
