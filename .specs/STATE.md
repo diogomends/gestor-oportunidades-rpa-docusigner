@@ -126,8 +126,8 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 ### [5.52.0] - 2026-08-27
 
 #### Corrigido
-- **Validação Prévia de Diretório do Chromium no `setup.bat` (T-SMI-19)**:
-  - `robot/scripts/setup.bat`: Adicionada verificação de existência (`if exist "%LOCALAPPDATA%\ms-playwright"`) antes da execução do loop `for /d %%D in ("%LOCALAPPDATA%\ms-playwright\chromium-*")`. Previne o erro sintático de interpretação de token `. was unexpected at this time` no interpretador `cmd.exe` quando o script é executado pela primeira vez em uma máquina cliente limpa sem instalação prévia do Playwright.
+- **Eliminação de Parênteses Literais e Uso de Delayed Expansion no `setup.bat` (T-SMI-19)**:
+  - `robot/scripts/setup.bat`: Adicionada verificação prévia de existência (`if exist "%LOCALAPPDATA%\ms-playwright"`) antes do loop `for /d` e removidos parênteses literais dentro de blocos de `echo` em `if/else`, substituindo-os por hifens e aplicando `!ERRORLEVEL!` com expansão atrasada. Previne de forma definitiva o erro sintático de interpretação de token `. was unexpected at this time` no interpretador `cmd.exe`.
 
 ### [5.51.0] - 2026-08-27
 
