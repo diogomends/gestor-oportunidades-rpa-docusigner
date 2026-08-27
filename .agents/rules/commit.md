@@ -12,6 +12,7 @@ description: QUANDO SOLICITADO PARA COMENTAR,FAZER COMMIT, OU SE USAR PALAVRAS C
 - **Fluxo PR/Merge**: Sempre usar `gh` para o fluxo completo: criar branch, push, `gh pr create`, e depois `gh pr merge`.
   - **Sintaxe PowerShell para `gh pr create`**: Evite aspas duplas internas que quebram o parser do PowerShell. Use aspas simples nas descrições (ex: `--body "Remove o rowspan='2'..."`) ou use a flag `--fill`.
   - **Sintaxe para `gh pr merge`**: Use flags válidas da CLI `gh` como `gh pr merge --merge --delete-branch`.
+- **Acompanhar CI**: Após `git push` e/ou `gh pr merge`, sempre incluir `gh run watch $(gh run list -L 1 --json databaseId -q '.[0].databaseId')` para acompanhar o workflow até conclusão.
 - **SEMPRE usar `--no-verify`**: Gerar ou executar comandos de `git commit` e `git push` com `--no-verify` (não usar `-n`, pois em `git push` a flag `-n` significa `--dry-run`). Além disso, NUNCA passe `-n`/`--no-verify` para comandos `gh` (`gh pr create`/`gh pr merge`), pois a flag não existe na CLI do GitHub. Hooks e verificações devem rodar normalmente.
 
 ## Checklist Pré-Commit .specs/
@@ -35,6 +36,7 @@ git commit -m "<tipo>(<escopo>): <descricao curta>" --no-verify
 git push origin <nome-da-branch> --no-verify
 gh pr create --title "<tipo>(<escopo>): <titulo>" --body "<descricao detalhada>"
 gh pr merge --merge --delete-branch
+gh run watch $(gh run list -L 1 --json databaseId -q '.[0].databaseId')
 ```
 
 - `git add` lista explicitamente apenas os arquivos da conversa (código, testes e `.specs/` relacionados) com um prefixo `git add` em cada linha individual sem quebras de linha/wraps, e nunca `git add .`.
@@ -47,4 +49,5 @@ git commit -m "fix(contratos): trigger change event on UF auto-select via CEP" -
 git push origin fix/contratos-cep-token-trigger --no-verify
 gh pr create --title "..." --body "..."
 gh pr merge --merge --delete-branch
+gh run watch $(gh run list -L 1 --json databaseId -q '.[0].databaseId')
 ```
