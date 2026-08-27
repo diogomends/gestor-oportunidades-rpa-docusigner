@@ -116,6 +116,19 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
+### [5.53.0] - 2026-08-27
+
+#### Adicionado
+- **Especificação de Auto-provisionamento do Chromium no Robô (`robot-auto-provision-chromium`)**:
+  - `.specs/features/robot-auto-provision-chromium/spec.md`: Especificação com requisitos rastreáveis `[PROV-01]`, `[PROV-02]` e `[PROV-03]` para detecção de binário e auto-download em runtime.
+  - `.specs/features/robot-auto-provision-chromium/tasks.md`: Planejamento atômico de tarefas T1 a T4 no padrão `/tlc-spec-driven` com matriz de testes e gates.
+
+### [5.52.0] - 2026-08-27
+
+#### Corrigido
+- **Validação Prévia de Diretório do Chromium no `setup.bat` (T-SMI-19)**:
+  - `robot/scripts/setup.bat`: Adicionada verificação de existência (`if exist "%LOCALAPPDATA%\ms-playwright"`) antes da execução do loop `for /d %%D in ("%LOCALAPPDATA%\ms-playwright\chromium-*")`. Previne o erro sintático de interpretação de token `. was unexpected at this time` no interpretador `cmd.exe` quando o script é executado pela primeira vez em uma máquina cliente limpa sem instalação prévia do Playwright.
+
 ### [5.51.0] - 2026-08-27
 
 #### Aprimorado / Otimizado (PonyTail M1-M4)
