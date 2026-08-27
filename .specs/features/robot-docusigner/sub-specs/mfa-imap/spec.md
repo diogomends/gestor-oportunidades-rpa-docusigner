@@ -31,7 +31,7 @@ Esta especificação define a substituição/evolução da extração via navega
   7. Marcar mensagem processada como lida (`STORE <uid> +FLAGS (\Seen)`), encerrar a conexão IMAP (`LOGOUT`) e retornar a string do código de 6 dígitos.
 
 ### [REQ-MFA-IMAP-02] Fallback e Timeout Resiliente
-- Caso o e-mail não tenha chegado imediatamente, realizar polling IMAP a cada 2-3 segundos com timeout máximo de 45 segundos.
+- Caso o e-mail não tenha chegado imediatamente, realizar polling IMAP com `pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000` e timeout máximo `maxWaitMs: 30000` (30s). O fallback visual `roundcube.js` mantém `45000ms` como contingência.
 - Suportar TLS implícito direto (porta 993) e conexão padrão (porta 143).
 - Caso o servidor IMAP esteja inacessível ou as credenciais falhem, registrar log defensivo e tentar fallback ou retornar `null` para propagar erro estruturado `MFA_REQUIRED`.
 

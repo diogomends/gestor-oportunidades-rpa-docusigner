@@ -313,19 +313,20 @@ export class ImapClient {
       return null;
     }
 
-    // Pega o UID mais recente (maior número)
-    const latestUid = Math.max(...uids);
-
-    // 3. UID FETCH do corpo da mensagem
-    const fetchRes = await this.sendCommand(`UID FETCH ${latestUid} (BODY.PEEK[])`);
-    const code = extractMfaCodeFromText(fetchRes.raw);
-
-    if (code) {
-      // 4. Marca a mensagem como lida (\Seen)
-      await this.sendCommand(`UID STORE ${latestUid} +FLAGS (\\Seen)`).catch(() => {});
+    // 3. Itera UIDs em ordem decrescente — previne falso positivo se última msg não for MFA
+    // ponytail: 1 FETCH por UID até achar código; evita marcar Seen errado no Math.max único
+    const sortedUids = [...uids].sort((a, b) => b - a);
+    for (const uid of sortedUids) {
+      const fetchRes = await this.sendCommand(`UID FETCH ${uid} (BODY.PEEK[])`);
+      const code = extractMfaCodeFromText(fetchRes.raw);
+      if (code) {
+        // 4. Marca apenas a mensagem que continha o código como lida (\Seen)
+        await this.sendCommand(`UID STORE ${uid} +FLAGS (\\Seen)`).catch(() => {});
+        return code;
+      }
     }
 
-    return code;
+    return null;
   }
 
   /**
