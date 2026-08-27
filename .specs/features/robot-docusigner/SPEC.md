@@ -395,6 +395,7 @@ public/modules/config-sistema/
 | REQ-ROBOT-KEY-01 | US-011 | 8 - Service Account Auth | Done |
 | REQ-ROBOT-KEY-02 | US-011 | 8 - Contracts HTTP Client | Done |
 | REQ-ROBOT-KEY-03 | US-011 | 8 - Bootstrap Guard | Done |
+| REQ-MFA-IMAP-01 | US-012 | 11 - Headless IMAP MFA | Planejado |
 
 ## Variações da Implementação & Notas Técnicas
 
@@ -521,6 +522,18 @@ public/modules/config-sistema/
 3. WHEN chave é inválida/revogada THEN encerra processo com log de advertência
 4. WHEN consulta contratos pendentes THEN envia header `x-robot-key` em `GET /api/contracts` obtendo bypass de equipe com escopo do solicitante
 5. WHEN processamento finaliza THEN atualiza contrato via `PUT /api/contracts/:id` com header `x-robot-key`
+
+---
+
+### US-012: Extração Headless de MFA via Protocolo IMAP
+
+**User Story**: Como robô RPA, quero consultar a caixa de e-mails via conexão IMAP/TLS direta, para obter o código de verificação MFA da DocuSign em ~1s sem abrir abas adicionais de navegador.
+
+**Acceptance Criteria**:
+1. WHEN a tela MFA for detectada no DocuSign THEN o robô conecta no servidor IMAP configurado (`host`, `port`, `tls`, `email`, `password`)
+2. WHEN o e-mail de segurança for localizado no INBOX THEN extrai o código de 6 dígitos via regex e encerra a conexão IMAP
+3. WHEN o código for retornado THEN preenche o input MFA e avança o login no Playwright
+4. WHEN o servidor IMAP falhar THEN registra log defensivo e aplica fallback controlado
 
 ## Success Criteria
 

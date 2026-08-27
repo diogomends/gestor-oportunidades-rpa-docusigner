@@ -72,3 +72,19 @@
 - [x] Testes unitários (`robotSession.test.js`) e de integração (`robotDocusignController.test.js`) passando via `npm test` — 87 testes, 0 falhas.
 - [ ] E2E em produção: login real DocuSign exigindo MFA com código gerado pelo usuário.
 
+---
+
+## 6. Critérios de Validação Planejada - Task T17: Extração Headless de MFA via IMAP
+
+- **Status**: Planejado
+- **Escopo**: Leitura direta via protocolo IMAP/TLS nativo
+
+### Cenários a validar
+- [ ] Conexão TLS com servidor IMAP (`host`, `port`, `tls`) estabelecida em menos de 500ms.
+- [ ] Autenticação com credenciais decifradas de `token_notification_email` executada com sucesso.
+- [ ] Busca de e-mails DocuSign no `INBOX` com extração do código numérico de 6 dígitos em menos de 2s.
+- [ ] Tratamento gracioso quando o e-mail não estiver disponível imediatamente (polling com backoff).
+- [ ] Suporte a fallback para `roundcube.js` em caso de erro de rede ou recusa de porta IMAP (993).
+- [ ] Persistência de `token_notification_email` em `PUT /config` com senha cifrada e sem perda de campos.
+- [ ] Cobertura de testes unitários com mock TLS em `robot/src/browser/imapClient.test.js`.
+
