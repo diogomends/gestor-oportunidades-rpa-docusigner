@@ -102,3 +102,34 @@
   1. [x] **T21.1**: Adicionar seletores para `name="security_code"`, `placeholder="Enter code"`, `pattern="[0-9]{6}"` e botão `Get Code From Your Email`.
   2. [x] **T21.2**: Implementar verificação por texto (`page.locator("text=/Get Code From Your Email/i")`) e clique preparatório antes de aguardar o input.
   3. [x] **T21.3**: Sincronizar fallbacks no backend (`robotSession.js`, `robotSelectors.js`, `docusign-ui.json`).
+
+---
+
+### [x] T22: Padronização e Ajuste do Botão de Confirmação MFA (verify-code / Verify) (2026-08-27)
+- **Objetivo**: Integrar os seletores do botão de confirmação MFA `<button data-qa="verify-code">...<span data-qa="verify-code-text">Verify</span></button>` no robô e no servidor central, com priorização e fallback robusto.
+- **Arquivos**:
+  - `robot/src/browser/selectors.js`
+  - `backend/src/modules/robot-docusign/selectors/docusign-ui.json`
+  - `backend/src/modules/robot-docusign/services/robotSelectors.js`
+  - `backend/src/modules/robot-docusign/services/robotSession.js`
+  - `AGENTS.md`
+  - `README.md`
+- **Ações**:
+  1. [x] **T22.1**: Adicionar `button[data-qa='verify-code']`, `button:has-text('Verify')`, `[data-qa='verify-code']` em `selectors.mfa.verify_button`.
+  2. [x] **T22.2**: Sincronizar `docusign-ui.json` e `robotSelectors.js` com o novo seletor de confirmação.
+  3. [x] **T22.3**: Ajustar `robotSession.js` para priorizar `selectors.mfa.verify_button` no envio do `otpCode`.
+  4. [x] **T22.4**: Atualizar documentação e especificações.
+
+---
+
+### [x] T23: Tratamento de Código MFA Inválido e Retentativa Automática (2026-08-27)
+- **Objetivo**: Detectar a mensagem *"The code entered is invalid. Please try again."* na tela de MFA da DocuSign, limpar o input e executar polling por novo código recebido no IMAP/Webmail, descartando tokens rejeitados.
+- **Arquivos**:
+  - `robot/src/browser/selectors.js`
+  - `robot/src/browser/imapClient.js`
+  - `robot/src/browser/docusign.js`
+- **Ações**:
+  1. [x] **T23.1**: Adicionar seletor `error_invalid` no objeto `selectors.mfa` de `selectors.js`.
+  2. [x] **T23.2**: Suportar parâmetro `excludedCodes` em `fetchLatestMfaCode` e `fetchMfaCodeViaImap` para ignorar códigos rejeitados.
+  3. [x] **T23.3**: Implementar loop com até 3 tentativas em `ensureAuthenticated`, com detecção visual de erro, limpeza de campo e nova busca de código.
+

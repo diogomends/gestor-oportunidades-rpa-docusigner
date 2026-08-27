@@ -310,11 +310,15 @@ export class ImapClient {
    * Utiliza 2 padrões de busca temporal (SINCE e fallback ALL) e filtra no cliente.
    * @param {string} email - Usuário/Email IMAP.
    * @param {string} password - Senha da conta.
+   * @param {Object} [options={}] - Opções de busca (ex: excludedCodes).
+   * @param {string[]} [options.excludedCodes=[]] - Códigos já testados e inválidos a ignorar.
    * @returns {Promise<string|null>} Código extraído ou null.
    */
-  async fetchLatestMfaCode(email, password) {
+  async fetchLatestMfaCode(email, password, options = {}) {
     await this.login(email, password);
     await this.selectInbox();
+
+    const excludedCodes = Array.isArray(options.excludedCodes) ? options.excludedCodes : [];
 
     // 1. Busca mensagens do dia atual (SINCE)
     const todaySince = formatImapDate();
@@ -343,6 +347,10 @@ export class ImapClient {
       const fetchRes = await this.sendCommand(`UID FETCH ${uid} (BODY.PEEK[])`);
       const code = extractMfaCodeFromText(fetchRes.raw);
       if (code) {
+        if (excludedCodes.includes(code)) {
+          logger.step("IMAP", `Código ${code} (UID ${uid}) já foi testado e rejeitado. Ignorando para aguardar novo código...`);
+          continue;
+        }
         logger.success("IMAP", `Código de segurança da DocuSign localizado e extraído com sucesso: ${code}`);
         // 4. Marca apenas a mensagem que continha o código como lida (\Seen)
         await this.sendCommand(`UID STORE ${uid} +FLAGS (\\Seen)`).catch(() => {});
@@ -350,7 +358,7 @@ export class ImapClient {
       }
     }
 
-    logger.warn("IMAP", "E-mails analisados, mas nenhum código de verificação DocuSign foi identificado.");
+    logger.warn("IMAP", "E-mails analisados, mas nenhum novo código de verificação DocuSign foi identificado.");
     return null;
   }
 
@@ -399,7 +407,8 @@ export class ImapClient {
  * Mantém e reutiliza a mesma conexão IMAP durante as tentativas, reconectando apenas em falha.
  *
  * @param {Object} mailCredentials - Objeto { email, password, host, port, tls }.
- * @param {Object} [options] - Opções { maxWaitMs, pollIntervalMs, backoffFactor, maxPollIntervalMs }.
+ * @param {Object} [options] - Opções { maxWaitMs, pollIntervalMs, backoffFactor, maxPollIntervalMs, excludedCodes }.
+ * @param {string[]} [options.excludedCodes=[]] - Lista de códigos já testados a ignorar.
  * @returns {Promise<string|null>} Código de 6 dígitos ou null.
  */
 export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
@@ -418,6 +427,7 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
   let currentIntervalMs = options.pollIntervalMs || 3000;
   const backoffFactor = options.backoffFactor || 1.2;
   const maxPollIntervalMs = options.maxPollIntervalMs || 6000;
+  const excludedCodes = Array.isArray(options.excludedCodes) ? options.excludedCodes : [];
 
   const startedAt = Date.now();
   let client = null;
@@ -437,7 +447,7 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
           await client.connect();
         }
 
-        const code = await client.fetchLatestMfaCode(email, password);
+        const code = await client.fetchLatestMfaCode(email, password, { excludedCodes });
 
         if (code) {
           logger.success("IMAP", `Código de verificação MFA recebido com sucesso: ${code}`);

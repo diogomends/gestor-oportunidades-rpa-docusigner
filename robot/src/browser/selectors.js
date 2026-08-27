@@ -36,9 +36,10 @@ export const selectors = {
   },
   mfa: {
     input: "input[name='security_code'], input[placeholder='Enter code'], input[pattern='[0-9]{6}'], input[type='tel'], input[data-testid='mfa-code'], input[autocomplete='one-time-code'], #code, input[name='code'], input[name='mfa-code']",
-    verify_button: "button[data-testid='mfa-submit'], button[data-testid='verify-btn'], button[data-testid='submit-btn'], button[type='submit']",
+    verify_button: "button[data-qa='verify-code'], button:has-text('Verify'), [data-qa='verify-code'], button[data-testid='mfa-submit'], button[data-testid='verify-btn'], button[data-testid='submit-btn'], button[type='submit']",
     text_trigger: "Get Code From Your Email",
     email_option_btn: "button:has-text('Get Code From Your Email'), a:has-text('Get Code From Your Email'), [role='button']:has-text('Get Code From Your Email'), text='Get Code From Your Email'",
+    error_invalid: "text=/The code entered is invalid/i, [data-testid='mfa-error'], p:has-text('The code entered is invalid')",
   },
   roundcube: {
     login_url: "https://unitynordeste.com.br:2096/",
