@@ -83,16 +83,26 @@ export function extractMfaCodeFromText(text) {
 
 /**
  * Formata um objeto Date no padrão aceito pelo protocolo IMAP (DD-Mon-YYYY).
- * Ex: 27-Aug-2026
+ * Ex: 02-Aug-2026 ou 27-Aug-2026
  * @param {Date} [date] - Data de referência.
- * @returns {string} Data formatada no padrão RFC 3501.
+ * @returns {string} Data formatada no padrão RFC 3501 com dia zero-padded.
  */
 export function formatImapDate(date = new Date()) {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const day = date.getDate();
+  const day = String(date.getDate()).padStart(2, "0");
   const month = months[date.getMonth()];
   const year = date.getFullYear();
   return `${day}-${month}-${year}`;
+}
+
+/**
+ * Escapa caracteres especiais para strings entre aspas no protocolo IMAP (RFC 3501).
+ * @param {string} str - String a ser escapada.
+ * @returns {string} String com barras invertidas e aspas escapadas.
+ */
+export function escapeImapString(str) {
+  if (typeof str !== "string") return "";
+  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 /**
@@ -119,16 +129,47 @@ export class ImapClient {
 
   /**
    * Conecta ao servidor IMAP e aguarda o greeting inicial (* OK).
+   * @returns {Promise<boolean>} Retorna true se conectado e recebido o greeting do servidor.
    */
   async connect() {
     return new Promise((resolve, reject) => {
+      let greetingReceived = false;
+
       const timer = setTimeout(() => {
+        cleanup();
         if (this.socket) this.socket.destroy();
         reject(new Error(`Timeout na conexão IMAP com ${this.host}:${this.port}`));
       }, this.timeout);
 
-      const onConnect = () => {
+      const cleanup = () => {
         clearTimeout(timer);
+        if (this.socket) {
+          this.socket.off("data", onData);
+          this.socket.off("error", onError);
+          this.socket.off("close", onClose);
+        }
+      };
+
+      const onData = (chunk) => {
+        this.buffer += chunk;
+        if (!greetingReceived && this.buffer.includes("* OK")) {
+          greetingReceived = true;
+          this.buffer = "";
+          cleanup();
+          resolve(true);
+        }
+      };
+
+      const onError = (err) => {
+        cleanup();
+        reject(err);
+      };
+
+      const onClose = () => {
+        if (!greetingReceived) {
+          cleanup();
+          reject(new Error(`Conexão fechada antes do greeting inicial do servidor IMAP (${this.host}:${this.port})`));
+        }
       };
 
       if (this.tls) {
@@ -137,39 +178,21 @@ export class ImapClient {
             host: this.host,
             port: this.port,
             rejectUnauthorized: false,
-          },
-          onConnect
+          }
         );
       } else {
         this.socket = net.connect(
           {
             host: this.host,
             port: this.port,
-          },
-          onConnect
+          }
         );
       }
 
       this.socket.setEncoding("utf8");
-
-      let greetingReceived = false;
-      this.socket.on("data", (chunk) => {
-        this.buffer += chunk;
-        if (!greetingReceived && this.buffer.includes("* OK")) {
-          greetingReceived = true;
-          this.buffer = "";
-          resolve(true);
-        }
-      });
-
-      this.socket.on("error", (err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-
-      this.socket.on("close", () => {
-        clearTimeout(timer);
-      });
+      this.socket.on("data", onData);
+      this.socket.on("error", onError);
+      this.socket.on("close", onClose);
     });
   }
 
@@ -216,10 +239,11 @@ export class ImapClient {
 
       const onData = (chunk) => {
         cmdBuffer += chunk;
-        const tagPattern = new RegExp(`^${tag}\\s+(OK|NO|BAD)`, "m");
-        if (tagPattern.test(cmdBuffer)) {
+        const tagPattern = new RegExp(`(?:^|\\r?\\n)${tag}\\s+(OK|NO|BAD)([^\\r\\n]*)?(?:\\r?\\n|$)`);
+        const match = cmdBuffer.match(tagPattern);
+        if (match) {
           cleanup();
-          resolve({ tag, raw: cmdBuffer });
+          resolve({ tag, response: match[1], raw: cmdBuffer });
         }
       };
 
@@ -238,8 +262,10 @@ export class ImapClient {
    * @returns {Promise<string|null>} Código extraído ou null.
    */
   async fetchLatestMfaCode(email, password) {
-    // 1. LOGIN
-    const loginRes = await this.sendCommand(`LOGIN "${email}" "${password}"`);
+    // 1. LOGIN com escape de caracteres especiais RFC 3501
+    const escapedEmail = escapeImapString(email);
+    const escapedPassword = escapeImapString(password);
+    const loginRes = await this.sendCommand(`LOGIN "${escapedEmail}" "${escapedPassword}"`);
     if (!loginRes.raw.includes(" OK")) {
       throw new Error(`Falha no comando IMAP LOGIN: ${loginRes.raw.trim()}`);
     }
@@ -402,6 +428,7 @@ export default {
   decodeBase64,
   extractMfaCodeFromText,
   formatImapDate,
+  escapeImapString,
   ImapClient,
   fetchMfaCodeViaImap,
 };
