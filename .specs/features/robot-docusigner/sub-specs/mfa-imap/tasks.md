@@ -59,3 +59,18 @@
   3. [x] **T18.3**: Incluir critério temporal `SINCE <data_hoje>` na busca `UID SEARCH` do protocolo IMAP.
   4. [x] **T18.4**: Validar resiliência e ausência de regressão com testes unitários `node --test`.
 
+---
+
+### [x] T19: Correção de Conexão, Parsing e Sanitização no Cliente IMAP (2026-08-27)
+- **Objetivo**: Corrigir bugs de handshake (E1), regex de tagged response (E2), escape de strings RFC 3501 no login (E3) e formatação de datas IMAP com zero-padding (E4).
+- **Arquivos**:
+  - `robot/src/browser/imapClient.js`
+  - `robot/src/browser/imapClient.test.js`
+  - `backend/src/modules/robot-docusign/services/imapClient.test.js`
+- **Ações**:
+  1. [x] **E1**: Manter timeout ativo em `connect()` até o recebimento do greeting `* OK` e rejeitar se o socket fechar prematuramente.
+  2. [x] **E2**: Ajustar regex de tag no `sendCommand` para limites de linha `(?:^|\r?\n)${tag}` e retornar objeto compatível com JSDoc `{ tag, response, raw }`.
+  3. [x] **E3**: Implementar utilitário `escapeImapString` para escapar `\` e `"` no comando `LOGIN`.
+  4. [x] **E4**: Adicionar zero-padding no dia da data (`padStart(2, '0')`) em `formatImapDate`.
+  5. [x] Atualizar suíte de testes unitários cobrindo todos os cenários.
+

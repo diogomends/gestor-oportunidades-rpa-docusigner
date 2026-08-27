@@ -106,4 +106,18 @@
 - [x] Estratégia de polling com backoff adaptativo previne esgotamento de conexões e mitigação de bloqueios por firewall/antispam.
 - [x] Regressão: 100% dos testes unitários do backend e do robô passam sem falhas via `node --test`.
 
+---
+
+## 8. Critérios de Validação — Task T19: Correção de Conexão, Parsing e Sanitização IMAP
+
+- **Data**: 2026-08-27
+- **Status**: ✅ Aprovado
+- **Escopo**: Correção de handshake hang (E1), regex multiline em tags (E2), escaping de credenciais RFC 3501 (E3) e data com zero-padding (E4).
+
+### Cenários de Validação Executados
+- [x] E1: `connect()` mantém timeout ativo até o greeting `* OK` e rejeita a Promise imediatamente se o socket fechar prematuramente.
+- [x] E2: `sendCommand` usa regex delimitada por linha `(?:^|\r?\n)${tag}` evitando falsos positivos em payloads de e-mail e retorna `{ tag, response, raw }` compatível com JSDoc.
+- [x] E3: `escapeImapString` escapa corretamente aspas duplas e barras invertidas no comando `LOGIN` do protocolo IMAP.
+- [x] E4: `formatImapDate` formata dias menores que 10 com zero-padding (ex: `02-Aug-2026`).
+
 

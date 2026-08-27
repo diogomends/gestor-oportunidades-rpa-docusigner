@@ -487,6 +487,16 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 
 - **Inicialização Automática com o Windows no Setup do Robô**: Adicionada etapa `[3/3]` em `robot/scripts/setup.bat` que registra a execução do `run.bat` no Registro do Windows (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`), garantindo que os robôs distribuídos iniciem automaticamente no boot/logon das máquinas dos agentes. Atualizados templates de documentação e README.
 
+### [5.46.2] - 2026-08-27
+
+#### Corrigido
+
+- **Correção de Handshake, Regex e Sanitização no Cliente IMAP MFA (`imapClient.js`)**:
+  - **Handshake Hang (E1)**: Timeout mantido ativo até recepção do greeting `* OK` e rejeição imediata da Promise caso a conexão seja fechada prematuramente.
+  - **Parsing de Tag IMAP (E2)**: Regex no `sendCommand` ajustada com delimitador de início/fim de linha `(?:^|\r?\n)${tag}` para evitar falsos positivos em corpos de e-mail e alinhada ao retorno do JSDoc.
+  - **Escaping RFC 3501 (E3)**: Implementado `escapeImapString` para escapar aspas duplas e barras invertidas no comando `LOGIN`.
+  - **Formatação de Data (E4)**: Adicionado zero-padding no dia em `formatImapDate` para compatibilidade com servidores IMAP estritos.
+
 ### [5.46.1] - 2026-08-24
 
 #### Corrigido

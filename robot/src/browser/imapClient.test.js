@@ -6,16 +6,32 @@ import {
   decodeBase64,
   extractMfaCodeFromText,
   formatImapDate,
+  escapeImapString,
   ImapClient,
   fetchMfaCodeViaImap,
 } from "./imapClient.js";
 
 describe("Robot Standalone - IMAP MFA Client Tests", () => {
   describe("formatImapDate", () => {
-    it("deve formatar data no padrão RFC 3501 (DD-Mon-YYYY)", () => {
-      const fixedDate = new Date(2026, 7, 27); // 27 de Agosto de 2026
-      const formatted = formatImapDate(fixedDate);
-      assert.equal(formatted, "27-Aug-2026");
+    it("deve formatar data no padrão RFC 3501 (DD-Mon-YYYY) com zero-padding para dia < 10", () => {
+      const singleDigitDate = new Date(2026, 7, 2); // 2 de Agosto de 2026
+      assert.equal(formatImapDate(singleDigitDate), "02-Aug-2026");
+
+      const doubleDigitDate = new Date(2026, 7, 27); // 27 de Agosto de 2026
+      assert.equal(formatImapDate(doubleDigitDate), "27-Aug-2026");
+    });
+  });
+
+  describe("escapeImapString", () => {
+    it("deve escapar aspas duplas e barras invertidas no formato RFC 3501", () => {
+      const input = 'my\\secret"pass"';
+      const escaped = escapeImapString(input);
+      assert.equal(escaped, 'my\\\\secret\\"pass\\"');
+    });
+
+    it("deve tratar valores não-string retornando string vazia", () => {
+      assert.equal(escapeImapString(null), "");
+      assert.equal(escapeImapString(undefined), "");
     });
   });
 
@@ -108,6 +124,39 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       const elapsed = Date.now() - startTime;
       assert.ok(elapsed < 2000, `Deveria rejeitar imediatamente em < 2s, mas levou ${elapsed}ms`);
       client.close();
+    });
+
+    it("deve rejeitar connect imediatamente se o socket fechar antes do greeting", async () => {
+      let silentServer = null;
+      let silentPort = 0;
+
+      await new Promise((resolve) => {
+        silentServer = net.createServer((socket) => {
+          // Fecha imediatamente sem enviar * OK
+          socket.destroy();
+        });
+        silentServer.listen(0, "127.0.0.1", () => {
+          silentPort = silentServer.address().port;
+          resolve();
+        });
+      });
+
+      const client = new ImapClient({
+        host: "127.0.0.1",
+        port: silentPort,
+        tls: false,
+        timeout: 5000,
+      });
+
+      await assert.rejects(
+        async () => {
+          await client.connect();
+        },
+        /Conexão fechada antes do greeting/
+      );
+
+      client.close();
+      await new Promise((resolve) => silentServer.close(resolve));
     });
   });
 
