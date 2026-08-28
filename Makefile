@@ -35,7 +35,7 @@ help:
 dev:
 	npm run dev
 
-# Roda os testes nativos (node --test)
+# Roda os testes nativos (node --env-file=.env.dev --test test/**/*.test.js)
 test:
 	npm test
 

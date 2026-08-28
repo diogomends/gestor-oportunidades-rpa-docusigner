@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "node --test ../test/backend/**/*.test.js",
-    "test:watch": "node --test --watch ../test/backend/**/*.test.js"
+    "test": "node --env-file=../.env.dev --test ../test/backend/**/*.test.js",
+    "test:watch": "node --env-file=../.env.dev --test --watch ../test/backend/**/*.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

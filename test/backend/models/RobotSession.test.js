@@ -1,6 +1,5 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import "../../helpers/setup.js";
 import RobotSession, { syncSessionAliases } from "../../../backend/src/modules/robot-docusign/models/RobotSession.js";
 
 /**

@@ -50,11 +50,11 @@
 - **Date**: 2026-08-27
 - **Status**: active
 
-### AD-020
-- **Decision**: Bloco `mfa: { maxWaitMs: 90000, maxAgeMs: 600000 }` tipado no Zod `updateConfigSchema`, mesclado em `updateConfig`, repassado nos payloads de `getInstanceConfig`/`getNextJob` e lido via `credentials.mfa.*` em `docusign.js`.
-- **Reason**: Respeitar SRP e PonyTail sem duplicar estado dentro de `credentials` ou `token_notification_email`, permitindo ajuste fino de timeouts MFA via API REST e propagação para o robô.
+### AD-021
+- **Decision**: Remoção dos arquivos legados `test/helpers/env.js` e `test/helpers/setup.js` e migração do runner de testes para `--env-file=.env.dev` nativo do Node.js 24.
+- **Reason**: Eliminar código morto e fallbacks hardcoded (`test_secret_key`, etc.) que mascaravam dados de `.env.dev`, alinhando os testes diretamente à fonte de verdade de desenvolvimento.
 - **Trade-off**: N/A.
-- **Scope**: `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `robot/src/browser/docusign.js`
+- **Scope**: `package.json`, `backend/package.json`, `test/**/*.test.js`, `.env.dev`
 - **Date**: 2026-08-28
 - **Status**: active
 
@@ -62,9 +62,9 @@
 
 ## Handoff
 
-- **Feature**: robot-docusigner / sub-specs/mfa-imap
-- **Phase / Task**: T28 Done — Configurabilidade MFA e Fallback Roundcube Resiliente + Propagação REST API/Instância
-- **Completed**: T01..T28 (incl. T27 timeout 90s/10min e T28 configurabilidade `mfa` em REST API, instâncias e robô) + Migração testes test/
+- **Feature**: robot-docusigner / test-environment-cleanup
+- **Phase / Task**: Remoção de helpers de teste e carregamento via `--env-file=.env.dev`
+- **Completed**: T01..T28 + AD-021 (Eliminação de `test/helpers/` e injeção direta de `.env.dev`)
 - **In-progress**: none
 - **Next step**: Próxima feature `robot-auto-provision-chromium` ou nova demanda
 - **Blockers**: none

@@ -1,7 +1,6 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
-import "../../helpers/setup.js";
 import {
   decodeQuotedPrintable,
   decodeBase64,

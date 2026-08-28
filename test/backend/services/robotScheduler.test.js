@@ -1,6 +1,5 @@
 import { describe, it, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert";
-import "../../helpers/setup.js";
 import robotScheduler from "../../../backend/src/modules/robot-docusign/services/robotScheduler.js";
 import robotOrchestrator from "../../../backend/src/modules/robot-docusign/services/robotOrchestrator.js";
 import RobotJob from "../../../backend/src/modules/robot-docusign/models/RobotJob.js";
