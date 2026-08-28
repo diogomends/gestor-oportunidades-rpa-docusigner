@@ -94,6 +94,22 @@
 
 ---
 
+## 7a. Critérios de Validação — Task T20: Otimização PonyTail e Redução de Roundtrips IMAP (5.51.0)
+
+- **Data**: 2026-08-27
+- **Status**: ✅ Aprovado — `CHANGELOG 5.51.0` migrado
+- **Escopo**: M1 redução 8→2 `UID SEARCH`, M2 reuso de socket no polling, M3 eliminação de duplicação de testes, M4 alinhamento de constantes.
+
+### Cenários de Validação Executados (T20)
+
+- [x] **M1 — Redução de UID SEARCH**: 8 consultas sequenciais → 2 padrões (`SINCE <hoje>` + fallback `ALL`), filtro de assunto delegado ao cliente via regex — economia de até 6 roundtrips por tentativa (`imapClient.js`).
+- [x] **M2 — Reuso de Conexão**: mesmo socket/sessão autenticado reutilizado durante `fetchMfaCodeViaImap` polling, sem `LOGIN` repetido — previne rate-limit Dovecot (`imapClient.js`).
+- [x] **M3 — Fonte única de testes**: `robot/src/browser/imapClient.test.js` mantido como fonte da verdade; `backend/.../imapClient.test.js` referencia diretamente — duplicação eliminada.
+- [x] **M4 — Constantes alinhadas à spec**: `pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000`.
+- [x] **Regressão**: 100% testes `imapClient.test.js` passando via `node --test`.
+
+---
+
 ## 7. Critérios de Validação — Task T18: Hardening e Resiliência do Cliente IMAP
 
 - **Data**: 2026-08-27

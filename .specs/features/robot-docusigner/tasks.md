@@ -46,6 +46,7 @@ npm run typecheck         # Type check (se disponível)
 | REQ-MFA-AUTO-01 | T16 | ✅ roundcube.js | ✅ docusign.js ensureAuth | — |
 | REQ-MFA-IMAP-01 | T17 | ✅ imapClient.test.js | ✅ IMAP integration | — |
 | REQ-MFA-IMAP-02 | T18 | ✅ imapClient.test.js | ✅ IMAP Hardening & Resilience | — |
+| REQ-MFA-IMAP-02 | T20 | ✅ imapClient.test.js (M1-M4) | ✅ Roundtrip reduction & reuso socket | — |
 | REQ-MFA-IMAP-06 | T24 | ✅ imapClient.test.js | ✅ Filtro Subject & mfaTriggerTime | — |
 | REQ-MFA-IMAP-07 | T25 | ✅ job-runner.js / docusign.js | ✅ Persistência storageState | — |
 | REQ-MFA-IMAP-08 | T26 | ✅ docusign.test.js | ✅ Hardening & Resiliência storageState | — |
@@ -655,6 +656,13 @@ Aplicação dos princípios PonyTail para simplificação, remoção de overhead
 4. **M4 (Alinhamento de Constantes)**: `pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000`.
 
 **Onde**:
+- `robot/src/browser/imapClient.js` (M1/M2/M4 — `fetchMfaCodeViaImap`, `formatImapDate`, `SINCE`, `pollIntervalMs/backoff`)
+- `robot/src/browser/imapClient.test.js` (fonte da verdade, M3)
+
+**Feito quando**:
+- [x] 8 → 2 `UID SEARCH` (M1), reuso de socket no polling (M2), teste único (M3) e constantes `3000/1.2/6000` (M4) — `CHANGELOG 5.51.0` migrado
+- [x] `validation.md § T20` criado com cenários M1-M4
+
 ---
 
 ## Fase 13 — Filtro de Título e Timestamp no Cliente IMAP
@@ -726,6 +734,29 @@ Garantir que arquivos de sessão com cookies (`session-docusign.json`) nunca vaz
 - [x] Cookies atualizados pós-envio e consulta gravados em disco.
 - [x] Duplo redirect detectado com falha rápida (fail-fast).
 - [x] 100% dos testes unitários e de regressão passando (160/160 testes).
+
+### T27: Correção de Paridade MFA Roundcube e Limpeza de Charset (5.56.1)
+
+- **Req**: REQ-MFA-IMAP-02, REQ-MFA-IMAP-06
+- **Status**: [x] Done (2026-08-28) — patch pós-T26, `CHANGELOG 5.56.1` migrado
+- **Esforço**: 0.5h | Paralelizável: Sim
+- **Depende de**: T24, T26
+
+**O quê**:
+1. **Paridade `roundcube.js:19` ↔ `imapClient.js:438`**: `parseRoundcubeDate` em `:19` (após `import logger`) descarta mensagens sem data reconhecível quando `mfaTriggerTime` definido (`toleranceMs=30000`), alinhado a `imapClient.js:445-451`.
+2. **Limpeza `imapClient.js:81`**: removido `decodeQuotedPrintable` redundante em `decodeMimeHeader` — já decodifica blocos `Q`/`B` via `getBufferEncoding` (`:11` preserva encoding).
+3. **Resiliência `job-runner.js`**: `mkdirSync` com `logger.warn` em falha de criação de diretório de sessão.
+
+**Onde**:
+- `robot/src/browser/roundcube.js:19`
+- `robot/src/browser/imapClient.js:11,81,438`
+- `robot/src/job-runner.js`
+
+**Feito quando**:
+- [x] `parseRoundcubeDate` + `toleranceMs` com paridade total com `imapClient.js`
+- [x] `decodeQuotedPrintable` extra removido, `encoding` preservado
+- [x] `logger.warn` em falha de `mkdirSync`
+- [x] `validation.md § 5.56.1` cobre os 3 cenários com 160 testes passando
 
 ---
 
