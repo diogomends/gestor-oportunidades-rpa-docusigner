@@ -767,6 +767,45 @@ Garantir que arquivos de sessão com cookies (`session-docusign.json`) nunca vaz
 
 ---
 
+## Fase 15 — Parametrização e Conectividade de Produção
+
+### T29: Registro e Parametrização de Conectividade de Produção (MongoDB & Chaves de Robô)
+
+- **Req**: REQ-001, REQ-002, REQ-ROBOT-KEY-01, REQ-INST-01
+- **Status**: [ ] Pending
+- **Esforço**: 1h | Paralelizável: Sim
+- **Depende de**: T01, T02, T06, T13, T14
+
+**Contexto**:
+O robô RPA possui arquitetura desacoplada onde o Servidor Central Docker (`backend/src/server.js`, porta 3111) conecta-se diretamente aos bancos MongoDB (`db_crm_funil` e `crm_contracts`) e valida sua chave no Gestor (`GESTOR_API_URL`), enquanto os robôs clientes autônomos (`robot/` compilados como `.exe`) comunicam-se via HTTP com a API Central utilizando a chave de acesso única de cada instância (`X-Robot-Key` / `ROBOT_KEY`).
+
+**O quê**:
+1. **Configuração de Ambiente do Servidor Central (`.env`)**:
+   - Parametrizar no `.env` do droplet de produção (`/home/appuser/servidor-unity-rce/gestor-oportunidades-rpa-docusigner/.env`):
+     - `MONGO_URI`: `mongodb://.../db_crm_funil`
+     - `MONGO_CONTRACTS_URI`: `mongodb://.../crm_contracts`
+     - `JWT_SECRET`: segredo compatível com o Gestor
+     - `GESTOR_API_URL`: endpoint do Gestor em produção
+     - `ROBOT_API_KEY`: chave do robô cadastrada no `crm_acl`
+2. **Provisionamento de Chaves de Acesso de Instâncias**:
+   - Cadastrar as chaves no Gestor de Oportunidades (`GET/POST /api/system-config/robot-docusign/api-keys`), gravando no banco `crm_acl.robot_api_keys`.
+3. **Compilação de Robôs com Chave Embutida para Produção**:
+   - Gerar os binários executáveis `.exe` via `npm run build:robot` passando `--api-url` de produção e a chave correspondente da máquina.
+4. **Validação de Conectividade e Heartbeat**:
+   - Validar startup do container `app_docusigner` e autenticação com polling ativo dos robôs conectados (`POST /api/robot-docusign/instance/auth` e `POST /instance/heartbeat`).
+
+**Onde**:
+- `.specs/features/robot-docusigner/tasks.md`
+- `.specs/STATE.md`
+- `/home/appuser/servidor-unity-rce/gestor-oportunidades-rpa-docusigner/.env` (produção)
+
+**Feito quando**:
+- [ ] Servidor central conecta com sucesso aos bancos MongoDB (`db_crm_funil` e `crm_contracts`) no boot.
+- [ ] Chaves de acesso emitidas no `crm_acl` autenticam robôs locais com geração de JWT de 30 dias.
+- [ ] Executável do robô `.exe` consome fila de jobs e reporta status/heartbeat para a API de produção.
+
+---
+
 ## Riscos Identificados
 
 | Risco | Impacto | Mitigação |

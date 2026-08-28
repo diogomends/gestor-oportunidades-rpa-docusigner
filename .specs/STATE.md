@@ -58,14 +58,22 @@
 - **Date**: 2026-08-28
 - **Status**: active
 
+### AD-022
+- **Decision**: Modelo de Conectividade Dual em Produção — Servidor Central Docker (`app_docusigner`) conecta diretamente ao MongoDB (`db_crm_funil` e `crm_contracts`) e valida chave no Gestor (`GESTOR_API_URL`), enquanto robôs clientes standalone (`.exe`) comunicam-se via HTTP com a API Central utilizando chave única `ROBOT_KEY` (`X-Robot-Key`).
+- **Reason**: Isolar o acesso direto ao banco de dados na infraestrutura segura do servidor central, permitindo que robôs distribuídos em máquinas de operadores trabalhem sem portas abertas de banco nem credenciais de banco locais.
+- **Trade-off**: Robôs dependem da disponibilidade e conectividade HTTP da API Central de Produção.
+- **Scope**: `.env` de produção, `backend/src/server.js`, `robot/src/main.js`, `POST /api/robot-docusign/instance/auth`
+- **Date**: 2026-08-28
+- **Status**: active
+
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: robot-docusigner / test-environment-cleanup
-- **Phase / Task**: Remoção de helpers de teste e carregamento via `--env-file=.env.dev`
-- **Completed**: T01..T28 + AD-021 (Eliminação de `test/helpers/` e injeção direta de `.env.dev`)
-- **In-progress**: none
-- **Next step**: Próxima feature `robot-auto-provision-chromium` ou nova demanda
+- **Feature**: robot-docusigner / producao-conectividade
+- **Phase / Task**: Fase 15 / T29 (Parametrização e Registro de Conexão de Produção)
+- **Completed**: T01..T28 + AD-021 + Registro T29 / AD-022
+- **In-progress**: T29 (Parametrização e Conectividade de Produção)
+- **Next step**: Configuração do `.env` no servidor de produção e build dos robôs com chaves emitidas
 - **Blockers**: none
 - **Branch**: main
