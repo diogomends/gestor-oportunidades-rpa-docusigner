@@ -21,6 +21,9 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | `make db-and-collection`                                                        | Exibe árvore de bancos e coleções MongoDB local       |
 | `make db-and-collection-prod`                                                   | Exibe árvore de bancos e coleções no container prod   |
 | `make mongosh-contracts` / `make mongosh-contracts-prod`                        | Conexão mongosh ao banco de contratos (local/remoto)  |
+| `make mongosh-jobs` / `make mongosh-jobs-prod`                                  | Consulta jobs do robô no MongoDB (local/remoto)       |
+| `make mongosh-instances` / `make mongosh-instances-prod`                        | Consulta instâncias do robô no MongoDB (local/remoto) |
+| `make mongosh-config` / `make mongosh-config-prod`                              | Consulta config do robô no MongoDB (local/remoto)    |
 | `make ssh-uploads-prod`                                                         | Abre sessão SSH interativa na pasta uploads de prod  |
 | `make ls-uploads-prod`                                                          | Lista arquivos e pastas em uploads no servidor prod   |
 | `make fetch-robot-debug-images`                                                 | Baixa screenshots de debug do container de produção   |

@@ -31,7 +31,7 @@ else
     SSH_EXEC = cat tools/db-and-collection.js | ssh $(SSH_OPTS) $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
 endif
 
-.PHONY: help dev start test test-headed test-headed-ps build-robot install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod fetch-robot-debug-images ssh-uploads-prod ls-uploads-prod routes-inventory routes-inventory-check
+.PHONY: help dev start test test-headed test-headed-ps build-robot install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod mongosh-jobs mongosh-jobs-prod mongosh-instances mongosh-instances-prod mongosh-config mongosh-config-prod fetch-robot-debug-images ssh-uploads-prod ls-uploads-prod routes-inventory routes-inventory-check
 
 help:
 	@echo "Makefile - Gestor de Oportunidades RPA DocuSigner"
@@ -62,6 +62,12 @@ help:
 	@echo "  make db-and-collection-prod - Lista bancos e colecoes no container de producao"
 	@echo "  make mongosh-contracts      - Consulta contratos via mongosh local"
 	@echo "  make mongosh-contracts-prod - Consulta contratos no servidor remoto (requer tunnel ativo)"
+	@echo "  make mongosh-jobs           - Consulta jobs do robo via mongosh local"
+	@echo "  make mongosh-jobs-prod      - Consulta jobs do robo no servidor remoto (requer tunnel ativo)"
+	@echo "  make mongosh-instances      - Consulta instancias do robo via mongosh local"
+	@echo "  make mongosh-instances-prod - Consulta instancias do robo no servidor remoto (requer tunnel ativo)"
+	@echo "  make mongosh-config         - Consulta config do robo via mongosh local"
+	@echo "  make mongosh-config-prod    - Consulta config do robo no servidor remoto (requer tunnel ativo)"
 	@echo ""
 	@echo "--- Arquivos e Uploads Remotos ---"
 	@echo "  make ssh-uploads-prod   - Abre sessao SSH interativa direto na pasta uploads/ em producao"
@@ -148,6 +154,27 @@ mongosh-contracts:
 mongosh-contracts-prod:
 	@echo "Requer tunnel ativo em outra janela (make tunnel)"
 	mongosh --host localhost --port 27018 -u admin -p "Ssl@7056" --authenticationDatabase admin crm_contracts --eval "db.contracts.find().pretty()"
+
+mongosh-jobs:
+	mongosh "mongodb://localhost:27017/crm_contracts" --eval "db.robot_jobs.find().sort({createdAt: -1}).limit(10).pretty()"
+
+mongosh-jobs-prod:
+	@echo "Requer tunnel ativo em outra janela (make tunnel)"
+	mongosh --host localhost --port 27018 -u admin -p "Ssl@7056" --authenticationDatabase admin crm_contracts --eval "db.robot_jobs.find().sort({createdAt: -1}).limit(10).pretty()"
+
+mongosh-instances:
+	mongosh "mongodb://localhost:27017/crm_contracts" --eval "db.robot_instances.find().sort({last_heartbeat: -1}).pretty()"
+
+mongosh-instances-prod:
+	@echo "Requer tunnel ativo em outra janela (make tunnel)"
+	mongosh --host localhost --port 27018 -u admin -p "Ssl@7056" --authenticationDatabase admin crm_contracts --eval "db.robot_instances.find().sort({last_heartbeat: -1}).pretty()"
+
+mongosh-config:
+	mongosh "mongodb://localhost:27017/db_crm_funil" --eval "db.systemconfigs.find({ key: 'robot_docusign' }).pretty()"
+
+mongosh-config-prod:
+	@echo "Requer tunnel ativo em outra janela (make tunnel)"
+	mongosh --host localhost --port 27018 -u admin -p "Ssl@7056" --authenticationDatabase admin db_crm_funil --eval "db.systemconfigs.find({ key: 'robot_docusign' }).pretty()"
 
 ## Arquivos e Uploads Remotos
 
