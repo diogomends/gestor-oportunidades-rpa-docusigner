@@ -4,28 +4,28 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 
 ## Comandos
 
-| Comando                          | O que faz                                        |
-| -------------------------------- | ------------------------------------------------ |
-| `npm start`                      | Produção (`node backend/src/server.js`)          |
-| `npm run dev`                    | Dev com nodemon (`backend/src/server.js`)        |
-| `npm test`                       | Testes nativos (`node --test` em `test/**/*.test.js`) |
-| `npm run test:backend`           | Testes backend (`test/backend/**`)               |
-| `npm run test:robot`             | Testes robô (`test/robot/**`)                    |
-| `npm run build:robot`            | Gera executáveis do robô                         |
-| `npx playwright install chromium` | Instala browser Chromium para o robô             |
-| `docker compose up --build`      | Sobe servidor em container Docker local          |
-| `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` | Sobe servidor em produção via Docker |
+| Comando                                                                         | O que faz                                             |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `npm start`                                                                     | Produção (`node backend/src/server.js`)               |
+| `npm run dev`                                                                   | Dev com nodemon (`backend/src/server.js`)             |
+| `npm test`                                                                      | Testes nativos (`node --test` em `test/**/*.test.js`) |
+| `npm run test:backend`                                                          | Testes backend (`test/backend/**`)                    |
+| `npm run test:robot`                                                            | Testes robô (`test/robot/**`)                         |
+| `npm run build:robot`                                                           | Gera executáveis do robô                              |
+| `npx playwright install chromium`                                               | Instala browser Chromium para o robô                  |
+| `docker compose up --build`                                                     | Sobe servidor em container Docker local               |
+| `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` | Sobe servidor em produção via Docker                  |
 
 Porta padrão: **3111** (configurável via `PORT`).
 
 ## Deploy & CI/CD
 
 O projeto possui esteira automatizada via **GitHub Actions** (`.github/workflows/deploy.yml`):
+
 - Disparo automático em `push` na branch `main` ou manual via `workflow_dispatch`.
 - Conecta via SSH no `servidor-unity-rce` (`165.227.212.57`) e executa o build/restart dos containers Docker (`app_docusigner`).
 - O arquivo `.env` de produção é mantido no servidor em `/home/appuser/servidor-unity-rce/gestor-oportunidades-rpa-docusigner/.env`.
 - Limpeza periódica de runs via `.github/workflows/clean-workflows.yml`.
-
 
 ## Projeto Relacionado
 
@@ -79,68 +79,71 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 
 Prefixo `/api/robot-docusign` (exceto `/health` na raiz):
 
-| Método | Rota | Auth | Descrição |
-| ------ | ---- | ---- | --------- |
-| POST | `/trigger` | `protect` | Dispara job individual (body: `contractId`/`contract_id`) |
-| POST | `/trigger-batch` | `protect` + `authorize("admin")` | Dispara jobs em lote |
-| GET | `/status/:jobId` | `protect` | Status de um job (busca por `_id` ou `contract_id`) |
-| GET | `/jobs` | `protect` | Lista jobs (filtros + paginação) |
-| GET | `/jobs/:jobId/stream` | `protect` | SSE stream de progresso do job |
-| GET | `/metrics` | `protect` | Métricas agregadas |
-| GET | `/logs/:jobId` | `protect` | Logs detalhados de um job |
-| GET | `/config` | `protect` | Buscar config do robô |
-| PUT | `/config` | `protect` + `authorize("admin")` | Atualizar config do robô |
-| POST | `/test-login` | `protect` + `authorize("admin")` | Testa login no DocuSign (aceita `otpCode` opcional) |
-| GET | `/queue` | `protect` | Fila de jobs pendentes/em processamento |
-| POST | `/process-pending` | `protect` | Processa até 1 contrato pendente (scheduler) |
-| GET | `/instances` | `protect` + `authorize("admin")` | Lista instâncias do robô (fleet monitoring) |
-| POST | `/instance/auth` | público | Autenticação da instância (`X-Robot-Key` ou `email`/`senha`) |
-| GET | `/instance/instances` | `protect` + `authorize("admin")` | Lista instâncias (via sub-router) |
-| GET | `/instance/config` | `protect` | Config da instância |
-| GET | `/instance/next-job` | `protect` | Próximo job pendente (polling do robô `.exe`) |
-| PATCH | `/instance/job/:jobId/status` | `protect` | Atualiza status do job |
-| POST | `/instance/heartbeat` | `protect` | Heartbeat da instância |
-| GET | `/instance/contracts/:contractId/pdf` | `protect` | Download de PDF do contrato |
+| Método | Rota                                  | Auth                             | Descrição                                                    |
+| ------ | ------------------------------------- | -------------------------------- | ------------------------------------------------------------ |
+| POST   | `/trigger`                            | `protect`                        | Dispara job individual (body: `contractId`/`contract_id`)    |
+| POST   | `/trigger-batch`                      | `protect` + `authorize("admin")` | Dispara jobs em lote                                         |
+| GET    | `/status/:jobId`                      | `protect`                        | Status de um job (busca por `_id` ou `contract_id`)          |
+| GET    | `/jobs`                               | `protect`                        | Lista jobs (filtros + paginação)                             |
+| GET    | `/jobs/:jobId/stream`                 | `protect`                        | SSE stream de progresso do job                               |
+| GET    | `/metrics`                            | `protect`                        | Métricas agregadas                                           |
+| GET    | `/logs/:jobId`                        | `protect`                        | Logs detalhados de um job                                    |
+| GET    | `/config`                             | `protect`                        | Buscar config do robô                                        |
+| PUT    | `/config`                             | `protect` + `authorize("admin")` | Atualizar config do robô                                     |
+| POST   | `/test-login`                         | `protect` + `authorize("admin")` | Testa login no DocuSign (aceita `otpCode` opcional)          |
+| GET    | `/queue`                              | `protect`                        | Fila de jobs pendentes/em processamento                      |
+| POST   | `/process-pending`                    | `protect`                        | Processa até 1 contrato pendente (scheduler)                 |
+| GET    | `/instances`                          | `protect` + `authorize("admin")` | Lista instâncias do robô (fleet monitoring)                  |
+| POST   | `/instance/auth`                      | público                          | Autenticação da instância (`X-Robot-Key` ou `email`/`senha`) |
+| GET    | `/instance/instances`                 | `protect` + `authorize("admin")` | Lista instâncias (via sub-router)                            |
+| GET    | `/instance/config`                    | `protect`                        | Config da instância                                          |
+| GET    | `/instance/next-job`                  | `protect`                        | Próximo job pendente (polling do robô `.exe`)                |
+| PATCH  | `/instance/job/:jobId/status`         | `protect`                        | Atualiza status do job                                       |
+| POST   | `/instance/heartbeat`                 | `protect`                        | Heartbeat da instância                                       |
+| GET    | `/instance/contracts/:contractId/pdf` | `protect`                        | Download de PDF do contrato                                  |
 
 Fora do prefixo:
 
-| Método | Rota | Auth | Descrição |
-| ------ | ---- | ---- | --------- |
-| GET | `/health` | público | Health check (rota raiz em `app.js:15`) |
+| Método | Rota      | Auth    | Descrição                               |
+| ------ | --------- | ------- | --------------------------------------- |
+| GET    | `/health` | público | Health check (rota raiz em `app.js:15`) |
 
 ## Banco de Dados
 
-| Database       | Variável de conexão         | Quem usa          | Observação                              |
-| -------------- | --------------------------- | ----------------- | --------------------------------------- |
-| `db_crm_funil` | `MONGO_URI` (default)       | User, SystemConfig| Banco principal                         |
-| `crm_contracts`| `MONGO_CONTRACTS_URI`       | Contract          | Conecta via `useDb("crm_contracts")`    |
-| `crm_acl`      | (função `connectAclDB`)     | —                 | Disponível mas não chamada no boot      |
+| Database        | Variável de conexão     | Quem usa           | Observação                           |
+| --------------- | ----------------------- | ------------------ | ------------------------------------ |
+| `db_crm_funil`  | `MONGO_URI` (default)   | User, SystemConfig | Banco principal                      |
+| `crm_contracts` | `MONGO_CONTRACTS_URI`   | Contract           | Conecta via `useDb("crm_contracts")` |
+| `crm_acl`       | (função `connectAclDB`) | —                  | Disponível mas não chamada no boot   |
 
 > `MONGO_CONTRACTS_URI` aponta para o **mesmo servidor** de `MONGO_URI`. O `database.js` faz `useDb("crm_contracts")` na mesma conexão mongoose.
 
 ## Variáveis de Ambiente
 
-| Variável                | Obrigatória | Padrão      |
-| ----------------------- | ----------- | ----------- |
-| `PORT`                  | Não         | 3111        |
-| `MONGO_URI`             | Sim         | —           |
-| `MONGO_CONTRACTS_URI`   | Sim         | —           |
-| `JWT_SECRET`            | Sim         | —           |
-| `NODE_ENV`              | Não         | development |
-| `DOCUSIGN_INTEGRATION_KEY` | Não      | —           |
-| `DOCUSIGN_USER_ID`      | Não         | —           |
-| `DOCUSIGN_ACCOUNT_ID`   | Não         | —           |
-| `DOCUSIGN_RSA_PRIVATE_KEY_PATH` | Não | —           |
-| `DOCUSIGN_HMAC_KEY`     | Não         | —           |
-| `DOCUSIGN_BASE_PATH`    | Não         | na.docusign.net |
-| `USUARIO_DOCUSIGNER`    | Não         | —           |
-| `SENHA_DOCUSIGNER`      | Não         | —           |
-| `DOCUSIGN_SESSION_PATH` | Não         | `session-docusign.json` |
-| `GESTOR_API_URL`        | Sim         | `http://localhost:3000/api` |
-| `ROBOT_API_KEY`         | Sim         | —           |
+| Variável                        | Obrigatória | Padrão                      |
+| ------------------------------- | ----------- | --------------------------- |
+| `PORT`                          | Não         | 3111                        |
+| `MONGO_URI`                     | Sim         | —                           |
+| `MONGO_CONTRACTS_URI`           | Sim         | —                           |
+| `JWT_SECRET`                    | Sim         | —                           |
+| `NODE_ENV`                      | Não         | development                 |
+| `DOCUSIGN_INTEGRATION_KEY`      | Não         | —                           |
+| `DOCUSIGN_USER_ID`              | Não         | —                           |
+| `DOCUSIGN_ACCOUNT_ID`           | Não         | —                           |
+| `DOCUSIGN_RSA_PRIVATE_KEY_PATH` | Não         | —                           |
+| `DOCUSIGN_HMAC_KEY`             | Não         | —                           |
+| `DOCUSIGN_BASE_PATH`            | Não         | na.docusign.net             |
+| `USUARIO_DOCUSIGNER`            | Não         | —                           |
+| `SENHA_DOCUSIGNER`              | Não         | —                           |
+| `DOCUSIGN_SESSION_PATH`         | Não         | `session-docusign.json`     |
+| `GESTOR_API_URL`                | Sim         | `http://localhost:3000/api` |
+| `ROBOT_API_KEY`                 | Sim         | —                           |
+| `API_URL` / `URI_PROD`          | Não         | `http://localhost:3111`     |
+| `ROBOT_KEY`                     | Não         | —                           |
+| `HEADLESS`                      | Não         | `true`                      |
+| `POLL_INTERVAL_SECONDS`         | Não         | `15`                        |
 
-Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. A resolução de MFA (2FA) DocuSign consome as credenciais de `token_notification_email` (`email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), operando via socket IMAP direto com fallback para Roundcube Webmail. O robô detecta a tela de MFA pelo texto ("Get Code From Your Email"), por seletores de input (`name="security_code"`, `pattern="[0-9]{6}"`, `placeholder="Enter code"`) e submete pelo botão de confirmação (`data-qa="verify-code"`, texto "Verify" ou tecla Enter).
-
+> Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. O robô standalone (`robot/src/config.js`) carrega automaticamente o arquivo `.env` da raiz e aceita `URI_PROD` como fallback para `API_URL`. A resolução de MFA (2FA) DocuSign consome as credenciais de `token_notification_email` (`email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), operando via socket IMAP direto com fallback para Roundcube Webmail. O robô detecta a tela de MFA pelo texto ("Get Code From Your Email"), por seletores de input (`name="security_code"`, `pattern="[0-9]{6}"`, `placeholder="Enter code"`) e submete pelo botão de confirmação (`data-qa="verify-code"`, texto "Verify" ou tecla Enter).
 
 ## Convenções de Código
 
@@ -160,6 +163,7 @@ Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variá
 ## .agents/rules
 
 Consulte antes de commits, respostas Sim/Não e decisões gerais:
+
 - `.agents/rules/commit.md` — regras de commit, PR e merge
 - `.agents/rules/global.md` — formato de respostas, sub-agentes, PonyTail/SOLID
 
