@@ -67,7 +67,7 @@ export function parseRoundcubeDate(dateStr) {
  * @param {import("playwright").BrowserContext} context - Contexto do navegador Playwright.
  * @param {Object} mailCredentials - Credenciais { email, password }.
  * @param {Object} [options] - Opções adicionais de timeout, retry e filtros.
- * @param {number} [options.maxWaitMs=45000] - Tempo máximo de espera total em ms.
+ * @param {number} [options.maxWaitMs=90000] - Tempo máximo de espera total em ms.
  * @param {number} [options.pollIntervalMs=5000] - Intervalo de polling em ms.
  * @param {number} [options.mfaTriggerTime] - Timestamp (ms) em que o MFA foi disparado na tela.
  * @param {string[]} [options.excludedCodes=[]] - Códigos já testados e inválidos a ignorar.
@@ -85,7 +85,7 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
 
   const roundcubeSel = selectors.roundcube || {};
   const loginUrl = roundcubeSel.login_url || "https://unitynordeste.com.br:2096/";
-  const maxWaitMs = options.maxWaitMs || 45000;
+  const maxWaitMs = options.maxWaitMs || 90000;
   const pollIntervalMs = options.pollIntervalMs || 5000;
   const mfaTriggerTime = typeof options.mfaTriggerTime === "number" ? options.mfaTriggerTime : null;
   const excludedCodes = Array.isArray(options.excludedCodes) ? options.excludedCodes : [];
@@ -167,7 +167,7 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
           continue;
         }
 
-        // Validação temporal via mfaTriggerTime com tolerância de clock skew de 30s
+        // Validação temporal via mfaTriggerTime com janela de 10 minutos para e-mails recentes pré-existentes
         if (mfaTriggerTime) {
           const dateEl = await row.$("td.date, span.date, .date").catch(() => null);
           const dateStr = dateEl ? await dateEl.innerText().catch(() => "") : "";
@@ -176,11 +176,11 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
             logger.warn("Roundcube", "Mensagem ignorada: sem data reconhecível para validar mfaTriggerTime.");
             continue;
           }
-          const toleranceMs = 30000;
-          if (parsedDate.getTime() < mfaTriggerTime - toleranceMs) {
+          const maxAgeMs = 10 * 60 * 1000; // 10 minutos de janela de validade para códigos pré-existentes / reinício
+          if (parsedDate.getTime() < mfaTriggerTime - maxAgeMs) {
             logger.step(
               "Roundcube",
-              `Mensagem ignorada: data ${parsedDate.toISOString()} anterior ao disparo ${new Date(mfaTriggerTime).toISOString()}.`
+              `Mensagem ignorada: data ${parsedDate.toISOString()} expirada (anterior a 10 min do disparo ${new Date(mfaTriggerTime).toISOString()}).`
             );
             continue;
           }

@@ -419,7 +419,7 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       assert.equal(code, null, "Deveria retornar null pois o assunto não é 'Verificar um novo dispositivo'");
     });
 
-    it("deve ignorar e-mails recebidos antes de mfaTriggerTime (fora da tolerância de 30s)", async () => {
+    it("deve ignorar e-mails recebidos antes de mfaTriggerTime com mais de 10 minutos de idade (expirados)", async () => {
       const client = new ImapClient({
         host: "127.0.0.1",
         port: serverPort,
@@ -431,8 +431,8 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       client.sendCommand = async (cmd) => {
         if (cmd.includes("UID FETCH")) {
           const tag = `A${String(client.tagIndex + 1).padStart(4, "0")}`;
-          // E-mail recebido 31s antes do disparo (fora da tolerância de 30s)
-          const pastDate = new Date(Date.now() - 31000).toUTCString();
+          // E-mail recebido 11 minutos antes do disparo (fora da janela de 10 minutos)
+          const pastDate = new Date(Date.now() - 11 * 60 * 1000).toUTCString();
           const email = `Subject: Verificar um novo dispositivo\r\nDate: ${pastDate}\r\n\r\nSeu código de verificação da Docusign é: 888888\r\n`;
           return { tag, response: "OK", raw: `* 1 FETCH (UID 101 BODY[] {${email.length}}\r\n${email})\r\n${tag} OK UID FETCH completed\r\n` };
         }
@@ -446,10 +446,10 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       await client.logout().catch(() => {});
       client.close();
 
-      assert.equal(code, null, "Deveria ignorar e-mail 31s anterior ao disparo");
+      assert.equal(code, null, "Deveria ignorar e-mail com 11 minutos de idade (expirado)");
     });
 
-    it("deve aceitar e-mails recebidos dentro da janela de tolerância de 30s (ex: 29s antes)", async () => {
+    it("deve aceitar e-mails recebidos antes do mfaTriggerTime dentro da janela de 10 minutos (recuperação de reinício do robô)", async () => {
       const client = new ImapClient({
         host: "127.0.0.1",
         port: serverPort,
@@ -461,8 +461,8 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       client.sendCommand = async (cmd) => {
         if (cmd.includes("UID FETCH")) {
           const tag = `A${String(client.tagIndex + 1).padStart(4, "0")}`;
-          // E-mail recebido 29s antes do disparo (dentro da tolerância de 30s)
-          const toleranceDate = new Date(Date.now() - 29000).toUTCString();
+          // E-mail recebido 3 minutos antes do disparo do robô reiniciado
+          const toleranceDate = new Date(Date.now() - 3 * 60 * 1000).toUTCString();
           const email = `Subject: Verificar um novo dispositivo\r\nDate: ${toleranceDate}\r\n\r\nSeu código de verificação da Docusign é: 777777\r\n`;
           return { tag, response: "OK", raw: `* 1 FETCH (UID 101 BODY[] {${email.length}}\r\n${email})\r\n${tag} OK UID FETCH completed\r\n` };
         }
@@ -476,7 +476,47 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       await client.logout().catch(() => {});
       client.close();
 
-      assert.equal(code, "777777", "Deveria aceitar código de mensagem recebida 29s antes (dentro da tolerância)");
+      assert.equal(code, "777777", "Deveria aceitar código de mensagem recebida 3 minutos antes (dentro da janela de 10 minutos)");
+    });
+
+    it("deve ignorar código presente em excludedCodes e selecionar mensagem mais recente válida", async () => {
+      const client = new ImapClient({
+        host: "127.0.0.1",
+        port: serverPort,
+        tls: false,
+        timeout: 5000,
+      });
+      await client.connect();
+      const origSend = client.sendCommand.bind(client);
+      client.sendCommand = async (cmd) => {
+        if (cmd.includes("UID SEARCH")) {
+          const tag = `A${String(client.tagIndex + 1).padStart(4, "0")}`;
+          return { tag, response: "OK", raw: `* SEARCH 101 102\r\n${tag} OK UID SEARCH completed\r\n` };
+        }
+        if (cmd.includes("UID FETCH 102")) {
+          const tag = `A${String(client.tagIndex + 1).padStart(4, "0")}`;
+          const date = new Date(Date.now() - 1000).toUTCString();
+          const email = `Subject: Verificar um novo dispositivo\r\nDate: ${date}\r\n\r\nSeu código de verificação da Docusign é: 111111\r\n`;
+          return { tag, response: "OK", raw: `* 2 FETCH (UID 102 BODY[] {${email.length}}\r\n${email})\r\n${tag} OK UID FETCH completed\r\n` };
+        }
+        if (cmd.includes("UID FETCH 101")) {
+          const tag = `A${String(client.tagIndex + 1).padStart(4, "0")}`;
+          const date = new Date(Date.now() - 2000).toUTCString();
+          const email = `Subject: Verificar um novo dispositivo\r\nDate: ${date}\r\n\r\nSeu código de verificação da Docusign é: 222222\r\n`;
+          return { tag, response: "OK", raw: `* 1 FETCH (UID 101 BODY[] {${email.length}}\r\n${email})\r\n${tag} OK UID FETCH completed\r\n` };
+        }
+        return origSend(cmd);
+      };
+
+      const now = Date.now();
+      const code = await client.fetchLatestMfaCode("test@unitynordeste.com.br", "secret123", {
+        mfaTriggerTime: now,
+        excludedCodes: ["111111"],
+      });
+      await client.logout().catch(() => {});
+      client.close();
+
+      assert.equal(code, "222222", "Deveria pular o código rejeitado 111111 e retornar 222222");
     });
 
     it("deve ignorar e-mail sem data quando mfaTriggerTime estiver definido (prevenção de falso positivo)", async () => {

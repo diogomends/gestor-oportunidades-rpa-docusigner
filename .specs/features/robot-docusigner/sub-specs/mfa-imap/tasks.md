@@ -182,6 +182,17 @@
   5. [x] **T26.5 (P1)**: Validar URL após segundo redirect em `sendEnvelope` e `checkEnvelopeStatus` lançando erro explícito em vez de travar o robô.
   6. [x] **T26.6 (P1)**: Repassar `DOCUSIGN_SESSION_PATH` de `config.js` para `JobRunner` em `main.js`.
   7. [x] **T26.7 (P2)**: Criar suíte de testes unitários `robot/src/browser/docusign.test.js` e documentar a variável em `.env.example`, `README.md` e `AGENTS.md`.
+---
 
-
-
+### [x] T27: Expansão de Timeout para 90s e Recuperação de Código MFA em Reinício do Robô (2026-08-28)
+- **Objetivo**: Aumentar o timeout de espera de e-mail MFA para 90s (90000ms) e ampliar a janela de aceitação temporal de e-mails para 10 minutos (600000ms) para recuperação automática do código mais recente após reinício do robô, atualizando `mfaTriggerTime` em rejeição de código.
+- **Arquivos**:
+  - `robot/src/browser/docusign.js`
+  - `robot/src/browser/imapClient.js`
+  - `robot/src/browser/roundcube.js`
+  - `robot/src/browser/imapClient.test.js`
+- **Ações**:
+  1. [x] **T27.1**: Elevar `maxWaitMs` para 90000ms em `imapClient.js`, `roundcube.js` e chamadas em `docusign.js`.
+  2. [x] **T27.2**: Expandir tolerância temporal de `mfaTriggerTime` para 10 minutos (600000ms) em `imapClient.js` e `roundcube.js`, aceitando e-mails válidos gerados antes do reinício.
+  3. [x] **T27.3**: Atualizar `mfaTriggerTime = Date.now()` em `docusign.js` ao detectar rejeição de código (*"The code entered is invalid"*), forçando tentativas subsequentes a aguardar o novo e-mail pós-rejeição.
+  4. [x] **T27.4**: Atualizar suíte de testes de regressão cobrindo o novo timeout e a janela de recuperação de 10 minutos.
