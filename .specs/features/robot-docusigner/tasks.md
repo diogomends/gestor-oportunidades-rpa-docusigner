@@ -45,7 +45,8 @@ npm run typecheck         # Type check (se disponível)
 | REQ-OTP-02 | T15 | ✅ Erros MFA_REQUIRED / OTP_INVALID | ✅ Timeouts estendidos MFA | — |
 | REQ-MFA-AUTO-01 | T16 | ✅ roundcube.js | ✅ docusign.js ensureAuth | — |
 | REQ-MFA-IMAP-01 | T17 | ✅ imapClient.test.js | ✅ IMAP integration | — |
-| REQ-MFA-IMAP-02 | T18 | 🔲 imapClient.test.js | 🔲 IMAP Hardening & Resilience | — |
+| REQ-MFA-IMAP-02 | T18 | ✅ imapClient.test.js | ✅ IMAP Hardening & Resilience | — |
+| REQ-MFA-IMAP-06 | T24 | ✅ imapClient.test.js | ✅ Filtro Subject & mfaTriggerTime | — |
 
 ---
 
@@ -652,14 +653,36 @@ Aplicação dos princípios PonyTail para simplificação, remoção de overhead
 4. **M4 (Alinhamento de Constantes)**: `pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000`.
 
 **Onde**:
+---
+
+## Fase 13 — Filtro de Título e Timestamp no Cliente IMAP
+
+### T24: Filtro IMAP por Título ("Verificar um novo dispositivo") e Timestamp de Disparo (`mfaTriggerTime`)
+
+- **Req**: REQ-MFA-IMAP-06
+- **Status**: [x] Complete (2026-08-28)
+- **Esforço**: 1h | Paralelizável: Sim
+- **Depende de**: T17, T18, T20, T23
+
+**Contexto**:
+Garantir que mensagens legadas ou com assuntos não relacionados a MFA não sejam processadas indevidamente pelo cliente IMAP, e remover regex permissiva genérica de 6 dígitos que causava falsos positivos.
+
+**O quê**:
+1. **Timestamp de Disparo (`mfaTriggerTime`)**: Registrar timestamp no robô (`docusign.js`) no instante em que a tela de MFA é detectada e repassar para `fetchMfaCodeViaImap`.
+2. **Extração de Metadados IMAP (`parseEmailMetadata`, `decodeMimeHeader`)**: Extrair cabeçalhos `Subject` (com decodificação RFC 2047 Base64 e Quoted-Printable) e `Date` (via `INTERNALDATE` ou cabeçalho `Date`).
+3. **Filtro de Assunto e Data**: Rejeitar e-mails cujo assunto não contenha `"Verificar um novo dispositivo"` ou cuja data seja anterior ao `mfaTriggerTime` (com margem defensiva de 30s de tolerância de relógio).
+4. **Remoção de Regex Genérica**: Remover `\b(\d{6})\b` em `extractMfaCodeFromText`, restringindo a busca aos padrões textuais de verificação DocuSign.
+
+**Onde**:
 - `robot/src/browser/imapClient.js`
+- `robot/src/browser/docusign.js`
 - `robot/src/browser/imapClient.test.js`
-- `backend/src/modules/robot-docusign/services/imapClient.test.js`
 
 **Feito quando**:
-- [x] Roundtrips IMAP reduzidos significativamente por ciclo.
-- [x] Conexão IMAP é preservada e reutilizada entre tentativas de polling.
-- [x] Duplicação de suíte de testes eliminada sem quebrar `npm test`.
+- [x] `mfaTriggerTime` registrado e propagado até a rotina IMAP.
+- [x] Filtro estrito de assunto e timestamp ignora mensagens legadas e divergentes.
+- [x] Regex genérica `\b(\d{6})\b` expurgada.
+- [x] Testes unitários cobrindo decodificação MIME, parsing e filtros temporais.
 
 ---
 

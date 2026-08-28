@@ -50,6 +50,17 @@ Esta especificação define a substituição/evolução da extração via navega
 - Uma nova consulta IMAP/Webmail deve ser disparada passando a lista de códigos já testados (`excludedCodes`) para obter exclusivamente o novo token gerado.
 - O robô deve permitir até 3 tentativas antes de encerrar com erro descritivo.
 
+### [REQ-MFA-IMAP-06] Filtro Estrito por Título ("Verificar um novo dispositivo") e Timestamp Posterior ao Disparo
+- O robô deve registrar o timestamp exato em que a tela de MFA foi exibida (`mfaTriggerTime = Date.now()`).
+- O `imapClient` deve inspecionar apenas mensagens cujo título/assunto (`Subject`) contenha *"Verificar um novo dispositivo"* (com suporte a decodificação MIME UTF-8).
+- Mensagens cuja data de recebimento (`Date` do cabeçalho / `INTERNALDATE`) for anterior ao `mfaTriggerTime` devem ser ignoradas, aguardando no polling a entrega da nova mensagem enviada pela DocuSign.
+- Remoção da regex genérica `\b(\d{6})\b` para evitar falsos positivos com números aleatórios (ex: `000000`).
+
+### [REQ-MFA-IMAP-07] Persistência de Sessão Ativa (`storageState`) do Navegador
+- O robô Playwright deve salvar os cookies e estado de autenticação em um arquivo local (`session-docusign.json`) após login/MFA bem-sucedido.
+- Em execuções subsequentes de jobs, o contexto do navegador deve carregar o `storageState` existente.
+- Se a sessão estiver válida, o robô acessa diretamente as telas de envio/status sem solicitar credenciais ou MFA repetidamente.
+
 ---
 
 ## 3. Preservação de Escopo e Componentes Intocados (Impact Protector)
@@ -65,10 +76,12 @@ Esta especificação define a substituição/evolução da extração via navega
 
 ## 4. Critérios de Aceite
 
-1. **WHEN** a tela de MFA aparecer no login DocuSign, **THEN** o robô SHALL invocar a rotina IMAP com `host`, `port`, `tls`, `email` e `password`.
+1. **WHEN** a tela de MFA aparecer no login DocuSign, **THEN** o robô SHALL invocar a rotina IMAP com `host`, `port`, `tls`, `email`, `password` e `mfaTriggerTime`.
 2. **WHEN** o e-mail for localizado (inclusive codificado em Quoted-Printable/Base64), **THEN** o código de 6 dígitos SHALL ser decodificado e extraído em menos de 3 segundos.
-3. **WHEN** múltiplos e-mails existirem na caixa, **THEN** o robô SHALL considerar apenas o e-mail mais recente (maior UID).
+3. **WHEN** múltiplos e-mails existirem na caixa, **THEN** o robô SHALL considerar apenas mensagens com o assunto *"Verificar um novo dispositivo"* recebidas após o `mfaTriggerTime`.
 4. **WHEN** o código for retornado, **THEN** o Playwright SHALL preencher o input MFA e avançar a autenticação sem abrir abas extras no navegador.
 5. **WHEN** as credenciais IMAP não estiverem configuradas ou o servidor falhar, **THEN** o sistema SHALL cair em fallback controlado sem quebrar o processo.
 6. **WHEN** o código inserido for rejeitado pelo DocuSign (*"The code entered is invalid. Please try again."*), **THEN** o robô SHALL limpar o campo, desconsiderar o código anterior e buscar o novo token recém-gerado via IMAP em até 3 tentativas.
+7. **WHEN** a autenticação for concluída com sucesso, **THEN** o robô SHALL persistir o `storageState` localmente e reutilizá-lo nos próximos jobs para evitar novo login e MFA.
+
 

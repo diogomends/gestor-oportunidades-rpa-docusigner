@@ -39,6 +39,70 @@ export function decodeBase64(input) {
 }
 
 /**
+ * Decodifica cabeçalhos MIME (RFC 2047) codificados em Base64 ou Quoted-Printable.
+ * @param {string} header - Valor bruto do cabeçalho de e-mail.
+ * @returns {string} Cabeçalho decodificado em UTF-8.
+ */
+export function decodeMimeHeader(header) {
+  if (!header || typeof header !== "string") return "";
+  const rfc2047Regex = /=\?([^?]+)\?([BQbq])\?([^?]+)\?=/g;
+  const decoded = header.replace(rfc2047Regex, (_, charset, encoding, text) => {
+    const enc = encoding.toUpperCase();
+    try {
+      if (enc === "B") {
+        return Buffer.from(text, "base64").toString(charset.toLowerCase().includes("utf") ? "utf8" : "latin1");
+      }
+      if (enc === "Q") {
+        const qp = text.replace(/_/g, " ");
+        return decodeQuotedPrintable(qp);
+      }
+    } catch {
+      return text;
+    }
+    return text;
+  });
+  return decodeQuotedPrintable(decoded).trim();
+}
+
+/**
+ * Extrai metadados (Subject, Date, body) de uma resposta de FETCH IMAP.
+ * @param {string} raw - Resposta bruta do comando IMAP FETCH.
+ * @returns {{ subject: string, date: Date|null, body: string }} Objeto com metadados do e-mail.
+ */
+export function parseEmailMetadata(raw) {
+  if (!raw || typeof raw !== "string") {
+    return { subject: "", date: null, body: "" };
+  }
+
+  let date = null;
+  const internalDateMatch = raw.match(/INTERNALDATE\s+"([^"]+)"/i);
+  if (internalDateMatch && internalDateMatch[1]) {
+    const parsed = new Date(internalDateMatch[1]);
+    if (!isNaN(parsed.getTime())) {
+      date = parsed;
+    }
+  }
+
+  let subject = "";
+  const subjectMatch = raw.match(/^Subject:\s*(.+)$/im);
+  if (subjectMatch && subjectMatch[1]) {
+    subject = decodeMimeHeader(subjectMatch[1]);
+  }
+
+  if (!date) {
+    const dateHeaderMatch = raw.match(/^Date:\s*(.+)$/im);
+    if (dateHeaderMatch && dateHeaderMatch[1]) {
+      const parsed = new Date(dateHeaderMatch[1].trim());
+      if (!isNaN(parsed.getTime())) {
+        date = parsed;
+      }
+    }
+  }
+
+  return { subject, date, body: raw };
+}
+
+/**
  * Extrai o código de 6 dígitos do corpo da mensagem DocuSign.
  * @param {string} text - Texto bruto ou decodificado do e-mail.
  * @returns {string|null} Código de 6 dígitos ou null.
@@ -49,13 +113,12 @@ export function extractMfaCodeFromText(text) {
   // Decodifica Quoted-Printable se houver caracteres ou quebras escapadas
   let processedText = decodeQuotedPrintable(text);
 
-  // Padrões de regex para código de segurança DocuSign
+  // Padrões de regex estritos para código de segurança DocuSign
   const patterns = [
     /Seu c[oó]digo de verifica[cç][aã]o da Docusign [eé]:\s*(\d{6})/i,
     /c[oó]digo de verifica[cç][aã]o[^0-9]{1,30}(\d{6})/i,
     /verification code[^0-9]{1,30}(\d{6})/i,
     /security code[^0-9]{1,30}(\d{6})/i,
-    /\b(\d{6})\b/,
   ];
 
   for (const pattern of patterns) {
@@ -310,8 +373,10 @@ export class ImapClient {
    * Utiliza 2 padrões de busca temporal (SINCE e fallback ALL) e filtra no cliente.
    * @param {string} email - Usuário/Email IMAP.
    * @param {string} password - Senha da conta.
-   * @param {Object} [options={}] - Opções de busca (ex: excludedCodes).
+   * @param {Object} [options={}] - Opções de busca (ex: excludedCodes, mfaTriggerTime, subjectFilter).
    * @param {string[]} [options.excludedCodes=[]] - Códigos já testados e inválidos a ignorar.
+   * @param {number} [options.mfaTriggerTime] - Timestamp (ms) em que o MFA foi disparado na tela.
+   * @param {string} [options.subjectFilter="Verificar um novo dispositivo"] - Texto esperado no assunto do e-mail.
    * @returns {Promise<string|null>} Código extraído ou null.
    */
   async fetchLatestMfaCode(email, password, options = {}) {
@@ -319,6 +384,8 @@ export class ImapClient {
     await this.selectInbox();
 
     const excludedCodes = Array.isArray(options.excludedCodes) ? options.excludedCodes : [];
+    const expectedSubject = options.subjectFilter || "Verificar um novo dispositivo";
+    const mfaTriggerTime = typeof options.mfaTriggerTime === "number" ? options.mfaTriggerTime : null;
 
     // 1. Busca mensagens do dia atual (SINCE)
     const todaySince = formatImapDate();
@@ -344,8 +411,26 @@ export class ImapClient {
     const sortedUids = [...uids].sort((a, b) => b - a);
     for (const uid of sortedUids) {
       logger.step("IMAP", `Lendo mensagem UID ${uid}...`);
-      const fetchRes = await this.sendCommand(`UID FETCH ${uid} (BODY.PEEK[])`);
-      const code = extractMfaCodeFromText(fetchRes.raw);
+      const fetchRes = await this.sendCommand(`UID FETCH ${uid} (INTERNALDATE BODY.PEEK[])`);
+      const metadata = parseEmailMetadata(fetchRes.raw);
+
+      // Validação de Assunto (Subject)
+      const subjectMatches = metadata.subject.toLowerCase().includes(expectedSubject.toLowerCase());
+      if (!subjectMatches) {
+        logger.step("IMAP", `Mensagem UID ${uid} ignorada: assunto "${metadata.subject || "(sem assunto)"}" não corresponde a "${expectedSubject}".`);
+        continue;
+      }
+
+      // Validação de Timestamp (mfaTriggerTime)
+      if (mfaTriggerTime && metadata.date) {
+        const toleranceMs = 30000; // 30s de tolerância para skew de relógio
+        if (metadata.date.getTime() < mfaTriggerTime - toleranceMs) {
+          logger.step("IMAP", `Mensagem UID ${uid} ignorada: recebida em ${metadata.date.toISOString()} (anterior ao disparo de MFA ${new Date(mfaTriggerTime).toISOString()}).`);
+          continue;
+        }
+      }
+
+      const code = extractMfaCodeFromText(metadata.body);
       if (code) {
         if (excludedCodes.includes(code)) {
           logger.step("IMAP", `Código ${code} (UID ${uid}) já foi testado e rejeitado. Ignorando para aguardar novo código...`);
@@ -407,8 +492,10 @@ export class ImapClient {
  * Mantém e reutiliza a mesma conexão IMAP durante as tentativas, reconectando apenas em falha.
  *
  * @param {Object} mailCredentials - Objeto { email, password, host, port, tls }.
- * @param {Object} [options] - Opções { maxWaitMs, pollIntervalMs, backoffFactor, maxPollIntervalMs, excludedCodes }.
+ * @param {Object} [options] - Opções { maxWaitMs, pollIntervalMs, backoffFactor, maxPollIntervalMs, excludedCodes, mfaTriggerTime, subjectFilter }.
  * @param {string[]} [options.excludedCodes=[]] - Lista de códigos já testados a ignorar.
+ * @param {number} [options.mfaTriggerTime] - Timestamp (ms) do disparo da tela MFA.
+ * @param {string} [options.subjectFilter="Verificar um novo dispositivo"] - Texto esperado no assunto.
  * @returns {Promise<string|null>} Código de 6 dígitos ou null.
  */
 export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
@@ -428,6 +515,8 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
   const backoffFactor = options.backoffFactor || 1.2;
   const maxPollIntervalMs = options.maxPollIntervalMs || 6000;
   const excludedCodes = Array.isArray(options.excludedCodes) ? options.excludedCodes : [];
+  const mfaTriggerTime = typeof options.mfaTriggerTime === "number" ? options.mfaTriggerTime : null;
+  const subjectFilter = options.subjectFilter;
 
   const startedAt = Date.now();
   let client = null;
@@ -447,7 +536,11 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
           await client.connect();
         }
 
-        const code = await client.fetchLatestMfaCode(email, password, { excludedCodes });
+        const code = await client.fetchLatestMfaCode(email, password, {
+          excludedCodes,
+          mfaTriggerTime,
+          subjectFilter,
+        });
 
         if (code) {
           logger.success("IMAP", `Código de verificação MFA recebido com sucesso: ${code}`);
@@ -488,6 +581,8 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
 export default {
   decodeQuotedPrintable,
   decodeBase64,
+  decodeMimeHeader,
+  parseEmailMetadata,
   extractMfaCodeFromText,
   formatImapDate,
   escapeImapString,

@@ -116,6 +116,22 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
+### [5.55.0] - 2026-08-28
+
+#### Aprimorado / Otimizado
+- **Filtro IMAP por Título ("Verificar um novo dispositivo") e Timestamp de Disparo (`mfaTriggerTime`) (T24 / REQ-MFA-IMAP-06)**:
+  - `robot/src/browser/imapClient.js`: Implementadas as funções `decodeMimeHeader` (decodificação de cabeçalhos RFC 2047 em Base64 e Quoted-Printable) e `parseEmailMetadata` (extração de `Subject` e `Date`/`INTERNALDATE`). Atualizado `fetchLatestMfaCode` para validar se o assunto contém `"Verificar um novo dispositivo"` e se a data de recebimento é posterior a `mfaTriggerTime` (com margem de tolerância de clock skew de 30s). Removida a regex genérica `\b(\d{6})\b` em `extractMfaCodeFromText` para eliminar falsos positivos.
+  - `robot/src/browser/docusign.js`: Ao detectar a tela de MFA, registra `mfaTriggerTime = Date.now()` e repassa para `fetchMfaCodeViaImap`.
+  - `robot/src/browser/imapClient.test.js`: Expandida suíte de testes cobrindo decodificação MIME, parsing de metadados, expurgo de regex genérica e testes de rejeição por assunto e data anterior.
+
+### [5.54.0] - 2026-08-28
+
+#### Adicionado / Aprimorado
+- **Persistência de Sessão de Navegação (`storageState`) no Robô Local (T25 / REQ-MFA-IMAP-07)**:
+  - `robot/src/job-runner.js`: `JobRunner` agora suporta carregamento automático de `storageState` (`session-docusign.json`) em `browser.newContext()` com tratamento resiliente contra arquivos corrompidos (auto-remoção e fallback limpo).
+  - `robot/src/browser/docusign.js`: `ensureAuthenticated` salva automaticamente o estado dos cookies e storage via `context.storageState({ path })` após autenticação e MFA com sucesso; em caso de sessão expirada ou redirecionamento OAuth em `sendEnvelope` e `checkEnvelopeStatus`, invalida o arquivo local e reautentica transparentemente.
+  - `.specs/features/robot-docusigner/sub-specs/mfa-imap/tasks.md`: Atualizado status de conclusão da task T25.
+
 ### [5.53.0] - 2026-08-27
 
 #### Adicionado
