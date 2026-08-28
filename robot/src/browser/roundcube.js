@@ -1,4 +1,5 @@
 import selectors from "./selectors.js";
+import logger from "../utils/logger.js";
 
 /**
  * Aplica um delay de espera assíncrono.
@@ -78,7 +79,7 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
   const password = mailCredentials?.password;
 
   if (!email || !password) {
-    console.warn("[Roundcube] Credenciais de e-mail de notificação não informadas para consulta MFA.");
+    logger.warn("Roundcube", "Credenciais de e-mail de notificação não informadas para consulta MFA.");
     return null;
   }
 
@@ -90,7 +91,7 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
   const excludedCodes = Array.isArray(options.excludedCodes) ? options.excludedCodes : [];
   const expectedSubject = typeof options.subjectFilter === "string" ? options.subjectFilter : "Verificar um novo dispositivo";
 
-  console.log(`[Roundcube] Abrindo aba para verificar e-mail de segurança em ${loginUrl}...`);
+  logger.step("Roundcube", `Abrindo aba para verificar e-mail de segurança em ${loginUrl}...`);
   let page = null;
 
   try {
@@ -105,7 +106,7 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
       page.url().includes("/login");
 
     if (isLoginScreen) {
-      console.log(`[Roundcube] Efetuando login no webmail (${email})...`);
+      logger.step("Roundcube", `Efetuando login no webmail (${email})...`);
       await page.waitForSelector(roundcubeSel.user_input, { timeout: 10000 });
       await page.fill(roundcubeSel.user_input, email);
       await sleep(500);
@@ -122,14 +123,14 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
     // 2. Se cair na tela de escolha de cliente Webmail (cPanel), clicar no Roundcube
     const roundcubeBtn = await page.$(roundcubeSel.roundcube_app_btn).catch(() => null);
     if (roundcubeBtn) {
-      console.log("[Roundcube] Selecionando cliente Roundcube no painel do cPanel...");
+      logger.step("Roundcube", "Selecionando cliente Roundcube no painel do cPanel...");
       await roundcubeBtn.click();
       await page.waitForNavigation({ waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
       await sleep(2000);
     }
 
     // 3. Polling da Caixa de Entrada para localizar a mensagem mais recente da DocuSign
-    console.log("[Roundcube] Buscando mensagem de verificação da DocuSign na Caixa de Entrada...");
+    logger.step("Roundcube", "Buscando mensagem de verificação da DocuSign na Caixa de Entrada...");
     const startedAt = Date.now();
     let mfaCode = null;
 
@@ -172,19 +173,20 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
           const dateStr = dateEl ? await dateEl.innerText().catch(() => "") : "";
           const parsedDate = parseRoundcubeDate(dateStr);
           if (!parsedDate) {
-            console.log("[Roundcube] Mensagem ignorada: sem data reconhecível para validar mfaTriggerTime.");
+            logger.warn("Roundcube", "Mensagem ignorada: sem data reconhecível para validar mfaTriggerTime.");
             continue;
           }
           const toleranceMs = 30000;
           if (parsedDate.getTime() < mfaTriggerTime - toleranceMs) {
-            console.log(
-              `[Roundcube] Mensagem ignorada: data ${parsedDate.toISOString()} anterior ao disparo ${new Date(mfaTriggerTime).toISOString()}.`
+            logger.step(
+              "Roundcube",
+              `Mensagem ignorada: data ${parsedDate.toISOString()} anterior ao disparo ${new Date(mfaTriggerTime).toISOString()}.`
             );
             continue;
           }
         }
 
-        console.log("[Roundcube] Mensagem de verificação da DocuSign encontrada! Abrindo e-mail...");
+        logger.step("Roundcube", "Mensagem de verificação da DocuSign encontrada! Abrindo e-mail...");
         await row.click();
         await sleep(2000);
 
@@ -215,11 +217,11 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
           if (match && match[1]) {
             const candidateCode = match[1];
             if (excludedCodes.includes(candidateCode)) {
-              console.log(`[Roundcube] Código ${candidateCode} já foi rejeitado anteriormente. Buscando próximo...`);
+              logger.step("Roundcube", `Código ${candidateCode} já foi rejeitado anteriormente. Buscando próximo...`);
               continue;
             }
             mfaCode = candidateCode;
-            console.log(`[Roundcube] Código MFA extraído com sucesso: ${mfaCode}`);
+            logger.success("Roundcube", `Código MFA extraído com sucesso: ${mfaCode}`);
             break;
           }
         }
@@ -233,13 +235,13 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
         break;
       }
 
-      console.log(`[Roundcube] E-mail ainda não recebido. Aguardando ${pollIntervalMs / 1000}s...`);
+      logger.step("Roundcube", `E-mail ainda não recebido. Aguardando ${pollIntervalMs / 1000}s...`);
       await sleep(pollIntervalMs);
     }
 
     return mfaCode;
   } catch (error) {
-    console.error("[Roundcube] Erro ao extrair código MFA do Webmail:", error.message);
+    logger.error("Roundcube", `Erro ao extrair código MFA do Webmail: ${error.message}`);
     return null;
   } finally {
     if (page && !page.isClosed()) {
