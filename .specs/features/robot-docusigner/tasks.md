@@ -47,6 +47,7 @@ npm run typecheck         # Type check (se disponível)
 | REQ-MFA-IMAP-01 | T17 | ✅ imapClient.test.js | ✅ IMAP integration | — |
 | REQ-MFA-IMAP-02 | T18 | ✅ imapClient.test.js | ✅ IMAP Hardening & Resilience | — |
 | REQ-MFA-IMAP-06 | T24 | ✅ imapClient.test.js | ✅ Filtro Subject & mfaTriggerTime | — |
+| REQ-MFA-IMAP-07 | T25 | ✅ job-runner.js / docusign.js | ✅ Persistência storageState | — |
 
 ---
 

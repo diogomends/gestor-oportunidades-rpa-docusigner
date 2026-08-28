@@ -39,18 +39,34 @@ export function decodeBase64(input) {
 }
 
 /**
+ * Determina o encoding do Buffer a partir do charset informado no cabeçalho MIME.
+ * @param {string} charset - Nome do charset (ex: utf-8, iso-8859-1, windows-1252, etc.).
+ * @returns {BufferEncoding} Encoding suportado pelo Buffer do Node.js.
+ */
+function getBufferEncoding(charset) {
+  const cs = (charset || "").toLowerCase();
+  if (cs.includes("utf")) return "utf8";
+  if (cs === "iso-8859-1" || cs === "latin1" || cs === "ascii" || cs === "windows-1252") return "latin1";
+  return "utf8";
+}
+
+/**
  * Decodifica cabeçalhos MIME (RFC 2047) codificados em Base64 ou Quoted-Printable.
+ * Trata desdobramento de linhas (header folding - RFC 5322) e múltiplos blocos MIME consecutivos.
  * @param {string} header - Valor bruto do cabeçalho de e-mail.
  * @returns {string} Cabeçalho decodificado em UTF-8.
  */
 export function decodeMimeHeader(header) {
   if (!header || typeof header !== "string") return "";
+  const unfolded = header.replace(/\r?\n[ \t]+/g, " ");
+  const collapsedWords = unfolded.replace(/(=\?[^?]+\?[BQbq]\?[^?]+\?=)[ \t]+(?==\?[^?]+\?[BQbq]\?[^?]+\?=)/g, "$1");
   const rfc2047Regex = /=\?([^?]+)\?([BQbq])\?([^?]+)\?=/g;
-  const decoded = header.replace(rfc2047Regex, (_, charset, encoding, text) => {
+  const decoded = collapsedWords.replace(rfc2047Regex, (_, charset, encoding, text) => {
     const enc = encoding.toUpperCase();
+    const bufEncoding = getBufferEncoding(charset);
     try {
       if (enc === "B") {
-        return Buffer.from(text, "base64").toString(charset.toLowerCase().includes("utf") ? "utf8" : "latin1");
+        return Buffer.from(text, "base64").toString(bufEncoding);
       }
       if (enc === "Q") {
         const qp = text.replace(/_/g, " ");
@@ -66,6 +82,7 @@ export function decodeMimeHeader(header) {
 
 /**
  * Extrai metadados (Subject, Date, body) de uma resposta de FETCH IMAP.
+ * Realiza unfolding de cabeçalhos RFC 5322 para suportar campos multi-linha.
  * @param {string} raw - Resposta bruta do comando IMAP FETCH.
  * @returns {{ subject: string, date: Date|null, body: string }} Objeto com metadados do e-mail.
  */
@@ -83,14 +100,16 @@ export function parseEmailMetadata(raw) {
     }
   }
 
+  const unfoldedRaw = raw.replace(/\r?\n[ \t]+/g, " ");
+
   let subject = "";
-  const subjectMatch = raw.match(/^Subject:\s*(.+)$/im);
+  const subjectMatch = unfoldedRaw.match(/^Subject:\s*(.+)$/im);
   if (subjectMatch && subjectMatch[1]) {
     subject = decodeMimeHeader(subjectMatch[1]);
   }
 
   if (!date) {
-    const dateHeaderMatch = raw.match(/^Date:\s*(.+)$/im);
+    const dateHeaderMatch = unfoldedRaw.match(/^Date:\s*(.+)$/im);
     if (dateHeaderMatch && dateHeaderMatch[1]) {
       const parsed = new Date(dateHeaderMatch[1].trim());
       if (!isNaN(parsed.getTime())) {
@@ -384,7 +403,7 @@ export class ImapClient {
     await this.selectInbox();
 
     const excludedCodes = Array.isArray(options.excludedCodes) ? options.excludedCodes : [];
-    const expectedSubject = options.subjectFilter || "Verificar um novo dispositivo";
+    const expectedSubject = typeof options.subjectFilter === "string" ? options.subjectFilter : "Verificar um novo dispositivo";
     const mfaTriggerTime = typeof options.mfaTriggerTime === "number" ? options.mfaTriggerTime : null;
 
     // 1. Busca mensagens do dia atual (SINCE)
@@ -422,7 +441,11 @@ export class ImapClient {
       }
 
       // Validação de Timestamp (mfaTriggerTime)
-      if (mfaTriggerTime && metadata.date) {
+      if (mfaTriggerTime) {
+        if (!metadata.date) {
+          logger.warn("IMAP", `Mensagem UID ${uid} ignorada: sem data/INTERNALDATE para validar mfaTriggerTime.`);
+          continue;
+        }
         const toleranceMs = 30000; // 30s de tolerância para skew de relógio
         if (metadata.date.getTime() < mfaTriggerTime - toleranceMs) {
           logger.step("IMAP", `Mensagem UID ${uid} ignorada: recebida em ${metadata.date.toISOString()} (anterior ao disparo de MFA ${new Date(mfaTriggerTime).toISOString()}).`);

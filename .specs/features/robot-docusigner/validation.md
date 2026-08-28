@@ -120,4 +120,33 @@
 - [x] E3: `escapeImapString` escapa corretamente aspas duplas e barras invertidas no comando `LOGIN` do protocolo IMAP.
 - [x] E4: `formatImapDate` formata dias menores que 10 com zero-padding (ex: `02-Aug-2026`).
 
+---
+
+## 9. Critérios de Validação — Task T24 & T25: Filtro de Assunto/Timestamp IMAP e Persistência de Sessão
+
+- **Data**: 2026-08-28
+- **Status**: ✅ Aprovado
+- **Escopo**: Filtro rigoroso de assunto (`Subject`), timestamp (`mfaTriggerTime`), decodificação de header folding (RFC 5322), decodificação de charsets (UTF-8, ISO-8859-1/Latin1), tolerância de clock skew (30s) e persistência de sessão `storageState` (`session-docusign.json`).
+
+### Cenários de Validação Executados (T24)
+- [x] **Header Folding (RFC 5322)**: `decodeMimeHeader` e `parseEmailMetadata` realizam desdobramento de linhas continuadas (`\r?\n[ \t]+` -> `" "`) e ignoram espaços entre blocos MIME adjacentes (`RFC 2047 6.2`), processando assuntos multi-linha sem truncamento.
+- [x] **Suporte a Charsets**: Mapeamento dinâmico em `getBufferEncoding` suporta UTF-8, ISO-8859-1, Latin1 e Windows-1252 sem corrupção de acentuação.
+- [x] **Filtro de Assunto Estrito**: Verificação com `typeof options.subjectFilter === "string"` preserva filtros intencionalmente vazios e aplica default `"Verificar um novo dispositivo"`.
+- [x] **Validação Temporal com Margem de Tolerância**:
+  - Aceita mensagens recebidas dentro da janela de tolerância de 30s (`mfaTriggerTime - 29s`).
+  - Rejeita mensagens recebidas antes da tolerância (`mfaTriggerTime - 31s`).
+- [x] **Prevenção de Falso Positivo por Ausência de Data**: Quando `mfaTriggerTime` está ativo e a mensagem não contém `INTERNALDATE` nem cabeçalho `Date`, a mensagem é descartada defensivamente (`continue`).
+- [x] **Fallback de Cabeçalho `Date`**: Quando `INTERNALDATE` está ausente do servidor IMAP, o cabeçalho `Date:` do e-mail é utilizado para validação temporal.
+- [x] **Expurgo de Regex Genérica**: Removido `\b(\d{6})\b` de `extractMfaCodeFromText`, restringindo a extração aos padrões semânticos oficiais de segurança DocuSign.
+- [x] **Propagação ao Fallback Roundcube**: `mfaTriggerTime` e lista de `excludedCodes` repassados a `fetchMfaCodeFromRoundcube` em `docusign.js`.
+
+### Divergência Arquitetural Documentada
+- **UID FETCH Único (`BODY.PEEK[]`)**: Em vez de executar dois comandos FETCH separados (`HEADER.FIELDS (SUBJECT DATE)` e posterior `BODY.PEEK[TEXT]`), o `imapClient` executa `UID FETCH ${uid} (INTERNALDATE BODY.PEEK[])` de uma só vez por UID sequencial decrescente. Essa decisão preserva a simplicidade e reduz roundtrips de socket TCP/TLS (princípio PonyTail), visto que o corpo completo é mandatário para a extração do código logo após a checagem de cabeçalhos.
+
+### Cenários de Validação Executados (T25)
+- [x] Contexto Playwright carrega automaticamente `session-docusign.json` se existente.
+- [x] Auto-recuperação e descarte de arquivo de sessão corrompido sem interrupção do job runner.
+- [x] `ensureAuthenticated` persiste `storageState` localmente após sucesso de autenticação/MFA.
+- [x] Invalidação automática e reautenticação transparente ao detectar sessão expirada em operações de envio/status.
+
 

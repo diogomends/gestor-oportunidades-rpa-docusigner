@@ -50,6 +50,18 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       assert.equal(result, "Verificar um novo dispositivo");
     });
 
+    it("deve decodificar cabeçalho com header folding (RFC 5322) e múltiplos blocos MIME", () => {
+      const folded = "=?UTF-8?B?VmVyaWZpY2FyIHVt?=\r\n =?UTF-8?B?IG5vdm8gZGlzcG9zaXRpdm8=?=";
+      const result = decodeMimeHeader(folded);
+      assert.equal(result, "Verificar um novo dispositivo");
+    });
+
+    it("deve decodificar cabeçalho com charset ISO-8859-1 / Latin1", () => {
+      const encoded = "=?ISO-8859-1?Q?C=F3digo_de_Seguran=E7a?=";
+      const result = decodeMimeHeader(encoded);
+      assert.equal(result, "Código de Segurança");
+    });
+
     it("deve retornar texto puro se não possuir codificação RFC 2047", () => {
       const plain = "Verificar um novo dispositivo";
       assert.equal(decodeMimeHeader(plain), plain);
@@ -65,6 +77,12 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       assert.equal(meta.subject, "Verificar um novo dispositivo");
       assert.ok(meta.date instanceof Date);
       assert.equal(meta.date.getUTCFullYear(), 2026);
+    });
+
+    it("deve extrair Subject com quebra de linha continuada (header folding RFC 5322)", () => {
+      const raw = `* 1 FETCH (UID 100 INTERNALDATE "28-Aug-2026 12:00:00 +0000" BODY[] {120}\r\nSubject: =?UTF-8?B?VmVyaWZpY2FyIHVt?=\r\n =?UTF-8?B?IG5vdm8gZGlzcG9zaXRpdm8=?=\r\nDate: Fri, 28 Aug 2026 12:00:00 +0000\r\n\r\nCorpo)`;
+      const meta = parseEmailMetadata(raw);
+      assert.equal(meta.subject, "Verificar um novo dispositivo");
     });
 
     it("deve extrair data do cabeçalho Date quando INTERNALDATE não estiver presente", () => {
@@ -401,7 +419,7 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       assert.equal(code, null, "Deveria retornar null pois o assunto não é 'Verificar um novo dispositivo'");
     });
 
-    it("deve ignorar e-mails recebidos antes de mfaTriggerTime", async () => {
+    it("deve ignorar e-mails recebidos antes de mfaTriggerTime (fora da tolerância de 30s)", async () => {
       const client = new ImapClient({
         host: "127.0.0.1",
         port: serverPort,
@@ -413,10 +431,10 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       client.sendCommand = async (cmd) => {
         if (cmd.includes("UID FETCH")) {
           const tag = `A${String(client.tagIndex + 1).padStart(4, "0")}`;
-          // E-mail com data de 1 hora atrás
-          const oldDate = new Date(Date.now() - 3600000).toUTCString();
-          const email = `Subject: Verificar um novo dispositivo\r\nDate: ${oldDate}\r\n\r\nSeu código de verificação da Docusign é: 888888\r\n`;
-          return { tag, response: "OK", raw: `* 1 FETCH (UID 101 INTERNALDATE "28-Aug-2020 10:00:00 +0000" BODY[] {${email.length}}\r\n${email})\r\n${tag} OK UID FETCH completed\r\n` };
+          // E-mail recebido 31s antes do disparo (fora da tolerância de 30s)
+          const pastDate = new Date(Date.now() - 31000).toUTCString();
+          const email = `Subject: Verificar um novo dispositivo\r\nDate: ${pastDate}\r\n\r\nSeu código de verificação da Docusign é: 888888\r\n`;
+          return { tag, response: "OK", raw: `* 1 FETCH (UID 101 BODY[] {${email.length}}\r\n${email})\r\n${tag} OK UID FETCH completed\r\n` };
         }
         return origSend(cmd);
       };
@@ -428,7 +446,96 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       await client.logout().catch(() => {});
       client.close();
 
-      assert.equal(code, null, "Deveria ignorar e-mail com timestamp anterior ao disparo");
+      assert.equal(code, null, "Deveria ignorar e-mail 31s anterior ao disparo");
+    });
+
+    it("deve aceitar e-mails recebidos dentro da janela de tolerância de 30s (ex: 29s antes)", async () => {
+      const client = new ImapClient({
+        host: "127.0.0.1",
+        port: serverPort,
+        tls: false,
+        timeout: 5000,
+      });
+      await client.connect();
+      const origSend = client.sendCommand.bind(client);
+      client.sendCommand = async (cmd) => {
+        if (cmd.includes("UID FETCH")) {
+          const tag = `A${String(client.tagIndex + 1).padStart(4, "0")}`;
+          // E-mail recebido 29s antes do disparo (dentro da tolerância de 30s)
+          const toleranceDate = new Date(Date.now() - 29000).toUTCString();
+          const email = `Subject: Verificar um novo dispositivo\r\nDate: ${toleranceDate}\r\n\r\nSeu código de verificação da Docusign é: 777777\r\n`;
+          return { tag, response: "OK", raw: `* 1 FETCH (UID 101 BODY[] {${email.length}}\r\n${email})\r\n${tag} OK UID FETCH completed\r\n` };
+        }
+        return origSend(cmd);
+      };
+
+      const now = Date.now();
+      const code = await client.fetchLatestMfaCode("test@unitynordeste.com.br", "secret123", {
+        mfaTriggerTime: now,
+      });
+      await client.logout().catch(() => {});
+      client.close();
+
+      assert.equal(code, "777777", "Deveria aceitar código de mensagem recebida 29s antes (dentro da tolerância)");
+    });
+
+    it("deve ignorar e-mail sem data quando mfaTriggerTime estiver definido (prevenção de falso positivo)", async () => {
+      const client = new ImapClient({
+        host: "127.0.0.1",
+        port: serverPort,
+        tls: false,
+        timeout: 5000,
+      });
+      await client.connect();
+      const origSend = client.sendCommand.bind(client);
+      client.sendCommand = async (cmd) => {
+        if (cmd.includes("UID FETCH")) {
+          const tag = `A${String(client.tagIndex + 1).padStart(4, "0")}`;
+          // E-mail sem INTERNALDATE e sem cabeçalho Date
+          const email = `Subject: Verificar um novo dispositivo\r\n\r\nSeu código de verificação da Docusign é: 666666\r\n`;
+          return { tag, response: "OK", raw: `* 1 FETCH (UID 101 BODY[] {${email.length}}\r\n${email})\r\n${tag} OK UID FETCH completed\r\n` };
+        }
+        return origSend(cmd);
+      };
+
+      const now = Date.now();
+      const code = await client.fetchLatestMfaCode("test@unitynordeste.com.br", "secret123", {
+        mfaTriggerTime: now,
+      });
+      await client.logout().catch(() => {});
+      client.close();
+
+      assert.equal(code, null, "Deveria ignorar mensagem sem metadados de data quando mfaTriggerTime estiver ativo");
+    });
+
+    it("deve aceitar e-mail quando INTERNALDATE estiver ausente mas Date header for posterior ao mfaTriggerTime", async () => {
+      const client = new ImapClient({
+        host: "127.0.0.1",
+        port: serverPort,
+        tls: false,
+        timeout: 5000,
+      });
+      await client.connect();
+      const origSend = client.sendCommand.bind(client);
+      client.sendCommand = async (cmd) => {
+        if (cmd.includes("UID FETCH")) {
+          const tag = `A${String(client.tagIndex + 1).padStart(4, "0")}`;
+          // Sem INTERNALDATE, apenas Date: header com data atual
+          const validDate = new Date(Date.now() + 1000).toUTCString();
+          const email = `Subject: Verificar um novo dispositivo\r\nDate: ${validDate}\r\n\r\nSeu código de verificação da Docusign é: 555555\r\n`;
+          return { tag, response: "OK", raw: `* 1 FETCH (UID 101 BODY[] {${email.length}}\r\n${email})\r\n${tag} OK UID FETCH completed\r\n` };
+        }
+        return origSend(cmd);
+      };
+
+      const now = Date.now();
+      const code = await client.fetchLatestMfaCode("test@unitynordeste.com.br", "secret123", {
+        mfaTriggerTime: now,
+      });
+      await client.logout().catch(() => {});
+      client.close();
+
+      assert.equal(code, "555555", "Deveria extrair código usando o cabeçalho Date quando INTERNALDATE estiver ausente");
     });
   });
 });

@@ -228,28 +228,38 @@ export async function ensureAuthenticated(page, credentials, options = {}) {
     }
 
     logger.success("Browser", "Autenticação na DocuSign concluída com sucesso.");
-    if (sessionPath && typeof page.context === "function") {
-      try {
-        const ctx = page.context();
-        if (ctx && typeof ctx.storageState === "function") {
-          logger.step("Browser", `Salvando estado de autenticação (storageState) em: ${sessionPath}...`);
-          await ctx.storageState({ path: sessionPath });
-          logger.success("Browser", `Sessão persistida com sucesso em: ${sessionPath}`);
-        }
-      } catch (saveErr) {
-        logger.warn("Browser", `Falha ao persistir storageState: ${saveErr.message}`);
-      }
-    }
+    await saveSessionState(page, sessionPath);
   } else {
     logger.success("Browser", `Sessão ativa detectada na DocuSign (${currentUrl}).`);
-    if (sessionPath && typeof page.context === "function") {
+    await saveSessionState(page, sessionPath);
+  }
+}
+
+/**
+ * Salva o estado atual de autenticação (storageState) no caminho especificado de forma segura.
+ * Cria diretórios pai se não existirem e aplica restrição de permissão 0o600.
+ * @param {import('playwright').Page} page - Instância da página Playwright.
+ * @param {string} sessionPath - Caminho de destino do arquivo storageState.
+ * @returns {Promise<void>}
+ */
+export async function saveSessionState(page, sessionPath) {
+  if (!sessionPath || typeof page?.context !== "function") return;
+  try {
+    const ctx = page.context();
+    if (ctx && typeof ctx.storageState === "function") {
+      const dir = path.dirname(sessionPath);
+      if (dir && !fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      logger.step("Browser", `Salvando estado de autenticação (storageState) em: ${sessionPath}...`);
+      await ctx.storageState({ path: sessionPath });
       try {
-        const ctx = page.context();
-        if (ctx && typeof ctx.storageState === "function") {
-          await ctx.storageState({ path: sessionPath });
-        }
+        fs.chmodSync(sessionPath, 0o600);
       } catch (_) {}
+      logger.success("Browser", `Sessão persistida com sucesso em: ${sessionPath}`);
     }
+  } catch (saveErr) {
+    logger.warn("Browser", `Falha ao persistir storageState: ${saveErr.message}`);
   }
 }
 
@@ -287,6 +297,17 @@ export async function sendEnvelope(page, envelopeData) {
     logger.warn("Browser", `Redirecionamento para login detectado durante navegação para envio (${postNavUrl}). Reautenticando...`);
     await ensureAuthenticated(page, credentials, { sessionPath });
     await page.goto(sendSel.url, { waitUntil: "networkidle", timeout: 45000 });
+    const secondNavUrl = page.url();
+    if (
+      secondNavUrl.includes("account.docusign.com") ||
+      secondNavUrl.includes("/oauth/") ||
+      secondNavUrl.includes("/login") ||
+      secondNavUrl.includes("identity.")
+    ) {
+      const err = new Error(`Falha de autenticação persistente na navegação de envio (${secondNavUrl}).`);
+      logger.error("Browser", err.message);
+      throw err;
+    }
   }
 
   // 1. Upload do Arquivo PDF
@@ -335,6 +356,9 @@ export async function sendEnvelope(page, envelopeData) {
   const match = finalUrl.match(/\/envelopes\/([a-zA-Z0-9-]+)/i);
   const envelopeId = match ? match[1] : `env-${Date.now()}`;
 
+  // Persiste cookies atualizados após envio bem-sucedido
+  await saveSessionState(page, sessionPath);
+
   logger.success("Browser", `Contrato enviado com sucesso! Envelope ID: ${envelopeId}`);
   return {
     envelopeId,
@@ -371,10 +395,24 @@ export async function checkEnvelopeStatus(page, envelopeId, credentials, options
     logger.warn("Browser", `Redirecionamento para login detectado durante consulta de status (${postNavUrl}). Reautenticando...`);
     await ensureAuthenticated(page, credentials, { sessionPath });
     await page.goto(targetUrl, { waitUntil: "networkidle", timeout: 30000 });
+    const secondNavUrl = page.url();
+    if (
+      secondNavUrl.includes("account.docusign.com") ||
+      secondNavUrl.includes("/oauth/") ||
+      secondNavUrl.includes("/login") ||
+      secondNavUrl.includes("identity.")
+    ) {
+      const err = new Error(`Falha de autenticação persistente na consulta de status (${secondNavUrl}).`);
+      logger.error("Browser", err.message);
+      throw err;
+    }
   }
 
   const badgeEl = await page.$(selectors.status.status_badge);
   const statusText = badgeEl ? (await badgeEl.innerText()).trim().toLowerCase() : "unknown";
+
+  // Persiste cookies atualizados após consulta de status
+  await saveSessionState(page, sessionPath);
 
   logger.success("Browser", `Status do envelope ${envelopeId}: ${statusText}`);
   return {
@@ -386,6 +424,8 @@ export async function checkEnvelopeStatus(page, envelopeId, credentials, options
 
 export default {
   ensureAuthenticated,
+  saveSessionState,
   sendEnvelope,
   checkEnvelopeStatus,
 };
+
