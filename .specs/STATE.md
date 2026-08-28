@@ -94,10 +94,10 @@
 
 ## Handoff
 
-- **Feature**: robot-docusigner / makefile-uploads-commands
-- **Phase / Task**: Adição de comandos para acesso e listagem da pasta de uploads de produção
+- **Feature**: robot-docusigner / docs-and-makefile-sync
+- **Phase / Task**: Atualização e sincronização das documentações (README.md, AGENTS.md, tasks.md, rotas e Makefile)
 - **Completed**: T01..T28 + AD-021 + AD-022 + AD-023 + AD-024 + AD-025
 - **In-progress**: Finalização de PR e merge
 - **Next step**: Executar fluxo de commit e PR conforme regras
 - **Blockers**: none
-- **Branch**: feat/make-ssh-and-ls-uploads-prod
+- **Branch**: docs/update-project-docs

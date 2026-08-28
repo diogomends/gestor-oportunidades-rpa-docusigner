@@ -4,9 +4,9 @@
 
 ## Execution Protocol
 
-> **Testes centralizados em `test/backend/**` + `test/robot/**`, setup via `test/helpers/setup.js` (dotenv `.env.dev` com defaults fake).**
+> **Testes centralizados em `test/backend/**` + `test/robot/**`, carregando variáveis diretamente de `.env.dev` via `--env-file=.env.dev`.**
 
-- **Runner**: `node --test` (nativo do Node 18+)
+- **Runner**: `node --env-file=.env.dev --test` (nativo do Node.js)
 - **Framework**: `node:assert` + `node:test` (mock.method, mock.restoreAll)
 - **DB em testes**: `mongodb-memory-server` (quando necessário)
 - **Playwright**: `npx playwright install chromium` (já no projeto)
@@ -14,17 +14,16 @@
 - **Commits**: Atômicos por task, seguindo `.agents/rules/commit.md`
 - **Lint**: `npm run lint` antes de cada commit
 - **Idioma**: pt-BR em mensagens, comentários e documentação
-- **Testes**: centralizados em `test/backend/**` + `test/robot/**`, setup via `test/helpers/setup.js` (dotenv `.env.dev` com defaults fake)
+- **Testes**: centralizados em `test/backend/**` + `test/robot/**`, execução com `node --env-file=.env.dev --test`
 
 ## Gate Check Commands
 
 ```bash
-npm run lint              # Lint antes de commit
-npm test                  # Testes unitários (atalho: node --test test/**/*.test.js)
-node --test test/**/*.test.js              # Todos os testes (usa test/helpers/setup.js)
-node --test test/backend/**/*.test.js      # Apenas backend
-node --test test/robot/**/*.test.js        # Apenas robô
-npm run typecheck         # Type check (se disponível)
+npm run lint                                                    # Lint antes de commit
+npm test                                                        # Todos os testes (backend + robot)
+node --env-file=.env.dev --test test/**/*.test.js              # Todos os testes nativos
+node --env-file=.env.dev --test test/backend/**/*.test.js      # Apenas backend
+node --env-file=.env.dev --test test/robot/**/*.test.js        # Apenas robô
 ```
 
 ## Test Coverage Matrix
