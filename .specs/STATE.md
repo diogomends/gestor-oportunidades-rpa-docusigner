@@ -116,6 +116,15 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
+### [5.55.1] - 2026-08-28
+
+#### Corrigido / Aprimorado
+- **Hardening RFC 5322 (Header Folding), Charset Mapping e Resiliência Temporal no IMAP (T24)**:
+  - `robot/src/browser/imapClient.js`: Adicionado suporte a *header folding* (RFC 5322) e múltiplos blocos MIME adjacentes (RFC 2047 6.2) em `decodeMimeHeader` e `parseEmailMetadata`; implementada função auxiliar `getBufferEncoding` para decodificação de ISO-8859-1, Latin1 e Windows-1252; substituído fallback `||` por `typeof options.subjectFilter === "string"` em `fetchLatestMfaCode`; introduzido descarte defensivo de e-mails sem data quando `mfaTriggerTime` estiver definido para evitar falsos positivos.
+  - `robot/src/browser/docusign.js`: Propagados `mfaTriggerTime` e lista de `testedCodes` para o fallback `fetchMfaCodeFromRoundcube`.
+  - `robot/src/browser/imapClient.test.js`: Adicionados testes para header folding multi-linha, charsets ISO-8859-1, boundary temporal de tolerância (29s aceito vs 31s rejeitado), ausência de data com `mfaTriggerTime` e fallback de cabeçalho `Date`.
+  - `.specs/features/robot-docusigner/validation.md` & `tasks.md`: Adicionada Seção 9 de validação, documentação da divergência de UID FETCH único e sincronização da matriz de cobertura.
+
 ### [5.55.0] - 2026-08-28
 
 #### Aprimorado / Otimizado

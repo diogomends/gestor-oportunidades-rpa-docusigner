@@ -137,7 +137,10 @@ export async function ensureAuthenticated(page, credentials, options = {}) {
         // 2. Fallback visual para Roundcube Webmail caso IMAP não encontre ou falhe
         if (!otpCode) {
           logger.step("Browser", "IMAP não retornou código. Executando fallback via Webmail Roundcube...");
-          otpCode = await fetchMfaCodeFromRoundcube(page.context(), mailCreds);
+          otpCode = await fetchMfaCodeFromRoundcube(page.context(), mailCreds, {
+            mfaTriggerTime,
+            excludedCodes: testedCodes,
+          });
           if (otpCode && testedCodes.includes(otpCode)) {
             logger.warn("Browser", `Código obtido via Roundcube (${otpCode}) já foi rejeitado anteriormente.`);
             otpCode = null;
