@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseRoundcubeDate } from "./roundcube.js";
+import "../../helpers/setup.js";
+import { parseRoundcubeDate } from "../../../robot/src/browser/roundcube.js";
 
 describe("Robot Standalone - Roundcube MFA Helper Tests", () => {
   describe("parseRoundcubeDate", () => {

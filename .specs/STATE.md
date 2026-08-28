@@ -50,15 +50,22 @@
 - **Date**: 2026-08-27
 - **Status**: active
 
+### AD-020
+- **Decision**: Bloco `mfa: { maxWaitMs: 90000, maxAgeMs: 600000 }` tipado no Zod `updateConfigSchema`, mesclado em `updateConfig`, repassado nos payloads de `getInstanceConfig`/`getNextJob` e lido via `credentials.mfa.*` em `docusign.js`.
+- **Reason**: Respeitar SRP e PonyTail sem duplicar estado dentro de `credentials` ou `token_notification_email`, permitindo ajuste fino de timeouts MFA via API REST e propagação para o robô.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `robot/src/browser/docusign.js`
+- **Date**: 2026-08-28
+- **Status**: active
+
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
 - **Feature**: robot-docusigner / sub-specs/mfa-imap
-- **Phase / Task**: T26 Done — Hardening sessão Playwright (P0/P1/P2)
-- **Completed**: T01..T26 (incl. T13/T14 gestorApiClient, T15 OTP, T16 roundcube, T17..T20 IMAP, T24 filtro subject/timestamp, T25 storageState)
+- **Phase / Task**: T28 Done — Configurabilidade MFA e Fallback Roundcube Resiliente + Propagação REST API/Instância
+- **Completed**: T01..T28 (incl. T27 timeout 90s/10min e T28 configurabilidade `mfa` em REST API, instâncias e robô) + Migração testes test/
 - **In-progress**: none
-- **Next step**: Próxima feature `robot-auto-provision-chromium` (spec/tasks já em `.specs/features/robot-auto-provision-chromium/`) ou nova demanda — ler `STATE.md:Decisions` antes de Design
+- **Next step**: Próxima feature `robot-auto-provision-chromium` ou nova demanda
 - **Blockers**: none
-- **Uncommitted files**: none (CHANGELOG.md + STATE.md desta migração)
 - **Branch**: main

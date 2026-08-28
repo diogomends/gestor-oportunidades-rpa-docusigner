@@ -3,15 +3,13 @@ import assert from "node:assert";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 
-import app from "../../../app.js";
-
-process.env.JWT_SECRET = "test_secret_key";
-
-import User from "../../../models/User.js";
-import RobotJob from "../models/RobotJob.js";
-import Contract from "../../../models/Contract.js";
-import SystemConfig from "../../../models/SystemConfig.js";
-import robotOrchestrator from "../services/robotOrchestrator.js";
+import "../../helpers/setup.js";
+import app from "../../../backend/src/app.js";
+import User from "../../../backend/src/models/User.js";
+import RobotJob from "../../../backend/src/modules/robot-docusign/models/RobotJob.js";
+import Contract from "../../../backend/src/models/Contract.js";
+import SystemConfig from "../../../backend/src/models/SystemConfig.js";
+import robotOrchestrator from "../../../backend/src/modules/robot-docusign/services/robotOrchestrator.js";
 
 describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
   let tokenAdmin;
@@ -353,14 +351,17 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
         value: update.$set ? update.$set.value : update.value,
       }));
 
+      // ponytail: dados fake; em dev real vêm de process.env via .env.dev (nunca hardcode segredo real)
+      const testEmail = process.env.TEST_IMAP_EMAIL || "notificacao@example.com";
+      const testHost = process.env.TEST_IMAP_HOST || "mail.example.com";
       const res = await request(app)
         .put("/api/robot-docusign/config")
         .set("Authorization", `Bearer ${tokenAdmin}`)
         .send({
           token_notification_email: {
-            email: "notificacao@unitynordeste.com.br",
-            password: "emailpassword123",
-            host: "mail.unitynordeste.com.br",
+            email: testEmail,
+            password: "test_email_password_123",
+            host: testHost,
             port: 993,
             tls: true,
           },

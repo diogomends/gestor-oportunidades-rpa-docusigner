@@ -142,15 +142,16 @@
 
 - **Data**: 2026-08-28
 - **Status**: ✅ Aprovado
-- **Escopo**: Filtro rigoroso de assunto (`Subject`), timestamp (`mfaTriggerTime`), decodificação de header folding (RFC 5322), decodificação de charsets (UTF-8, ISO-8859-1/Latin1), tolerância de clock skew (30s) e persistência de sessão `storageState` (`session-docusign.json`).
+- **Escopo**: Filtro rigoroso de assunto (`Subject`), timestamp (`mfaTriggerTime`), decodificação de header folding (RFC 5322), decodificação de charsets (UTF-8, ISO-8859-1/Latin1), janela de validade configurável (default 10min) e persistência de sessão `storageState` (`session-docusign.json`).
 
 ### Cenários de Validação Executados (T24)
 - [x] **Header Folding (RFC 5322)**: `decodeMimeHeader` e `parseEmailMetadata` realizam desdobramento de linhas continuadas (`\r?\n[ \t]+` -> `" "`) e ignoram espaços entre blocos MIME adjacentes (`RFC 2047 6.2`), processando assuntos multi-linha sem truncamento.
 - [x] **Suporte a Charsets**: Mapeamento dinâmico em `getBufferEncoding` suporta UTF-8, ISO-8859-1, Latin1 e Windows-1252 sem corrupção de acentuação.
 - [x] **Filtro de Assunto Estrito**: Verificação com `typeof options.subjectFilter === "string"` preserva filtros intencionalmente vazios e aplica default `"Verificar um novo dispositivo"`.
-- [x] **Validação Temporal com Margem de Tolerância**:
-  - Aceita mensagens recebidas dentro da janela de tolerância de 30s (`mfaTriggerTime - 29s`).
-  - Rejeita mensagens recebidas antes da tolerância (`mfaTriggerTime - 31s`).
+- [x] **Validação Temporal com Janela Configurável (default 10min)**:
+  - Aceita mensagens recebidas dentro da janela (`mfaTriggerTime - 3min`, ex: reinício).
+  - Rejeita mensagens expiradas (`mfaTriggerTime - 11min`).
+  - Configurável via `SystemConfig mfa.maxAgeMs` / `env MFA_MAX_AGE_MS` / `options.mfaMaxAgeMs`.
 - [x] **Prevenção de Falso Positivo por Ausência de Data**: Quando `mfaTriggerTime` está ativo e a mensagem não contém `INTERNALDATE` nem cabeçalho `Date`, a mensagem é descartada defensivamente (`continue`).
 - [x] **Fallback de Cabeçalho `Date`**: Quando `INTERNALDATE` está ausente do servidor IMAP, o cabeçalho `Date:` do e-mail é utilizado para validação temporal.
 - [x] **Expurgo de Regex Genérica**: Removido `\b(\d{6})\b` de `extractMfaCodeFromText`, restringindo a extração aos padrões semânticos oficiais de segurança DocuSign.
@@ -198,7 +199,7 @@
 - **`imapClient.js:438` estável**: `const subjectMatches = !expectedSubject || ...` permanece em `imapClient.js:438`; filtro `!expectedSubject` permite `subjectFilter=""` desabilitar validação de assunto, documentado no JSDoc `408`.
 
 ### Cenários de Validação Executados (5.56.1)
-- [x] **Paridade Roundcube** (`roundcube.js:174`): descarta mensagens sem data reconhecível quando `mfaTriggerTime` definido (`if (!parsedDate) continue` + `toleranceMs=30000`), alinhado a `imapClient.js:445-451`.
+- [x] **Paridade Roundcube** (`roundcube.js:179`): quando `!parsedDate` trata como recente (warn, não descarta) para não perder código no fallback; quando parse ok, valida `parsedDate < mfaTriggerTime - maxAgeMs` (default 10min), alinhado a `imapClient.js:451`.
 - [x] **Expurgo `decodeQuotedPrintable` redundante** (`imapClient.js:81`): `return decoded.trim()` sem `decodeQuotedPrintable` extra — `decodeMimeHeader` já decodifica blocos `Q`/`B` via `getBufferEncoding`.
 - [x] **Resiliência `job-runner.js`**: `mkdirSync` com `logger.warn` em falha de criação de diretório de sessão.
 - [x] **Regressão**: 39 testes browser (`imapClient.test.js` + `roundcube.test.js`) + 160 globais passando.

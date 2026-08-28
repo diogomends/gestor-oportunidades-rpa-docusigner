@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/main.js",
-    "build": "node build/build.js"
+    "build": "node build/build.js",
+    "test": "node --test ../test/robot/**/*.test.js"
   },
   "dependencies": {
     "playwright": "^1.47.0"

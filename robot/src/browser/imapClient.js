@@ -3,6 +3,14 @@ import net from "node:net";
 import logger from "../utils/logger.js";
 
 /**
+ * Janela máxima de validade de e-mail MFA pré-existente (reinício do robô).
+ * @constant {number}
+ */
+export const DEFAULT_MFA_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutos
+/** Timeout padrão de polling MFA. @constant {number} */
+export const DEFAULT_MFA_MAX_WAIT_MS = 90000; // 90s — ponytail: IMAP+Roundcube sequencial = até 180s/tentativa; reduzir se job timeout exigir
+
+/**
  * Decodifica texto codificado em Quoted-Printable.
  * @param {string} input - String codificada em Quoted-Printable.
  * @param {BufferEncoding} [encoding="utf8"] - Encoding de destino do buffer (ex: utf8, latin1).
@@ -406,6 +414,12 @@ export class ImapClient {
     const excludedCodes = Array.isArray(options.excludedCodes) ? options.excludedCodes : [];
     const expectedSubject = typeof options.subjectFilter === "string" ? options.subjectFilter : "Verificar um novo dispositivo";
     const mfaTriggerTime = typeof options.mfaTriggerTime === "number" ? options.mfaTriggerTime : null;
+    const maxAgeMs =
+      typeof options.mfaMaxAgeMs === "number"
+        ? options.mfaMaxAgeMs
+        : typeof options.maxAgeMs === "number"
+          ? options.maxAgeMs
+          : DEFAULT_MFA_MAX_AGE_MS;
 
     // 1. Busca mensagens do dia atual (SINCE)
     const todaySince = formatImapDate();
@@ -447,8 +461,7 @@ export class ImapClient {
           logger.warn("IMAP", `Mensagem UID ${uid} ignorada: sem data/INTERNALDATE para validar mfaTriggerTime.`);
           continue;
         }
-        // Validação de Timestamp (mfaTriggerTime) com janela de validade para e-mails recentes pré-existentes (10 minutos)
-        const maxAgeMs = 10 * 60 * 1000; // 10 minutos de janela de validade para códigos pré-existentes / reinício
+        // ponytail: janela configurável (SystemConfig mfaMaxAgeMs via options) — default 10min para recuperação em reinício
         if (metadata.date.getTime() < mfaTriggerTime - maxAgeMs) {
           logger.step("IMAP", `Mensagem UID ${uid} ignorada: recebida em ${metadata.date.toISOString()} (expirada, anterior a 10 min do disparo de MFA ${new Date(mfaTriggerTime).toISOString()}).`);
           continue;
@@ -535,7 +548,13 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
   const host = mailCredentials?.host || "unitynordeste.com.br";
   const port = Number(mailCredentials?.port) || 993;
   const tlsEnabled = mailCredentials?.tls !== false;
-  const maxWaitMs = options.maxWaitMs || 90000;
+  const maxWaitMs = typeof options.maxWaitMs === "number" ? options.maxWaitMs : DEFAULT_MFA_MAX_WAIT_MS;
+  const mfaMaxAgeMs =
+    typeof options.mfaMaxAgeMs === "number"
+      ? options.mfaMaxAgeMs
+      : typeof options.maxAgeMs === "number"
+        ? options.maxAgeMs
+        : DEFAULT_MFA_MAX_AGE_MS;
   let currentIntervalMs = options.pollIntervalMs || 3000;
   const backoffFactor = options.backoffFactor || 1.2;
   const maxPollIntervalMs = options.maxPollIntervalMs || 6000;
@@ -565,6 +584,7 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
           excludedCodes,
           mfaTriggerTime,
           subjectFilter,
+          mfaMaxAgeMs,
         });
 
         if (code) {

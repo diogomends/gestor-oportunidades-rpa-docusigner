@@ -1,6 +1,7 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
+import "../../helpers/setup.js";
 import {
   decodeQuotedPrintable,
   decodeBase64,
@@ -11,7 +12,7 @@ import {
   escapeImapString,
   ImapClient,
   fetchMfaCodeViaImap,
-} from "./imapClient.js";
+} from "../../../robot/src/browser/imapClient.js";
 
 describe("Robot Standalone - IMAP MFA Client Tests", () => {
   describe("formatImapDate", () => {
@@ -378,7 +379,7 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
       assert.equal(code, "582914");
     });
 
-    it("fetchMfaCodeViaImap deve usar defaults 3000/1.2/6000/30000 quando options omitidos", async () => {
+    it("fetchMfaCodeViaImap deve usar defaults 3000/1.2/6000/90000 quando options omitidos", async () => {
       const start = Date.now();
       const code = await fetchMfaCodeViaImap({
         email: "test@unitynordeste.com.br",

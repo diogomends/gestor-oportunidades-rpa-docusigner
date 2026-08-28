@@ -196,3 +196,19 @@
   2. [x] **T27.2**: Expandir tolerância temporal de `mfaTriggerTime` para 10 minutos (600000ms) em `imapClient.js` e `roundcube.js`, aceitando e-mails válidos gerados antes do reinício.
   3. [x] **T27.3**: Atualizar `mfaTriggerTime = Date.now()` em `docusign.js` ao detectar rejeição de código (*"The code entered is invalid"*), forçando tentativas subsequentes a aguardar o novo e-mail pós-rejeição.
   4. [x] **T27.4**: Atualizar suíte de testes de regressão cobrindo o novo timeout e a janela de recuperação de 10 minutos.
+
+### [x] T28: Configurabilidade MFA e Fallback Roundcube Resiliente (2026-08-28)
+- **Objetivo**: Tornar `maxWaitMs`/`maxAgeMs` configuráveis via `SystemConfig robot_docusign.mfa` e `env MFA_MAX_*`, extrair constantes compartilhadas e corrigir fallback Roundcube para não descartar mensagens com data não-parseável.
+- **Arquivos**:
+  - `robot/src/browser/imapClient.js` (`DEFAULT_MFA_MAX_AGE_MS`, `DEFAULT_MFA_MAX_WAIT_MS`, `options.mfaMaxAgeMs`)
+  - `robot/src/browser/roundcube.js` (idem + warn sem continue)
+  - `robot/src/browser/docusign.js` (propaga `mfaMaxAgeMs`/`mfaMaxWaitMs` de `credentials`/`env`)
+  - `backend/src/modules/robot-docusign/services/robotOrchestrator.js` (`DEFAULT_ROBOT_DOCUSIGN_CONFIG.mfa`)
+  - `test/robot/browser/imapClient.test.js` (label 90000)
+- **Ações**:
+  1. [x] **T28.1**: Extrair `DEFAULT_MFA_MAX_AGE_MS`/`DEFAULT_MFA_MAX_WAIT_MS` e aceitar `options.mfaMaxAgeMs`/`maxAgeMs` em `fetchLatestMfaCode`/`fetchMfaCodeViaImap`/`fetchMfaCodeFromRoundcube`.
+  2. [x] **T28.2**: Roundcube `parseRoundcubeDate` falho => `warn` mas não `continue` (ponytail: fallback precisa tentar extrair).
+  3. [x] **T28.3**: Backend `DEFAULT_ROBOT_DOCUSIGN_CONFIG.mfa` mesclado em `getRobotConfig`.
+  4. [x] **T28.4**: Atualizar `spec.md:REQ-MFA-IMAP-02/06` e `validation.md:9,11` para documentar configurabilidade.
+  5. [x] **T28.5**: Suportar `mfa` em `updateConfigSchema`/`updateConfig` (`robotDocusignController.js`), propagar `mfa` em `getInstanceConfig`/`getNextJob` (`robotInstanceController.js`) e ler `credentials.mfa.*` em `docusign.js`.
+
