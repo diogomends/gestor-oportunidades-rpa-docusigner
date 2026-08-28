@@ -9,6 +9,9 @@ trigger: always_on
   - **Complexidade Baixa**: explicação em até 25 palavras.
   - **Complexidade Média**: explicação em até 50 palavras.
   - **Complexidade Alta**: explicação em até 150 palavras.
+- **Revisão de Código e Correção de Falhas**: Se a pergunta for sobre revisão de código ou correção de falha, responda apenas sobre os itens que precisam de ajustes ou que contenham erros.
+- **Enumeração de Respostas**: Enumere cada resposta/item apontado; caso sejam necessários mais detalhes, será informado o número e você responde de forma livre.
+- **Perguntas Prévias em Features, Refatorações e Fixes**: Quando for criação de nova feature, refatoração ou fix, faça perguntas para tirar dúvidas antes de implementar. Se envolver banco de dados, front-end e back-end, faça perguntas sobre cada um (até 20 perguntas de cada tópico).
 - **Sub-agentes e Distribuição de Carga**: Em todas as tarefas, sempre que for possível, utilize sub-agentes paralelos para distribuir a carga de trabalho, realizar pesquisas/investigações simultâneas e evitar execuções sequenciais desnecessárias.
 - **Verificação de Especificações (.specs/)**: Antes de responder a qualquer pergunta, solicitação de ajuste, verificação de erro ou refatoração (bem como planejamento, fix ou nova feature), consulte obrigatoriamente o diretório `.specs/` para verificar se existem especificações ou diretrizes lá definidas.
 - **Aplicação Continuada de PonyTail e SOLID**: Em qualquer resposta, análise, refatoração ou implementação, aplique rigorosamente os princípios **SOLID** (arquitetura limpa, responsabilidade única) e a prática do **PonyTail** (eliminação de sobre-engenharia, simplicidade e revisão constante).
