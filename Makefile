@@ -1,73 +1,164 @@
-.PHONY: help dev test test-headed test-headed-ps build-robot install install-robot clean
+ifneq (,$(wildcard ./.env.dev))
+  include .env.dev
+  export
+else
+  ifneq (,$(wildcard ./.env))
+    include .env
+    export
+  endif
+endif
 
-# Exibe este help com exemplos de uso e preenchimento
+ifeq ($(OS),Windows_NT)
+    SHELL := cmd.exe
+    SCP_BIN := C:\Windows\Sysnative\OpenSSH\scp.exe
+    SSH_BIN := C:\Windows\Sysnative\OpenSSH\ssh.exe
+    SSH_TUNNEL := powershell -Command "$(SSH_BIN) -L 27018:127.0.0.1:27017 $(DEPLOY_HOST) -N"
+    SSH_EXEC := powershell -Command "Get-Content tools/db-and-collection.js | $(SSH_BIN) $(DEPLOY_HOST) 'docker exec -i app_docusigner node -'"
+else
+    SCP_BIN := scp
+    SSH_BIN := ssh
+    SSH_TUNNEL := ssh -L 27018:127.0.0.1:27017 $(DEPLOY_HOST) -N
+    SSH_EXEC := cat tools/db-and-collection.js | ssh $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
+endif
+
+# Defaults (override via .env ou command-line: make VAR=valor)
+DEPLOY_HOST ?= root@165.227.212.57
+DEPLOY_KEY_PATH ?=
+REMOTE_PROJECT_PATH ?= /home/appuser/servidor-unity-rce/gestor-oportunidades-rpa-docusigner
+HEADLESS ?= true
+
+.PHONY: help dev start test test-headed test-headed-ps build-robot install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod fetch-robot-debug-images routes-inventory routes-inventory-check
+
 help:
 	@echo "Makefile - Gestor de Oportunidades RPA DocuSigner"
 	@echo ""
 	@echo "Uso: make <comando> [VAR=valor]"
 	@echo ""
-	@echo "Comandos:"
-	@echo "  dev             Inicia o servidor em modo desenvolvimento (nodemon)"
-	@echo "  test            Roda os testes nativos (node --test)"
-	@echo "  install         Instala dependencias do servidor e do standalone"
-	@echo "  install-robot   Instala apenas dependencias do standalone"
-	@echo "  test-headed     Testa o robo standalone com navegador visivel (sh/bash)"
-	@echo "  test-headed-ps  Testa o robo standalone com navegador visivel (PowerShell)"
-	@echo "  build-robot     Gera executáveis .exe dos robôs standalone com chave(s) embutida(s)"
-	@echo "  clean           Limpa pastas de build anteriores"
+	@echo "--- Desenvolvimento e Servidor ---"
+	@echo "  make dev             - Inicia o servidor em modo desenvolvimento (nodemon)"
+	@echo "  make start           - Inicia o servidor em modo producao (node server.js)"
+	@echo "  make test            - Roda os testes nativos (node --test)"
+	@echo "  make test-headed     - Testa o robo standalone com navegador visivel (sh/bash)"
+	@echo "  make test-headed-ps  - Testa o robo standalone com navegador visivel (PowerShell)"
+	@echo "  make build-robot     - Gera executaveis .exe dos robos standalone com chave(s) embutida(s)"
+	@echo "  make install         - Instala dependencias do servidor e do standalone"
+	@echo "  make install-backend - Instala apenas dependencias do backend"
+	@echo "  make install-robot   - Instala apenas dependencias do standalone"
+	@echo ""
+	@echo "--- Docker ---"
+	@echo "  make up-dev          - Sobe containers Docker em desenvolvimento"
+	@echo "  make up-prod         - Sobe containers Docker em producao"
+	@echo "  make down            - Para todos os containers Docker"
+	@echo "  make logs            - Acompanha logs do Docker Compose"
+	@echo "  make reset           - Reinicia stack Docker limpa"
+	@echo ""
+	@echo "--- Banco de Dados e Diagnostico ---"
+	@echo "  make tunnel          - Abre tunel SSH para o MongoDB remoto (porta 27018)"
+	@echo "  make db-and-collection      - Lista bancos e colecoes do MongoDB (local)"
+	@echo "  make db-and-collection-prod - Lista bancos e colecoes no container de producao"
+	@echo "  make mongosh-contracts      - Consulta contratos via mongosh local"
+	@echo "  make mongosh-contracts-prod - Consulta contratos no servidor remoto (requer tunnel ativo)"
+	@echo ""
+	@echo "--- Utilitarios e Logs do Robo ---"
+	@echo "  make fetch-robot-debug-images - Baixa screenshots de debug do container de producao para tmp/robot-debug/"
+	@echo "  make routes-inventory         - Gera inventario de rotas HTTP em .specs/routes-inventory.md"
+	@echo "  make routes-inventory-check   - Valida se o inventario de rotas esta atualizado (CI)"
+	@echo "  make clean                    - Limpa pastas de build do robo"
+	@echo "  make clean-test               - Limpa artefatos temporarios de testes"
+	@echo "  make clean-all                - Limpeza completa (build, logs e node_modules)"
 	@echo ""
 	@echo "EXEMPLOS DE BUILD COM CHAVE EMBUTIDA:"
-	@echo "  1. Build Automático Multi-Chave (lê todas as ROBOT_API_KEY_* no .env.dev):"
-	@echo "    make build-robot"
-	@echo ""
-	@echo "  2. Build com chave específica via CLI (gera robot-docusigner-1.exe):"
-	@echo "    make build-robot KEY=\"rf_sec_xxxx\" HEADLESS=true"
-	@echo ""
-	@echo "  3. Build apontando para API específica:"
-	@echo "    make build-robot KEY=\"rf_sec_xxxx\" API_URL=\"https://crm.meudominio.com\""
-	@echo ""
-	@echo "Variáveis aceitas:"
-	@echo "  KEY        Chave de API do robô (opcional; se omitida, gera 1 exe por ROBOT_API_KEY_* no .env.dev)"
-	@echo "  HEADLESS   true ou false (padrão: lê HEADLESS do .env.dev ou true)"
-	@echo "  API_URL    URL central customizada (padrão: lê API_URL ou URI_PROD do .env.dev/.env)"
+	@echo "  1. Build Automatico Multi-Chave: make build-robot"
+	@echo "  2. Build com chave especifica:   make build-robot KEY=\"rf_sec_xxxx\" HEADLESS=true"
+	@echo "  3. Build com API especifica:     make build-robot KEY=\"rf_sec_xxxx\" API_URL=\"https://crm.meudominio.com\""
 
-# Inicia o servidor em modo desenvolvimento (nodemon)
+## Desenvolvimento
+
 dev:
 	npm run dev
 
-# Roda os testes nativos (node --env-file=.env.dev --test test/**/*.test.js)
+start:
+	npm start
+
 test:
 	npm test
 
-# Instala dependencias do servidor e do robo
+test-headed:
+	cd robot && HEADLESS=false node src/main.js
+
+test-headed-ps:
+	powershell -Command "cd robot; $$env:HEADLESS='false'; node src/main.js"
+
+build-robot:
+	cd robot && node build/build.js --key "$(KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
+
+## Dependências
+
 install:
 	npm install
 	cd backend && npm install
 	cd robot && npm install
 
-# Instala apenas dependencias do backend
 install-backend:
 	cd backend && npm install
 
-# Instala apenas dependencias do robo
 install-robot:
 	cd robot && npm install
 
-# Testa o robo com navegador visivel (HEADLESS=false) — sh/bash
-test-headed:
-	cd robot && HEADLESS=false node src/main.js
+## Docker
 
-# Testa o robo com navegador visivel — PowerShell
-test-headed-ps:
-	powershell -Command "cd robot; $$env:HEADLESS='false'; node src/main.js"
+up-dev:
+	docker compose up -d --build
 
-# Gera executavel .exe do robo com chave de acesso embutida
-# Uso:
-#   make build-robot KEY="rf_sec_xxxx"
-#   make build-robot KEY="rf_sec_xxxx" HEADLESS=false
-build-robot:
-	cd robot && node build/build.js --key "$(KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
+up-prod:
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
-# Limpa pastas de build anteriores (PowerShell)
+down:
+	docker compose down
+
+logs:
+	docker compose logs -f
+
+reset: down clean-all up-dev
+
+## Banco de Dados
+
+tunnel:
+	@echo Abrindo tunel SSH seguro com a producao na porta 27018...
+	@echo Mantenha este terminal aberto para realizar as consultas.
+	$(SSH_TUNNEL)
+
+db-and-collection:
+	node tools/db-and-collection.js
+
+db-and-collection-prod:
+	$(SSH_EXEC)
+
+mongosh-contracts:
+	mongosh "mongodb://localhost:27017/crm_contracts" --eval "db.contracts.find().pretty()"
+
+mongosh-contracts-prod:
+	@echo "Requer tunnel ativo em outra janela (make tunnel)"
+	mongosh --host localhost --port 27018 -u admin -p "Ssl@7056" --authenticationDatabase admin crm_contracts --eval "db.contracts.find().pretty()"
+
+## Utilitários e Logs
+
+fetch-robot-debug-images:
+	powershell -Command "if (!(Test-Path -Path 'tmp\robot-debug')) { New-Item -ItemType Directory -Path 'tmp\robot-debug' -Force | Out-Null }"
+	powershell -Command "& '$(SSH_BIN)' -i C:\Users\Convidade\.ssh\deploy_key -o StrictHostKeyChecking=no $(DEPLOY_HOST) \"docker exec app_docusigner mkdir -p /app/tmp/robot-debug && mkdir -p $(REMOTE_PROJECT_PATH)/tmp/robot-debug && docker cp app_docusigner:/app/tmp/robot-debug/. $(REMOTE_PROJECT_PATH)/tmp/robot-debug/\""
+	powershell -Command "& '$(SCP_BIN)' -i C:\Users\Convidade\.ssh\deploy_key -o StrictHostKeyChecking=no -r $(DEPLOY_HOST):$(REMOTE_PROJECT_PATH)/tmp/robot-debug/* tmp/robot-debug/"
+
+routes-inventory:
+	node tools/generate-routes-inventory.js
+
+routes-inventory-check:
+	node tools/generate-routes-inventory.js --check
+
 clean:
 	powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue robot\dist, robot\dist-bundle, robot\dist-obf, robot\dist-jsc"
+
+clean-test:
+	powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue test-results, playwright-report, tmp\test-results -ErrorAction SilentlyContinue"
+
+clean-all: clean clean-test
+	powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue node_modules, backend\node_modules, robot\node_modules"
