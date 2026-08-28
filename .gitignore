@@ -27,6 +27,8 @@ logs/
 tmp/
 temp/
 .cache/
+tests/
+images/
 
 # ==============================================================================
 # Build & Saídas do Robô Standalone
