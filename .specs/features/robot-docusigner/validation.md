@@ -168,4 +168,23 @@
 - [x] **P2 - Documentação**: Variável `DOCUSIGN_SESSION_PATH` documentada em `.env.example`, `README.md` e `AGENTS.md`.
 - [x] **Regressão Global**: 160 testes (121 backend + 39 robot browser) executados e aprovados com 100% de sucesso.
 
+---
+
+## 11. Critérios de Validação — Correções 5.56.1: Paridade MFA Roundcube e Hardening Charset (Diagnóstico Atualizado)
+
+- **Data**: 2026-08-28
+- **Status**: ✅ Aprovado — diagnóstico sincronizado para **5.56.1** (supersede `5.55.2`)
+- **Escopo**: Alinhamento de paridade `roundcube.js` ↔ `imapClient.js`, remoção de `decodeQuotedPrintable` redundante e log de `mkdirSync`
+
+### Correção de Referências do Diagnóstico
+- **Versão**: `5.55.2` → `5.56.1` no changelog `STATE.md:119` (changelog `5.55.2` mantido como histórico; `5.56.1` é a versão corrente).
+- **`roundcube.js:17` → `roundcube.js:19` (estável, anterior `17` pré-`logger`)**: `export function parseRoundcubeDate` agora em `roundcube.js:19` (com `import logger` deslocou +1); `roundcube.js:18` no diagnóstico anterior era off-by-one após adição do import — corrigido para `19`.
+- **`imapClient.js:438` estável**: `const subjectMatches = !expectedSubject || ...` permanece em `imapClient.js:438`; filtro `!expectedSubject` permite `subjectFilter=""` desabilitar validação de assunto, documentado no JSDoc `408`.
+
+### Cenários de Validação Executados (5.56.1)
+- [x] **Paridade Roundcube** (`roundcube.js:174`): descarta mensagens sem data reconhecível quando `mfaTriggerTime` definido (`if (!parsedDate) continue` + `toleranceMs=30000`), alinhado a `imapClient.js:445-451`.
+- [x] **Expurgo `decodeQuotedPrintable` redundante** (`imapClient.js:81`): `return decoded.trim()` sem `decodeQuotedPrintable` extra — `decodeMimeHeader` já decodifica blocos `Q`/`B` via `getBufferEncoding`.
+- [x] **Resiliência `job-runner.js`**: `mkdirSync` com `logger.warn` em falha de criação de diretório de sessão.
+- [x] **Regressão**: 39 testes browser (`imapClient.test.js` + `roundcube.test.js`) + 160 globais passando.
+
 

@@ -119,9 +119,9 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 ### [5.56.1] - 2026-08-28
 
 #### Corrigido / Aprimorado
-- **Ajustes de Paridade e Resiliência em MFA e Job Runner**:
-  - `robot/src/browser/roundcube.js`: Alinhada paridade com `imapClient.js` para descartar mensagens sem data reconhecível quando `mfaTriggerTime` estiver definido.
-  - `robot/src/browser/imapClient.js`: Eliminado `decodeQuotedPrintable` redundante no retorno de `decodeMimeHeader`.
+- **Ajustes de Paridade e Resiliência em MFA e Job Runner** (diagnóstico sincronizado: supersede `5.55.2`):
+  - `robot/src/browser/roundcube.js:19` (ex-`17`): Alinhada paridade com `imapClient.js:438` para descartar mensagens sem data reconhecível quando `mfaTriggerTime` estiver definido (`parseRoundcubeDate` em `:19` após `import logger`; `toleranceMs=30000`).
+  - `robot/src/browser/imapClient.js:81` / `imapClient.js:11` / `imapClient.js:438` (estável): Eliminado `decodeQuotedPrintable` redundante no retorno de `decodeMimeHeader` (`:81`); `decodeQuotedPrintable` em `:11` preserva `encoding` via `getBufferEncoding`; filtro `!expectedSubject` em `:438` estável e documentado.
   - `robot/src/job-runner.js`: Adicionado log de aviso (`logger.warn`) ao falhar a criação do diretório de sessão no `mkdirSync`.
 
 ### [5.56.0] - 2026-08-28
