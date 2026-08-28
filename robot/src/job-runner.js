@@ -164,7 +164,9 @@ export class JobRunner {
           if (dir && !fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
           }
-        } catch (_) {}
+        } catch (dirErr) {
+          logger.warn("JobRunner", `Não foi possível criar o diretório de sessão '${path.dirname(this.sessionFilePath)}': ${dirErr.message}`);
+        }
       }
 
       if (this.sessionFilePath && fs.existsSync(this.sessionFilePath)) {

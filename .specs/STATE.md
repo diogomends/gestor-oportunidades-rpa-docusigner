@@ -116,6 +116,14 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
+### [5.56.1] - 2026-08-28
+
+#### Corrigido / Aprimorado
+- **Ajustes de Paridade e Resiliência em MFA e Job Runner**:
+  - `robot/src/browser/roundcube.js`: Alinhada paridade com `imapClient.js` para descartar mensagens sem data reconhecível quando `mfaTriggerTime` estiver definido.
+  - `robot/src/browser/imapClient.js`: Eliminado `decodeQuotedPrintable` redundante no retorno de `decodeMimeHeader`.
+  - `robot/src/job-runner.js`: Adicionado log de aviso (`logger.warn`) ao falhar a criação do diretório de sessão no `mkdirSync`.
+
 ### [5.56.0] - 2026-08-28
 
 #### Corrigido / Aprimorado (P0, P1, P2)

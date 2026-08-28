@@ -171,14 +171,16 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
           const dateEl = await row.$("td.date, span.date, .date").catch(() => null);
           const dateStr = dateEl ? await dateEl.innerText().catch(() => "") : "";
           const parsedDate = parseRoundcubeDate(dateStr);
-          if (parsedDate) {
-            const toleranceMs = 30000;
-            if (parsedDate.getTime() < mfaTriggerTime - toleranceMs) {
-              console.log(
-                `[Roundcube] Mensagem ignorada: data ${parsedDate.toISOString()} anterior ao disparo ${new Date(mfaTriggerTime).toISOString()}.`
-              );
-              continue;
-            }
+          if (!parsedDate) {
+            console.log("[Roundcube] Mensagem ignorada: sem data reconhecível para validar mfaTriggerTime.");
+            continue;
+          }
+          const toleranceMs = 30000;
+          if (parsedDate.getTime() < mfaTriggerTime - toleranceMs) {
+            console.log(
+              `[Roundcube] Mensagem ignorada: data ${parsedDate.toISOString()} anterior ao disparo ${new Date(mfaTriggerTime).toISOString()}.`
+            );
+            continue;
           }
         }
 
