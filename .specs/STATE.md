@@ -90,14 +90,22 @@
 - **Date**: 2026-08-28
 - **Status**: active
 
+### AD-026
+- **Decision**: Criação dos targets `mongosh-jobs`, `mongosh-jobs-prod`, `mongosh-instances`, `mongosh-instances-prod`, `mongosh-config` e `mongosh-config-prod` no `Makefile`.
+- **Reason**: Prover comandos diretos e padronizados para inspecionar as coleções consumidas pelo robô (`crm_contracts.robot_jobs`, `crm_contracts.robot_instances` e `db_crm_funil.systemconfigs`) tanto em ambiente local quanto em produção via túnel SSH.
+- **Trade-off**: N/A.
+- **Scope**: `Makefile`, `AGENTS.md`, `.specs/STATE.md`
+- **Date**: 2026-08-28
+- **Status**: active
+
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: robot-docusigner / docs-and-makefile-sync
-- **Phase / Task**: Atualização e sincronização das documentações (README.md, AGENTS.md, tasks.md, rotas e Makefile)
-- **Completed**: T01..T28 + AD-021 + AD-022 + AD-023 + AD-024 + AD-025
+- **Feature**: robot-docusigner / makefile-mongosh-commands
+- **Phase / Task**: Adição de comandos mongosh para consulta de jobs, instâncias e configs do robô no Makefile
+- **Completed**: AD-021 + AD-022 + AD-023 + AD-024 + AD-025 + AD-026
 - **In-progress**: Finalização de PR e merge
 - **Next step**: Executar fluxo de commit e PR conforme regras
 - **Blockers**: none
-- **Branch**: docs/update-project-docs
+- **Branch**: feat/makefile-mongosh-robot-collections
