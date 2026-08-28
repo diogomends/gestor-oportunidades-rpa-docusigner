@@ -74,14 +74,30 @@
 - **Date**: 2026-08-28
 - **Status**: active
 
+### AD-024
+- **Decision**: Reestruturação das variáveis e comandos SSH no `Makefile` com avaliação recursiva (`=`), defaults (`DEPLOY_HOST`, `DEPLOY_KEY`, `REMOTE_PROJECT_PATH`) carregados no topo e unificação de opções de conexão via `SSH_OPTS`.
+- **Reason**: Evitar que `$(DEPLOY_HOST)` e flags de chave privada fossem expandidos como vazios na definição imediata (`:=`), garantindo execução confiável dos targets `db-and-collection-prod`, `tunnel` e `fetch-robot-debug-images`.
+- **Trade-off**: N/A.
+- **Scope**: `Makefile`, `.specs/STATE.md`
+- **Date**: 2026-08-28
+- **Status**: active
+
+### AD-025
+- **Decision**: Criação dos targets `ssh-uploads-prod` e `ls-uploads-prod` no `Makefile` apontando para `REMOTE_UPLOADS_PATH` (`/home/appuser/servidor-unity-rce/gestor-oportunidades/uploads`).
+- **Reason**: Permitir acesso interativo direto e inspeção de pastas e arquivos de PDFs/documentos de clientes no servidor de produção com um único comando.
+- **Trade-off**: N/A.
+- **Scope**: `Makefile`, `AGENTS.md`, `.specs/STATE.md`
+- **Date**: 2026-08-28
+- **Status**: active
+
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: robot-docusigner / makefile-shared-tools
-- **Phase / Task**: Sincronização de comandos Makefile e ferramentas de diagnóstico
-- **Completed**: T01..T28 + AD-021 + AD-022 + AD-023 (Makefile & Tools)
-- **In-progress**: Handoff e documentação concluídos
+- **Feature**: robot-docusigner / makefile-uploads-commands
+- **Phase / Task**: Adição de comandos para acesso e listagem da pasta de uploads de produção
+- **Completed**: T01..T28 + AD-021 + AD-022 + AD-023 + AD-024 + AD-025
+- **In-progress**: Finalização de PR e merge
 - **Next step**: Executar fluxo de commit e PR conforme regras
 - **Blockers**: none
-- **Branch**: main
+- **Branch**: feat/make-ssh-and-ls-uploads-prod

@@ -18,6 +18,8 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | `make tunnel`                                                                   | Abre túnel SSH seguro com MongoDB remoto (27018)      |
 | `make db-and-collection`                                                        | Exibe árvore de bancos e coleções MongoDB local       |
 | `make db-and-collection-prod`                                                   | Exibe árvore de bancos e coleções no container prod   |
+| `make ssh-uploads-prod`                                                         | Abre sessão SSH interativa na pasta uploads de prod  |
+| `make ls-uploads-prod`                                                          | Lista arquivos e pastas em uploads no servidor prod   |
 | `make fetch-robot-debug-images`                                                 | Baixa screenshots de debug do container de produção   |
 | `make routes-inventory`                                                         | Gera inventário de rotas HTTP em `.specs/`            |
 | `make routes-inventory-check`                                                   | Valida integridade do inventário de rotas (CI)        |
