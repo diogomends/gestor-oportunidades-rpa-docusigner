@@ -537,5 +537,32 @@ describe("Robot Standalone - IMAP MFA Client Tests", () => {
 
       assert.equal(code, "555555", "Deveria extrair código usando o cabeçalho Date quando INTERNALDATE estiver ausente");
     });
+
+    it("deve aceitar qualquer assunto quando subjectFilter for passado como string vazia (desabilitado)", async () => {
+      const client = new ImapClient({
+        host: "127.0.0.1",
+        port: serverPort,
+        tls: false,
+        timeout: 5000,
+      });
+      await client.connect();
+      const origSend = client.sendCommand.bind(client);
+      client.sendCommand = async (cmd) => {
+        if (cmd.includes("UID FETCH")) {
+          const tag = `A${String(client.tagIndex + 1).padStart(4, "0")}`;
+          const email = `Subject: Outro Assunto Qualquer\r\n\r\nSeu código de verificação da Docusign é: 444444\r\n`;
+          return { tag, response: "OK", raw: `* 1 FETCH (UID 101 BODY[] {${email.length}}\r\n${email})\r\n${tag} OK UID FETCH completed\r\n` };
+        }
+        return origSend(cmd);
+      };
+
+      const code = await client.fetchLatestMfaCode("test@unitynordeste.com.br", "secret123", {
+        subjectFilter: "",
+      });
+      await client.logout().catch(() => {});
+      client.close();
+
+      assert.equal(code, "444444", "Deveria aceitar mensagem com qualquer assunto quando subjectFilter for string vazia");
+    });
   });
 });
