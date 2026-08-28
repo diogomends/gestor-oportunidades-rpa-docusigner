@@ -1,7 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import mongoose from "mongoose";
-import "../../helpers/setup.js";
 import RobotJob from "../../../backend/src/modules/robot-docusign/models/RobotJob.js";
 
 /**

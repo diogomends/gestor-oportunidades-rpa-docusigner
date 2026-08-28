@@ -3,7 +3,6 @@ import assert from "node:assert";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 
-import "../../helpers/setup.js";
 import app from "../../../backend/src/app.js";
 import User from "../../../backend/src/models/User.js";
 import RobotJob from "../../../backend/src/modules/robot-docusign/models/RobotJob.js";

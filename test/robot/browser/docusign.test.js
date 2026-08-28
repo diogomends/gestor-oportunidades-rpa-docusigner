@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import "../../helpers/setup.js";
 import { saveSessionState, ensureAuthenticated, sendEnvelope, checkEnvelopeStatus } from "../../../robot/src/browser/docusign.js";
 
 describe("Robot Standalone - DocuSign Browser & Session Hardening Tests", () => {

@@ -8,7 +8,9 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | -------------------------------- | ------------------------------------------------ |
 | `npm start`                      | Produção (`node backend/src/server.js`)          |
 | `npm run dev`                    | Dev com nodemon (`backend/src/server.js`)        |
-| `npm test`                       | Testes nativos (`node --test`)                   |
+| `npm test`                       | Testes nativos (`node --test` em `test/**/*.test.js`) |
+| `npm run test:backend`           | Testes backend (`test/backend/**`)               |
+| `npm run test:robot`             | Testes robô (`test/robot/**`)                    |
 | `npm run build:robot`            | Gera executáveis do robô                         |
 | `npx playwright install chromium` | Instala browser Chromium para o robô             |
 | `docker compose up --build`      | Sobe servidor em container Docker local          |
@@ -63,6 +65,9 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │   ├── dist-bundle/       # Bundle temporário do esbuild (CJS)
 │   ├── dist-obf/          # Código ofuscado temporário
 │   └── dist-jsc/          # Bytecode V8 temporário (.jsc)
+├── test/
+│   ├── backend/               # Testes backend (controllers, models, services)
+│   └── robot/                 # Testes robô (browser/)
 ```
 
 - **ES Modules** puro. Use `import`/`export`.
@@ -142,7 +147,7 @@ Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variá
 - **Validação**: Zod para request body/params em controllers.
 - **Autorização**: `protect` (JWT Bearer) + `authorize("admin")` nas rotas.
 - **Erros ACL**: HTTP 403 com mensagem em português.
-- **Testes**: `node --test` nativo (sem Jest). Mocks via `node:test`. Supertest para integração. **Não rodar sem ser solicitado.**
+- **Testes**: `node --env-file=.env.dev --test` nativo (sem Jest) em `test/**/*.test.js` (`test/backend` + `test/robot`). Mocks via `node:test`. Supertest para integração. Carrega variáveis de ambiente diretamente de `.env.dev`. **Não rodar sem ser solicitado.**
 - **Idioma**: pt-BR em mensagens, commits e documentação.
 - **Commit**: sempre `--no-verify` em `git commit` e `git push`. Gerar comandos, nunca executar. Seguir `.agents/rules/commit.md`.
 - **JSDoc obrigatório**: Toda função, método ou classe criada/alterada DEVE ter JSDoc. Sem exceção.

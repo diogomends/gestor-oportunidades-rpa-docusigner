@@ -103,7 +103,9 @@ O repositório está integrado com **GitHub Actions**:
 | `npm start` | Inicia o backend em produção (`node backend/src/server.js`) |
 | `npm run dev` | Inicia o backend em desenvolvimento com nodemon |
 | `npm run build:robot` | Compila o robô e gera o executável protegido `.exe` |
-| `npm test` | Executa testes nativos (`node --test`) |
+| `npm test` | Executa todos os testes nativos (`node --test` em `test/**/*.test.js`) |
+| `npm run test:backend` | Executa só testes do backend (`test/backend/**`) |
+| `npm run test:robot` | Executa só testes do robô (`test/robot/**`) |
 
 ### Makefile (via `make`)
 
@@ -151,6 +153,9 @@ backend/
 │           ├── services/      # robotOrchestrator, robotBrowser, robotScheduler
 │           ├── selectors/     # CSS selectors para automação
 │           └── routes/
+├── test/              # Testes (raiz do projeto)
+│   ├── backend/controllers|models|services
+│   └── robot/browser/
 ```
 
 ### `robot/` — Robô Autônomo (Executável)
@@ -175,6 +180,9 @@ robot/
 ├── scripts/
 │   └── setup.bat       # Instalador para máquina do agente
 └── package.json
+├── test/              # Testes (raiz, espelha backend/robot)
+│   ├── backend/controllers|models|services
+│   └── robot/browser/
 ```
 
 ### Gerar Executável (.exe)
@@ -269,6 +277,6 @@ Este projeto interage com `gestor-oportunidades`. Consulte-o antes de alterar sc
 - **ES Modules** puro: use `import`/`export`
 - **Validação**: Zod para request body/params
 - **Autorização**: `protect` (JWT Bearer) + `authorize("admin")`
-- **Testes**: `node --test` nativo (sem Jest)
+- **Testes**: `node --env-file=.env.dev --test` nativo (sem Jest) em `test/**/*.test.js` (`test/backend` + `test/robot`), carrega variáveis diretamente de `.env.dev`, mocks via `node:test`, Supertest
 - **Idioma**: pt-BR em mensagens e documentação
 - **JSDoc obrigatório**: Toda função, método ou classe criada/alterada DEVE ter JSDoc (`@param`, `@returns`, `@throws`/`@async` quando aplicável; `@class` no constructor; `@typedef`+`@type` em Models; `@param {import('express').Request}` em middlewares)
