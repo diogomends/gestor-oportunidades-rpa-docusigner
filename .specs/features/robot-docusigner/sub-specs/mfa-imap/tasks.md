@@ -133,3 +133,30 @@
   2. [x] **T23.2**: Suportar parâmetro `excludedCodes` em `fetchLatestMfaCode` e `fetchMfaCodeViaImap` para ignorar códigos rejeitados.
   3. [x] **T23.3**: Implementar loop com até 3 tentativas em `ensureAuthenticated`, com detecção visual de erro, limpeza de campo e nova busca de código.
 
+---
+
+### [x] T24: Filtro IMAP por Título ("Verificar um novo dispositivo") e Timestamp de Disparo (`mfaTriggerTime`) (2026-08-28)
+- **Objetivo**: Garantir que o `imapClient` filtre e leia exclusivamente e-mails cujo assunto contenha *"Verificar um novo dispositivo"* e que tenham chegado após o momento de exibição da tela de MFA (`mfaTriggerTime`), removendo regex genérica permissiva.
+- **Arquivos**:
+  - `robot/src/browser/imapClient.js`
+  - `robot/src/browser/docusign.js`
+  - `robot/src/browser/imapClient.test.js`
+- **Ações**:
+  1. [x] **T24.1**: Passar `mfaTriggerTime = Date.now()` de `docusign.js` para `fetchMfaCodeViaImap`.
+  2. [x] **T24.2**: Buscar cabeçalhos `Subject` e `Date` no IMAP (`BODY.PEEK[HEADER.FIELDS (SUBJECT DATE)]` ou `INTERNALDATE`).
+  3. [x] **T24.3**: Filtrar mensagens pelo título *"Verificar um novo dispositivo"* (com decodificação MIME) e descartar e-mails com data anterior a `mfaTriggerTime`.
+  4. [x] **T24.4**: Remover a regex permissiva `\b(\d{6})\b` em `extractMfaCodeFromText`, mantendo padrões estritos de código DocuSign.
+
+---
+
+### [x] T25: Persistência de Sessão de Navegação (`storageState`) no Robô Local (2026-08-28)
+- **Objetivo**: Salvar o estado de autenticação (`storageState`) após o primeiro login/MFA bem-sucedido e carregá-lo nos jobs seguintes para manter a sessão ativa sem exigir login repetitivo.
+- **Arquivos**:
+  - `robot/src/job-runner.js`
+  - `robot/src/browser/docusign.js`
+- **Ações**:
+  1. [x] **T25.1**: Configurar salvamento de `storageState: "session-docusign.json"` em `ensureAuthenticated` após login com sucesso.
+  2. [x] **T25.2**: Configurar `chromium.launch` / `newContext` no `JobRunner` para carregar `storageState` se o arquivo existir.
+  3. [x] **T25.3**: Em caso de expiração de sessão ou redirecionamento OAuth, invalidar o arquivo local e forçar novo ciclo de autenticação.
+
+

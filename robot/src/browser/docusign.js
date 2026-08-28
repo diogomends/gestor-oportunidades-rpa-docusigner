@@ -22,9 +22,17 @@ export async function randomDelay(minMs = 800, maxMs = 2000) {
  * @param {Object} credentials - Credenciais DocuSign ({ email, password, token_notification_email }).
  * @param {string} credentials.email - E-mail de login DocuSign.
  * @param {string} credentials.password - Senha de login DocuSign.
+ * @param {Object} [options={}] - Opções adicionais de autenticação e sessão.
+ * @param {string} [options.sessionPath] - Caminho do arquivo storageState para persistência da sessão.
  * @returns {Promise<void>} Resolve quando a autenticação (incluindo MFA) for concluída.
  */
-export async function ensureAuthenticated(page, credentials) {
+export async function ensureAuthenticated(page, credentials, options = {}) {
+  const sessionPath =
+    options.sessionPath ||
+    options.sessionFilePath ||
+    process.env.DOCUSIGN_SESSION_PATH ||
+    path.resolve(process.cwd(), "session-docusign.json");
+
   const baseUrl = selectors.baseUrl || "https://app.docusign.com";
   logger.step("Browser", `Navegando para DocuSign: ${baseUrl}...`);
 
@@ -39,6 +47,15 @@ export async function ensureAuthenticated(page, credentials) {
     currentUrl.includes("identity.");
 
   if (isLoginPage) {
+    if (sessionPath && fs.existsSync(sessionPath)) {
+      logger.step("Browser", "Sessão anterior expirada ou inválida. Limpando arquivo de sessão local...");
+      try {
+        fs.unlinkSync(sessionPath);
+      } catch (unlinkErr) {
+        logger.warn("Browser", `Falha ao remover arquivo de sessão expirado: ${unlinkErr.message}`);
+      }
+    }
+
     logger.step("Browser", `Tela de autenticação identificada (${currentUrl}). Preenchendo credenciais...`);
 
     const loginSel = selectors.login;
@@ -93,6 +110,7 @@ export async function ensureAuthenticated(page, credentials) {
 
     if (mfaInput) {
       logger.step("Browser", "🔍 Tela de verificação (MFA/2FA) da DocuSign localizada! Iniciando resolução de código...");
+      const mfaTriggerTime = Date.now();
       const mailCreds = credentials.token_notification_email || credentials;
       const testedCodes = [];
       const MAX_MFA_ATTEMPTS = 3;
@@ -109,6 +127,7 @@ export async function ensureAuthenticated(page, credentials) {
             otpCode = await fetchMfaCodeViaImap(mailCreds, {
               maxWaitMs: 30000,
               excludedCodes: testedCodes,
+              mfaTriggerTime,
             });
           } catch (imapErr) {
             logger.warn("Browser", `Consulta IMAP retornou erro: ${imapErr.message}`);
@@ -206,8 +225,28 @@ export async function ensureAuthenticated(page, credentials) {
     }
 
     logger.success("Browser", "Autenticação na DocuSign concluída com sucesso.");
+    if (sessionPath && typeof page.context === "function") {
+      try {
+        const ctx = page.context();
+        if (ctx && typeof ctx.storageState === "function") {
+          logger.step("Browser", `Salvando estado de autenticação (storageState) em: ${sessionPath}...`);
+          await ctx.storageState({ path: sessionPath });
+          logger.success("Browser", `Sessão persistida com sucesso em: ${sessionPath}`);
+        }
+      } catch (saveErr) {
+        logger.warn("Browser", `Falha ao persistir storageState: ${saveErr.message}`);
+      }
+    }
   } else {
     logger.success("Browser", `Sessão ativa detectada na DocuSign (${currentUrl}).`);
+    if (sessionPath && typeof page.context === "function") {
+      try {
+        const ctx = page.context();
+        if (ctx && typeof ctx.storageState === "function") {
+          await ctx.storageState({ path: sessionPath });
+        }
+      } catch (_) {}
+    }
   }
 }
 
@@ -221,18 +260,31 @@ export async function ensureAuthenticated(page, credentials) {
  * @param {string} [envelopeData.message] - Mensagem do e-mail.
  * @param {string} envelopeData.pdfPath - Caminho local do PDF do contrato.
  * @param {Object} envelopeData.credentials - Credenciais DocuSign para autenticação.
+ * @param {string} [envelopeData.sessionPath] - Caminho opcional do arquivo storageState de sessão.
  * @returns {Promise<{envelopeId: string, recipientName: string, recipientEmail: string, status: string, sentAt: string}>} Resultado do envio.
  */
 export async function sendEnvelope(page, envelopeData) {
-  const { recipientName, recipientEmail, subject, message, pdfPath, credentials } = envelopeData;
+  const { recipientName, recipientEmail, subject, message, pdfPath, credentials, sessionPath } = envelopeData;
 
-  await ensureAuthenticated(page, credentials);
+  await ensureAuthenticated(page, credentials, { sessionPath });
 
   logger.step("Browser", `Iniciando envio de contrato para ${recipientName} (${recipientEmail})...`);
   const sendSel = selectors.send;
 
   await page.goto(sendSel.url, { waitUntil: "networkidle", timeout: 45000 });
   await randomDelay(1500, 3000);
+
+  const postNavUrl = page.url();
+  if (
+    postNavUrl.includes("account.docusign.com") ||
+    postNavUrl.includes("/oauth/") ||
+    postNavUrl.includes("/login") ||
+    postNavUrl.includes("identity.")
+  ) {
+    logger.warn("Browser", `Redirecionamento para login detectado durante navegação para envio (${postNavUrl}). Reautenticando...`);
+    await ensureAuthenticated(page, credentials, { sessionPath });
+    await page.goto(sendSel.url, { waitUntil: "networkidle", timeout: 45000 });
+  }
 
   // 1. Upload do Arquivo PDF
   if (pdfPath && fs.existsSync(pdfPath)) {
@@ -295,13 +347,28 @@ export async function sendEnvelope(page, envelopeData) {
  * @param {import('playwright').Page} page - Instância da página Playwright autenticada.
  * @param {string} envelopeId - Identificador do envelope DocuSign.
  * @param {Object} credentials - Credenciais DocuSign para autenticação.
+ * @param {Object} [options={}] - Opções adicionais de consulta.
+ * @param {string} [options.sessionPath] - Caminho opcional do arquivo storageState de sessão.
  * @returns {Promise<{envelopeId: string, status: string, checkedAt: string}>} Status atual do envelope.
  */
-export async function checkEnvelopeStatus(page, envelopeId, credentials) {
-  await ensureAuthenticated(page, credentials);
+export async function checkEnvelopeStatus(page, envelopeId, credentials, options = {}) {
+  const sessionPath = options.sessionPath || options.sessionFilePath;
+  await ensureAuthenticated(page, credentials, { sessionPath });
   const targetUrl = `${selectors.baseUrl}/documents/${envelopeId}`;
   logger.step("Browser", `Consultando status do envelope: ${envelopeId}...`);
   await page.goto(targetUrl, { waitUntil: "networkidle", timeout: 30000 });
+
+  const postNavUrl = page.url();
+  if (
+    postNavUrl.includes("account.docusign.com") ||
+    postNavUrl.includes("/oauth/") ||
+    postNavUrl.includes("/login") ||
+    postNavUrl.includes("identity.")
+  ) {
+    logger.warn("Browser", `Redirecionamento para login detectado durante consulta de status (${postNavUrl}). Reautenticando...`);
+    await ensureAuthenticated(page, credentials, { sessionPath });
+    await page.goto(targetUrl, { waitUntil: "networkidle", timeout: 30000 });
+  }
 
   const badgeEl = await page.$(selectors.status.status_badge);
   const statusText = badgeEl ? (await badgeEl.innerText()).trim().toLowerCase() : "unknown";

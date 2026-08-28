@@ -86,10 +86,16 @@ export class JobRunner {
    * @param {import('./api-client.js').ApiClient} apiClient - Cliente da API central.
    * @param {Object} [options={}] - Opções de execução.
    * @param {boolean} [options.headless=true] - Se o navegador deve rodar em modo headless.
+   * @param {string} [options.sessionFilePath] - Caminho do arquivo storageState de persistência da sessão.
    */
   constructor(apiClient, options = {}) {
     this.api = apiClient;
     this.headless = options.headless !== false;
+    this.sessionFilePath =
+      options.sessionFilePath ||
+      options.sessionPath ||
+      process.env.DOCUSIGN_SESSION_PATH ||
+      path.resolve(process.cwd(), "session-docusign.json");
   }
 
   /**
@@ -146,11 +152,31 @@ export class JobRunner {
         ],
       });
 
-      context = await browser.newContext({
+      const contextOptions = {
         userAgent:
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         viewport: { width: 1366, height: 768 },
-      });
+      };
+
+      if (this.sessionFilePath && fs.existsSync(this.sessionFilePath)) {
+        logger.step("JobRunner", `Carregando sessão persistida (storageState) de: ${this.sessionFilePath}`);
+        contextOptions.storageState = this.sessionFilePath;
+      }
+
+      try {
+        context = await browser.newContext(contextOptions);
+      } catch (ctxErr) {
+        if (contextOptions.storageState) {
+          logger.warn("JobRunner", `Falha ao instanciar contexto com storageState corrompido (${ctxErr.message}). Criando novo contexto limpo...`);
+          try {
+            fs.unlinkSync(this.sessionFilePath);
+          } catch (_) {}
+          delete contextOptions.storageState;
+          context = await browser.newContext(contextOptions);
+        } else {
+          throw ctxErr;
+        }
+      }
 
       const page = await context.newPage();
       logger.success("JobRunner", "Navegador Playwright inicializado com sucesso.");
@@ -176,6 +202,7 @@ export class JobRunner {
           message: job.message,
           pdfPath: tempPdfPath,
           credentials,
+          sessionPath: this.sessionFilePath,
         });
 
         await this.api.updateJobStatus(jobId, {
@@ -186,7 +213,9 @@ export class JobRunner {
         });
       } else if (action === "status") {
         logger.step("JobRunner", `Consultando status do envelope ${job.envelopeId}...`);
-        result = await checkEnvelopeStatus(page, job.envelopeId, credentials);
+        result = await checkEnvelopeStatus(page, job.envelopeId, credentials, {
+          sessionPath: this.sessionFilePath,
+        });
         await this.api.updateJobStatus(jobId, {
           status: "completed",
           result,
