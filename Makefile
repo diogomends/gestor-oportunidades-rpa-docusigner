@@ -8,26 +8,30 @@ else
   endif
 endif
 
+# Defaults (override via .env ou command-line: make VAR=valor)
+DEPLOY_HOST ?= root@165.227.212.57
+DEPLOY_KEY ?= C:\Users\Convidade\.ssh\deploy_key
+DEPLOY_KEY_PATH ?=
+REMOTE_PROJECT_PATH ?= /home/appuser/servidor-unity-rce/gestor-oportunidades-rpa-docusigner
+REMOTE_UPLOADS_PATH ?= /home/appuser/servidor-unity-rce/gestor-oportunidades/uploads
+HEADLESS ?= true
+
 ifeq ($(OS),Windows_NT)
     SHELL := cmd.exe
     SCP_BIN := C:\Windows\Sysnative\OpenSSH\scp.exe
     SSH_BIN := C:\Windows\Sysnative\OpenSSH\ssh.exe
-    SSH_TUNNEL := powershell -Command "$(SSH_BIN) -L 27018:127.0.0.1:27017 $(DEPLOY_HOST) -N"
-    SSH_EXEC := powershell -Command "Get-Content tools/db-and-collection.js | $(SSH_BIN) $(DEPLOY_HOST) 'docker exec -i app_docusigner node -'"
+    SSH_OPTS = -i $(DEPLOY_KEY) -o StrictHostKeyChecking=no
+    SSH_TUNNEL = powershell -Command "$(SSH_BIN) $(SSH_OPTS) -L 27018:127.0.0.1:27017 $(DEPLOY_HOST) -N"
+    SSH_EXEC = powershell -Command "Get-Content tools/db-and-collection.js | $(SSH_BIN) $(SSH_OPTS) $(DEPLOY_HOST) 'docker exec -i app_docusigner node -'"
 else
     SCP_BIN := scp
     SSH_BIN := ssh
-    SSH_TUNNEL := ssh -L 27018:127.0.0.1:27017 $(DEPLOY_HOST) -N
-    SSH_EXEC := cat tools/db-and-collection.js | ssh $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
+    SSH_OPTS = -o StrictHostKeyChecking=no
+    SSH_TUNNEL = ssh $(SSH_OPTS) -L 27018:127.0.0.1:27017 $(DEPLOY_HOST) -N
+    SSH_EXEC = cat tools/db-and-collection.js | ssh $(SSH_OPTS) $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
 endif
 
-# Defaults (override via .env ou command-line: make VAR=valor)
-DEPLOY_HOST ?= root@165.227.212.57
-DEPLOY_KEY_PATH ?=
-REMOTE_PROJECT_PATH ?= /home/appuser/servidor-unity-rce/gestor-oportunidades-rpa-docusigner
-HEADLESS ?= true
-
-.PHONY: help dev start test test-headed test-headed-ps build-robot install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod fetch-robot-debug-images routes-inventory routes-inventory-check
+.PHONY: help dev start test test-headed test-headed-ps build-robot install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod fetch-robot-debug-images uploads-prod uploads-prod routes-inventory routes-inventory-check
 
 help:
 	@echo "Makefile - Gestor de Oportunidades RPA DocuSigner"
@@ -58,6 +62,10 @@ help:
 	@echo "  make db-and-collection-prod - Lista bancos e colecoes no container de producao"
 	@echo "  make mongosh-contracts      - Consulta contratos via mongosh local"
 	@echo "  make mongosh-contracts-prod - Consulta contratos no servidor remoto (requer tunnel ativo)"
+	@echo ""
+	@echo "--- Arquivos e Uploads Remotos ---"
+	@echo "  make uploads-prod       - Abre sessao SSH interativa direto na pasta uploads/ em producao"
+	@echo "  make uploads-prod        - Lista diretorios e arquivos da pasta uploads/ em producao (use DIR=...)"
 	@echo ""
 	@echo "--- Utilitarios e Logs do Robo ---"
 	@echo "  make fetch-robot-debug-images - Baixa screenshots de debug do container de producao para tmp/robot-debug/"
@@ -141,12 +149,20 @@ mongosh-contracts-prod:
 	@echo "Requer tunnel ativo em outra janela (make tunnel)"
 	mongosh --host localhost --port 27018 -u admin -p "Ssl@7056" --authenticationDatabase admin crm_contracts --eval "db.contracts.find().pretty()"
 
+## Arquivos e Uploads Remotos
+
+uploads-prod:
+	powershell -Command "& '$(SSH_BIN)' $(SSH_OPTS) -t $(DEPLOY_HOST) 'cd $(REMOTE_UPLOADS_PATH) && exec bash -i'"
+
+uploads-prod:
+	powershell -Command "& '$(SSH_BIN)' $(SSH_OPTS) $(DEPLOY_HOST) 'cd $(REMOTE_UPLOADS_PATH) && ls -la $(DIR)'"
+
 ## Utilitários e Logs
 
 fetch-robot-debug-images:
 	powershell -Command "if (!(Test-Path -Path 'tmp\robot-debug')) { New-Item -ItemType Directory -Path 'tmp\robot-debug' -Force | Out-Null }"
-	powershell -Command "& '$(SSH_BIN)' -i C:\Users\Convidade\.ssh\deploy_key -o StrictHostKeyChecking=no $(DEPLOY_HOST) \"docker exec app_docusigner mkdir -p /app/tmp/robot-debug && mkdir -p $(REMOTE_PROJECT_PATH)/tmp/robot-debug && docker cp app_docusigner:/app/tmp/robot-debug/. $(REMOTE_PROJECT_PATH)/tmp/robot-debug/\""
-	powershell -Command "& '$(SCP_BIN)' -i C:\Users\Convidade\.ssh\deploy_key -o StrictHostKeyChecking=no -r $(DEPLOY_HOST):$(REMOTE_PROJECT_PATH)/tmp/robot-debug/* tmp/robot-debug/"
+	powershell -Command "& '$(SSH_BIN)' $(SSH_OPTS) $(DEPLOY_HOST) \"docker exec app_docusigner mkdir -p /app/tmp/robot-debug && mkdir -p $(REMOTE_PROJECT_PATH)/tmp/robot-debug && docker cp app_docusigner:/app/tmp/robot-debug/. $(REMOTE_PROJECT_PATH)/tmp/robot-debug/\""
+	powershell -Command "& '$(SCP_BIN)' $(SSH_OPTS) -r $(DEPLOY_HOST):$(REMOTE_PROJECT_PATH)/tmp/robot-debug/* tmp/robot-debug/"
 
 routes-inventory:
 	node tools/generate-routes-inventory.js
@@ -158,7 +174,7 @@ clean:
 	powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue robot\dist, robot\dist-bundle, robot\dist-obf, robot\dist-jsc"
 
 clean-test:
-	powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue test-results, playwright-report, tmp\test-results -ErrorAction SilentlyContinue"
+	powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue test-results, playwright-report, tmp\test-results"
 
 clean-all: clean clean-test
 	powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue node_modules, backend\node_modules, robot\node_modules"
