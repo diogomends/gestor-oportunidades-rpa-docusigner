@@ -1,10 +1,11 @@
 import { describe, it, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert";
-import robotScheduler from "./robotScheduler.js";
-import robotOrchestrator from "./robotOrchestrator.js";
-import RobotJob from "../models/RobotJob.js";
-import Contract from "../../../models/Contract.js";
-import SystemConfig from "../../../models/SystemConfig.js";
+import "../../helpers/setup.js";
+import robotScheduler from "../../../backend/src/modules/robot-docusign/services/robotScheduler.js";
+import robotOrchestrator from "../../../backend/src/modules/robot-docusign/services/robotOrchestrator.js";
+import RobotJob from "../../../backend/src/modules/robot-docusign/models/RobotJob.js";
+import Contract from "../../../backend/src/models/Contract.js";
+import SystemConfig from "../../../backend/src/models/SystemConfig.js";
 
 describe("Robot DocuSign - Unit Tests: robotScheduler", () => {
   beforeEach(() => {

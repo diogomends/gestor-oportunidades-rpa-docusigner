@@ -256,6 +256,7 @@ export const getInstanceConfig = async (req, res) => {
         port: Number(robotConfig.token_notification_email?.port) || 993,
         tls: robotConfig.token_notification_email?.tls !== false,
       },
+      mfa: robotConfig.mfa || { maxWaitMs: 90000, maxAgeMs: 600000 },
       limits: robotConfig.limits || { max_concurrent: 3 },
       retry: robotConfig.retry || { maxAttempts: 3, baseDelayMs: 2000 },
     });
@@ -419,8 +420,10 @@ export const getNextJob = async (req, res) => {
       credentials: {
         ...(config.credentials || {}),
         token_notification_email: config.token_notification_email,
+        mfa: config.mfa,
       },
       token_notification_email: config.token_notification_email,
+      mfa: config.mfa || { maxWaitMs: 90000, maxAgeMs: 600000 },
     };
 
     // Atualiza status da instância

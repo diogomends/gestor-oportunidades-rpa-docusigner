@@ -89,6 +89,11 @@ export const DEFAULT_ROBOT_DOCUSIGN_CONFIG = {
     port: 993,
     tls: true,
   },
+  // ponytail: mfa configurável via SystemConfig (key robot_docusign.value.mfa) — default 90s/10min
+  mfa: {
+    maxWaitMs: 90000,
+    maxAgeMs: 10 * 60 * 1000,
+  },
 };
 
 /**
@@ -119,6 +124,10 @@ export async function getRobotConfig() {
     token_notification_email: {
       ...DEFAULT_ROBOT_DOCUSIGN_CONFIG.token_notification_email,
       ...(savedValue.token_notification_email || {}),
+    },
+    mfa: {
+      ...DEFAULT_ROBOT_DOCUSIGN_CONFIG.mfa,
+      ...(savedValue.mfa || {}),
     },
   };
 

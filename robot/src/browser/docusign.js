@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import selectors from "./selectors.js";
 import { fetchMfaCodeFromRoundcube } from "./roundcube.js";
-import { fetchMfaCodeViaImap } from "./imapClient.js";
+import { fetchMfaCodeViaImap, DEFAULT_MFA_MAX_WAIT_MS, DEFAULT_MFA_MAX_AGE_MS } from "./imapClient.js";
 import logger from "../utils/logger.js";
 
 /**
@@ -112,6 +112,27 @@ export async function ensureAuthenticated(page, credentials, options = {}) {
       logger.step("Browser", "🔍 Tela de verificação (MFA/2FA) da DocuSign localizada! Iniciando resolução de código...");
       let mfaTriggerTime = Date.now();
       const mailCreds = credentials.token_notification_email || credentials;
+      // ponytail: janela e timeout configuráveis via credentials.mfa.*, credentials.mfaMaxAgeMs/mfaMaxWaitMs ou SystemConfig mfa.* (env MFA_MAX_AGE_MS)
+      const mfaMaxAgeMs =
+        typeof credentials?.mfa?.maxAgeMs === "number"
+          ? credentials.mfa.maxAgeMs
+          : typeof mailCreds?.mfaMaxAgeMs === "number"
+            ? mailCreds.mfaMaxAgeMs
+            : typeof credentials?.mfaMaxAgeMs === "number"
+              ? credentials.mfaMaxAgeMs
+              : typeof process.env.MFA_MAX_AGE_MS !== "undefined"
+                ? Number(process.env.MFA_MAX_AGE_MS)
+                : DEFAULT_MFA_MAX_AGE_MS;
+      const mfaMaxWaitMs =
+        typeof credentials?.mfa?.maxWaitMs === "number"
+          ? credentials.mfa.maxWaitMs
+          : typeof mailCreds?.mfaMaxWaitMs === "number"
+            ? mailCreds.mfaMaxWaitMs
+            : typeof credentials?.mfaMaxWaitMs === "number"
+              ? credentials.mfaMaxWaitMs
+              : typeof process.env.MFA_MAX_WAIT_MS !== "undefined"
+                ? Number(process.env.MFA_MAX_WAIT_MS)
+                : DEFAULT_MFA_MAX_WAIT_MS;
       const testedCodes = [];
       const MAX_MFA_ATTEMPTS = 3;
       let authenticated = false;
@@ -125,7 +146,8 @@ export async function ensureAuthenticated(page, credentials, options = {}) {
           try {
             logger.step("Browser", "Iniciando consulta ao servidor de e-mail via IMAP nativo...");
             otpCode = await fetchMfaCodeViaImap(mailCreds, {
-              maxWaitMs: 90000,
+              maxWaitMs: mfaMaxWaitMs,
+              mfaMaxAgeMs,
               excludedCodes: testedCodes,
               mfaTriggerTime,
             });
@@ -138,7 +160,8 @@ export async function ensureAuthenticated(page, credentials, options = {}) {
         if (!otpCode) {
           logger.step("Browser", "IMAP não retornou código. Executando fallback via Webmail Roundcube...");
           otpCode = await fetchMfaCodeFromRoundcube(page.context(), mailCreds, {
-            maxWaitMs: 90000,
+            maxWaitMs: mfaMaxWaitMs,
+            mfaMaxAgeMs,
             mfaTriggerTime,
             excludedCodes: testedCodes,
           });

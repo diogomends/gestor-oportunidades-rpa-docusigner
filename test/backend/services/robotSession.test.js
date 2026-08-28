@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert";
-import RobotSession from "../models/RobotSession.js";
+import "../../helpers/setup.js";
+import RobotSession from "../../../backend/src/modules/robot-docusign/models/RobotSession.js";
 import {
   saveSession,
   getSession,
@@ -10,7 +11,7 @@ import {
   getOrRefreshSession,
   invalidateSession,
   MFA_TIMEOUT,
-} from "./robotSession.js";
+} from "../../../backend/src/modules/robot-docusign/services/robotSession.js";
 
 describe("robotSession Service", () => {
   beforeEach(() => {

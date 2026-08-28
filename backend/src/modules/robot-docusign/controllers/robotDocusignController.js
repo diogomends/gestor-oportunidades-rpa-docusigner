@@ -58,6 +58,12 @@ const updateConfigSchema = z.object({
       tls: z.boolean().optional(),
     })
     .optional(),
+  mfa: z
+    .object({
+      maxWaitMs: z.number().int().min(1000).optional(),
+      maxAgeMs: z.number().int().min(1000).optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -442,6 +448,10 @@ export const updateConfig = async (req, res) => {
       token_notification_email: {
         ...currentConfig.token_notification_email,
         ...(parseResult.data.token_notification_email || {}),
+      },
+      mfa: {
+        ...currentConfig.mfa,
+        ...(parseResult.data.mfa || {}),
       },
     };
 

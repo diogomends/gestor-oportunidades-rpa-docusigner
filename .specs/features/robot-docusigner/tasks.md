@@ -4,6 +4,8 @@
 
 ## Execution Protocol
 
+> **Testes centralizados em `test/backend/**` + `test/robot/**`, setup via `test/helpers/setup.js` (dotenv `.env.dev` com defaults fake).**
+
 - **Runner**: `node --test` (nativo do Node 18+)
 - **Framework**: `node:assert` + `node:test` (mock.method, mock.restoreAll)
 - **DB em testes**: `mongodb-memory-server` (quando necessário)
@@ -12,13 +14,16 @@
 - **Commits**: Atômicos por task, seguindo `.agents/rules/commit.md`
 - **Lint**: `npm run lint` antes de cada commit
 - **Idioma**: pt-BR em mensagens, comentários e documentação
+- **Testes**: centralizados em `test/backend/**` + `test/robot/**`, setup via `test/helpers/setup.js` (dotenv `.env.dev` com defaults fake)
 
 ## Gate Check Commands
 
 ```bash
 npm run lint              # Lint antes de commit
-npm test                  # Testes unitários
-node --test src/modules/robot-docusign/**/*.test.js  # Testes do módulo
+npm test                  # Testes unitários (atalho: node --test test/**/*.test.js)
+node --test test/**/*.test.js              # Todos os testes (usa test/helpers/setup.js)
+node --test test/backend/**/*.test.js      # Apenas backend
+node --test test/robot/**/*.test.js        # Apenas robô
 npm run typecheck         # Type check (se disponível)
 ```
 
@@ -84,7 +89,7 @@ npm run typecheck         # Type check (se disponível)
 - Timestamps (createdAt, updatedAt)
 - Índices em: `status`, `contract_id`, `next_retry_at`
 
-**Tests**: `src/modules/robot-docusign/models/RobotJob.test.js`
+**Tests**: `test/backend/models/RobotJob.test.js`
 - Criação com campos obrigatórios, validação de enum, defaults, índices, campos opcionais
 
 **Feito quando**: Schema criado, exportado, importado em `server.js`, testes passam, lint OK.
@@ -464,6 +469,8 @@ Criar `src/services/gestorApiClient.js` para comunicar com o Gestor de Oportunid
 - `src/services/gestorApiClient.js` (novo)
 - `.env.example` (adicionar `GESTOR_API_URL` e `ROBOT_API_KEY`)
 
+**Tests**: `test/backend/services/gestorApiClient.test.js`
+
 **Feito quando**:
 - [x] `gestorApiClient.js` criado com suporte a `baseURL` e header `x-robot-key: process.env.ROBOT_API_KEY`.
 - [x] Funções `validateApiKey`, `fetchPendingContracts` e `updateContractStatus` exportadas.
@@ -514,8 +521,8 @@ O frontend do `gestor-oportunidades` (PR #461, commit `986e358`, já mergeado) a
 **Onde**:
 - `backend/src/modules/robot-docusign/controllers/robotDocusignController.js` — `testLoginSchema`: adicionar `otpCode: z.string().regex(/^\d{6}$/).optional()`; propagar nas credenciais; mapear erros `MFA_REQUIRED`/`OTP_INVALID` para HTTP 401 com corpo JSON específico.
 - `backend/src/modules/robot-docusign/services/robotSession.js` — `loginAndSaveSession`: passo opcional pós-senha com detecção da tela MFA, preenchimento do código e submissão; constantes `MFA_TIMEOUT`; seletores de MFA (ex.: `input[type='tel'], input[data-testid='mfa-code'], input[autocomplete='one-time-code']`) aceitos via `selectors.mfa`.
-- `backend/src/modules/robot-docusign/services/robotSession.test.js` — testes unitários: MFA sem código → erro `MFA_REQUIRED`; MFA com código → preenche/submente com timeout estendido; OTP inválido → erro `OTP_INVALID`; sem tela MFA → fluxo inalterado.
-- `backend/src/modules/robot-docusign/controllers/robotDocusignController.test.js` — integração: payload com `otpCode` válido/inválido (Zod → 400) e mapeamento dos erros 401.
+- `test/backend/services/robotSession.test.js` — testes unitários: MFA sem código → erro `MFA_REQUIRED`; MFA com código → preenche/submente com timeout estendido; OTP inválido → erro `OTP_INVALID`; sem tela MFA → fluxo inalterado.
+- `test/backend/controllers/robotDocusignController.test.js` — integração: payload com `otpCode` válido/inválido (Zod → 400) e mapeamento dos erros 401.
 
 **Feito quando**:
 - [x] Schema Zod aceita `otpCode` de exatamente 6 dígitos numéricos (opcional).
@@ -594,7 +601,7 @@ Ao autenticar na DocuSign pelo robô, quando um novo dispositivo ou sessão exig
  - `robot/src/browser/docusign.js` (modificar chamada de MFA)
  - `backend/src/modules/robot-docusign/controllers/robotDocusignController.js` (atualizar schema Zod e encryptText)
  - `backend/src/modules/robot-docusign/services/robotOrchestrator.js` (propagação de host/port/tls)
- - `robot/src/browser/imapClient.test.js` e `backend/src/modules/robot-docusign/services/imapClient.test.js` (novos testes unitários)
+  - `test/robot/browser/imapClient.test.js` (fonte da verdade) e `test/backend/services/imapClient.test.js` (reexport ponytail M3)
  
  **Feito quando**:
  - [x] Conexão TLS com servidor IMAP autentica e extrai o código de 6 dígitos em < 3 segundos.
@@ -629,7 +636,7 @@ A Task T17 implementou com sucesso a extração headless via protocolo IMAP dire
 
 **Onde**:
 - `robot/src/browser/imapClient.js` (adicionar listeners de socket no sendCommand, filtro temporal e opções de polling)
-- `robot/src/browser/imapClient.test.js` e `backend/src/modules/robot-docusign/services/imapClient.test.js` (testes de resiliência e socket drops)
+- `test/robot/browser/imapClient.test.js` (fonte da verdade) e `test/backend/services/imapClient.test.js` (reexport ponytail M3 — testes de resiliência e socket drops)
 
 **Feito quando**:
 - [x] Quedas de socket durante `sendCommand` rejeitam a operação imediatamente com erro descritivo.
@@ -652,12 +659,12 @@ Aplicação dos princípios PonyTail para simplificação, remoção de overhead
 **O quê**:
 1. **M1 (Redução de UID SEARCH)**: Redução de 8 consultas IMAP sequenciais para 2 padrões (`SINCE <data>` com fallback `ALL`), delegando a filtragem por regex para o cliente.
 2. **M2 (Reuso de Conexão IMAP)**: Manutenção do mesmo socket/sessão autenticada durante o loop de polling em `fetchMfaCodeViaImap`.
-3. **M3 (Eliminação de Duplicação de Testes)**: Manter `robot/src/browser/imapClient.test.js` como fonte da verdade e referenciar diretamente em `backend/src/modules/robot-docusign/services/imapClient.test.js`.
+3. **M3 (Eliminação de Duplicação de Testes)**: Manter `test/robot/browser/imapClient.test.js` como fonte da verdade e referenciar diretamente em `test/backend/services/imapClient.test.js` (reexport ponytail M3).
 4. **M4 (Alinhamento de Constantes)**: `pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000`.
 
 **Onde**:
 - `robot/src/browser/imapClient.js` (M1/M2/M4 — `fetchMfaCodeViaImap`, `formatImapDate`, `SINCE`, `pollIntervalMs/backoff`)
-- `robot/src/browser/imapClient.test.js` (fonte da verdade, M3)
+- `test/robot/browser/imapClient.test.js` (fonte da verdade, M3)
 
 **Feito quando**:
 - [x] 8 → 2 `UID SEARCH` (M1), reuso de socket no polling (M2), teste único (M3) e constantes `3000/1.2/6000` (M4) — `CHANGELOG 5.51.0` migrado
@@ -686,7 +693,7 @@ Garantir que mensagens legadas ou com assuntos não relacionados a MFA não seja
 **Onde**:
 - `robot/src/browser/imapClient.js`
 - `robot/src/browser/docusign.js`
-- `robot/src/browser/imapClient.test.js`
+- `test/robot/browser/imapClient.test.js` (fonte da verdade) + `test/backend/services/imapClient.test.js` (reexport)
 
 **Feito quando**:
 - [x] `mfaTriggerTime` registrado e propagado até a rotina IMAP.
@@ -713,7 +720,7 @@ Garantir que arquivos de sessão com cookies (`session-docusign.json`) nunca vaz
 4. **P1 (Persistência Pós-Operação)**: Invocar `saveSessionState(page, sessionPath)` ao término de `sendEnvelope` e `checkEnvelopeStatus`.
 5. **P1 (Proteção contra Duplo Redirect)**: Em `sendEnvelope` e `checkEnvelopeStatus`, validar a URL após reautenticação e lançar erro explícito se permanecer em rotas OAuth/login.
 6. **P1 (Propagação de Configuração)**: Expor `DOCUSIGN_SESSION_PATH` em `config.js` e repassar a `JobRunner` no `main.js`.
-7. **P2 (Testes e Documentação)**: Criar suíte de testes unitários `robot/src/browser/docusign.test.js` e documentar `DOCUSIGN_SESSION_PATH` em `.env.example`, `README.md` e `AGENTS.md`.
+7. **P2 (Testes e Documentação)**: Criar suíte de testes unitários `test/robot/browser/docusign.test.js` e documentar `DOCUSIGN_SESSION_PATH` em `.env.example`, `README.md` e `AGENTS.md`.
 
 **Onde**:
 - `.gitignore`
@@ -722,7 +729,7 @@ Garantir que arquivos de sessão com cookies (`session-docusign.json`) nunca vaz
 - `robot/src/job-runner.js`
 - `robot/src/config.js`
 - `robot/src/main.js`
-- `robot/src/browser/docusign.test.js`
+- `test/robot/browser/docusign.test.js`
 - `.env.example`
 - `README.md`
 - `AGENTS.md`

@@ -31,7 +31,8 @@ Esta especificação define a substituição/evolução da extração via navega
   7. Marcar mensagem processada como lida (`STORE <uid> +FLAGS (\Seen)`), encerrar a conexão IMAP (`LOGOUT`) e retornar a string do código de 6 dígitos.
 
 ### [REQ-MFA-IMAP-02] Fallback e Timeout Resiliente
-- Caso o e-mail não tenha chegado imediatamente, realizar polling IMAP com `pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000` e timeout máximo `maxWaitMs: 30000` (30s). O fallback visual `roundcube.js` mantém `45000ms` como contingência.
+- Caso o e-mail não tenha chegado imediatamente, realizar polling IMAP com `pollIntervalMs: 3000`, `backoffFactor: 1.2`, `maxPollIntervalMs: 6000` e timeout máximo `maxWaitMs: 90000` (90s). O fallback visual `roundcube.js` também mantém `90000ms`. Sequencial IMAP+Roundcube = até 180s/tentativa; orçamento total MFA até 540s (3 tentativas) — não limitar compartilhado por padrão. <!-- ponytail: orçamento sequencial é intencional; budget compartilhado só se job timeout exigir -->
+- Janela de validade de e-mail pré-existente: `DEFAULT_MFA_MAX_AGE_MS = 10min` (configurável via `SystemConfig robot_docusign.mfa.maxAgeMs` ou `env MFA_MAX_AGE_MS` / `options.mfaMaxAgeMs`).
 - Suportar TLS implícito direto (porta 993) e conexão padrão (porta 143).
 - Caso o servidor IMAP esteja inacessível ou as credenciais falhem, registrar log defensivo e tentar fallback ou retornar `null` para propagar erro estruturado `MFA_REQUIRED`.
 
@@ -53,7 +54,8 @@ Esta especificação define a substituição/evolução da extração via navega
 ### [REQ-MFA-IMAP-06] Filtro Estrito por Título ("Verificar um novo dispositivo") e Timestamp Posterior ao Disparo
 - O robô deve registrar o timestamp exato em que a tela de MFA foi exibida (`mfaTriggerTime = Date.now()`).
 - O `imapClient` deve inspecionar apenas mensagens cujo título/assunto (`Subject`) contenha *"Verificar um novo dispositivo"* (com suporte a decodificação MIME UTF-8).
-- Mensagens cuja data de recebimento (`Date` do cabeçalho / `INTERNALDATE`) for anterior ao `mfaTriggerTime` devem ser ignoradas, aguardando no polling a entrega da nova mensagem enviada pela DocuSign.
+- Mensagens cuja data de recebimento (`Date` do cabeçalho / `INTERNALDATE`) for anterior a `mfaTriggerTime - maxAgeMs` devem ser ignoradas (`maxAgeMs` default 10min, configurável via `mfaMaxAgeMs`).
+- Roundcube: se `parseRoundcubeDate` falhar (ex: "agora", "há 2 min"), tratar como recente (warn, não descartar) para não perder código válido no fallback.
 - Remoção da regex genérica `\b(\d{6})\b` para evitar falsos positivos com números aleatórios (ex: `000000`).
 
 ### [REQ-MFA-IMAP-07] Persistência de Sessão Ativa (`storageState`) do Navegador

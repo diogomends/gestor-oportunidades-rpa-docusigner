@@ -1,10 +1,11 @@
 import { describe, it, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert";
+import "../../helpers/setup.js";
 import gestorApiClient, {
   validateApiKey,
   fetchPendingContracts,
   updateContractStatus,
-} from "./gestorApiClient.js";
+} from "../../../backend/src/services/gestorApiClient.js";
 
 describe("Unit Tests: gestorApiClient", () => {
   const originalEnv = { ...process.env };
