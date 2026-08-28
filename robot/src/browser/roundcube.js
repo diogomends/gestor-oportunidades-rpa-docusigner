@@ -9,12 +9,68 @@ function sleep(ms) {
 }
 
 /**
+ * Tenta converter uma string de data exibida na UI do Roundcube para um objeto Date.
+ * Suporta formatos de hora ("14:25"), relativo ("Hoje 14:25", "Ontem 14:25") e formatos de data ("28/08/2026 14:25", "2026-08-28").
+ *
+ * @param {string} dateStr - String de data extraída da tabela do Roundcube.
+ * @returns {Date|null} Objeto Date ou null se não puder ser parseado com precisão.
+ */
+export function parseRoundcubeDate(dateStr) {
+  if (!dateStr || typeof dateStr !== "string") return null;
+  const str = dateStr.trim();
+  if (!str) return null;
+
+  // Formato apenas hora: "14:25" ou "14:25:30"
+  const timeOnlyMatch = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (timeOnlyMatch) {
+    const now = new Date();
+    const hours = parseInt(timeOnlyMatch[1], 10);
+    const minutes = parseInt(timeOnlyMatch[2], 10);
+    const seconds = timeOnlyMatch[3] ? parseInt(timeOnlyMatch[3], 10) : 0;
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, seconds);
+  }
+
+  // Formato "Hoje 14:25" ou "Today 14:25"
+  const todayTimeMatch = str.match(/(?:hoje|today)[^\d]*(\d{1,2}):(\d{2})(?::(\d{2}))?/i);
+  if (todayTimeMatch) {
+    const now = new Date();
+    const hours = parseInt(todayTimeMatch[1], 10);
+    const minutes = parseInt(todayTimeMatch[2], 10);
+    const seconds = todayTimeMatch[3] ? parseInt(todayTimeMatch[3], 10) : 0;
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, seconds);
+  }
+
+  // Formato "Ontem 14:25" ou "Yesterday 14:25"
+  const yesterdayMatch = str.match(/(?:ontem|yesterday)[^\d]*(\d{1,2}):(\d{2})(?::(\d{2}))?/i);
+  if (yesterdayMatch) {
+    const yesterday = new Date(Date.now() - 86400000);
+    const hours = parseInt(yesterdayMatch[1], 10);
+    const minutes = parseInt(yesterdayMatch[2], 10);
+    const seconds = yesterdayMatch[3] ? parseInt(yesterdayMatch[3], 10) : 0;
+    return new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), hours, minutes, seconds);
+  }
+
+  // Formato com data DD/MM/YYYY ou YYYY-MM-DD
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  return null;
+}
+
+/**
  * Acessa o cPanel Webmail Roundcube, autentica e extrai o código MFA de 6 dígitos
  * enviado pela DocuSign com o assunto "Verificar um novo dispositivo".
  *
  * @param {import("playwright").BrowserContext} context - Contexto do navegador Playwright.
  * @param {Object} mailCredentials - Credenciais { email, password }.
- * @param {Object} [options] - Opções adicionais de timeout e retry.
+ * @param {Object} [options] - Opções adicionais de timeout, retry e filtros.
+ * @param {number} [options.maxWaitMs=45000] - Tempo máximo de espera total em ms.
+ * @param {number} [options.pollIntervalMs=5000] - Intervalo de polling em ms.
+ * @param {number} [options.mfaTriggerTime] - Timestamp (ms) em que o MFA foi disparado na tela.
+ * @param {string[]} [options.excludedCodes=[]] - Códigos já testados e inválidos a ignorar.
+ * @param {string} [options.subjectFilter="Verificar um novo dispositivo"] - Texto esperado no assunto (string vazia desabilita o filtro).
  * @returns {Promise<string|null>} Código de 6 dígitos ou null se não encontrado.
  */
 export async function fetchMfaCodeFromRoundcube(context, mailCredentials, options = {}) {
@@ -30,6 +86,9 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
   const loginUrl = roundcubeSel.login_url || "https://unitynordeste.com.br:2096/";
   const maxWaitMs = options.maxWaitMs || 45000;
   const pollIntervalMs = options.pollIntervalMs || 5000;
+  const mfaTriggerTime = typeof options.mfaTriggerTime === "number" ? options.mfaTriggerTime : null;
+  const excludedCodes = Array.isArray(options.excludedCodes) ? options.excludedCodes : [];
+  const expectedSubject = typeof options.subjectFilter === "string" ? options.subjectFilter : "Verificar um novo dispositivo";
 
   console.log(`[Roundcube] Abrindo aba para verificar e-mail de segurança em ${loginUrl}...`);
   let page = null;
@@ -74,6 +133,14 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
     const startedAt = Date.now();
     let mfaCode = null;
 
+    // Padrões estritos de extração (regex genérica expurgada)
+    const regexPatterns = [
+      /Seu c[oó]digo de verifica[cç][aã]o da Docusign [eé]:\s*(\d{6})/i,
+      /c[oó]digo de verifica[cç][aã]o[^0-9]{1,30}(\d{6})/i,
+      /verification code[^0-9]{1,30}(\d{6})/i,
+      /security code[^0-9]{1,30}(\d{6})/i,
+    ];
+
     while (Date.now() - startedAt < maxWaitMs) {
       // Clica no botão de atualizar mensagens se disponível
       const refreshBtn = await page.$(roundcubeSel.refresh_button).catch(() => null);
@@ -82,27 +149,41 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
         await sleep(1500);
       }
 
-      // Procura linha de mensagem correspondente à DocuSign
+      // Procura linhas de mensagens correspondentes à DocuSign
       const rows = await page.$$(roundcubeSel.message_row).catch(() => []);
-      let targetRow = null;
 
       for (const row of rows) {
         const rowText = (await row.innerText().catch(() => "")).toLowerCase();
-        if (
-          rowText.includes("docusign") ||
-          rowText.includes("verificar um novo dispositivo") ||
-          rowText.includes("código de verificação") ||
-          rowText.includes("codigo de verificacao") ||
-          rowText.includes("verify your")
-        ) {
-          targetRow = row;
-          break;
-        }
-      }
+        const subjectMatches =
+          !expectedSubject ||
+          rowText.includes(expectedSubject.toLowerCase()) ||
+          (rowText.includes("docusign") &&
+            (rowText.includes("código de verificação") ||
+              rowText.includes("codigo de verificacao") ||
+              rowText.includes("verify your")));
 
-      if (targetRow) {
+        if (!subjectMatches) {
+          continue;
+        }
+
+        // Validação temporal via mfaTriggerTime com tolerância de clock skew de 30s
+        if (mfaTriggerTime) {
+          const dateEl = await row.$("td.date, span.date, .date").catch(() => null);
+          const dateStr = dateEl ? await dateEl.innerText().catch(() => "") : "";
+          const parsedDate = parseRoundcubeDate(dateStr);
+          if (parsedDate) {
+            const toleranceMs = 30000;
+            if (parsedDate.getTime() < mfaTriggerTime - toleranceMs) {
+              console.log(
+                `[Roundcube] Mensagem ignorada: data ${parsedDate.toISOString()} anterior ao disparo ${new Date(mfaTriggerTime).toISOString()}.`
+              );
+              continue;
+            }
+          }
+        }
+
         console.log("[Roundcube] Mensagem de verificação da DocuSign encontrada! Abrindo e-mail...");
-        await targetRow.click();
+        await row.click();
         await sleep(2000);
 
         // Ler corpo da mensagem (direto ou via iframe)
@@ -126,18 +207,16 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
           bodyText = await page.evaluate(() => document.body?.innerText || "");
         }
 
-        // Regex para extração do código de 6 dígitos
-        const regexPatterns = [
-          /Seu c[oó]digo de verifica[cç][aã]o da Docusign [eé]:\s*(\d{6})/i,
-          /c[oó]digo de verifica[cç][aã]o[^0-9]{1,30}(\d{6})/i,
-          /verification code[^0-9]{1,30}(\d{6})/i,
-          /\b(\d{6})\b/,
-        ];
-
+        // Extrai código e filtra excludedCodes dentro do loop
         for (const regex of regexPatterns) {
           const match = bodyText.match(regex);
           if (match && match[1]) {
-            mfaCode = match[1];
+            const candidateCode = match[1];
+            if (excludedCodes.includes(candidateCode)) {
+              console.log(`[Roundcube] Código ${candidateCode} já foi rejeitado anteriormente. Buscando próximo...`);
+              continue;
+            }
+            mfaCode = candidateCode;
             console.log(`[Roundcube] Código MFA extraído com sucesso: ${mfaCode}`);
             break;
           }
@@ -146,6 +225,10 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
         if (mfaCode) {
           break;
         }
+      }
+
+      if (mfaCode) {
+        break;
       }
 
       console.log(`[Roundcube] E-mail ainda não recebido. Aguardando ${pollIntervalMs / 1000}s...`);
@@ -165,8 +248,9 @@ export async function fetchMfaCodeFromRoundcube(context, mailCredentials, option
 
 /**
  * Exportação padrão do fallback Roundcube.
- * @type {{fetchMfaCodeFromRoundcube: function}}
+ * @type {{fetchMfaCodeFromRoundcube: function, parseRoundcubeDate: function}}
  */
 export default {
   fetchMfaCodeFromRoundcube,
+  parseRoundcubeDate,
 };
