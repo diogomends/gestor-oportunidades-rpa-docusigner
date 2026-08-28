@@ -66,14 +66,22 @@
 - **Date**: 2026-08-28
 - **Status**: active
 
+### AD-023
+- **Decision**: Sincronização do `Makefile` e ferramentas de diagnóstico (`tools/db-and-collection.js` e `tools/generate-routes-inventory.js`) adaptadas para o serviço de automação RPA DocuSigner.
+- **Reason**: Padronizar comandos operacionais de Docker (`up-dev`, `up-prod`, `logs`), túnel SSH para MongoDB remoto (`tunnel`), diagnóstico de banco e coleções, coleta remota de screenshots de debug do robô (`fetch-robot-debug-images`) e geração/validação automatizada de documentação de rotas (`routes-inventory`).
+- **Trade-off**: N/A.
+- **Scope**: `Makefile`, `tools/db-and-collection.js`, `tools/generate-routes-inventory.js`, `.specs/routes-inventory.md`, `AGENTS.md`
+- **Date**: 2026-08-28
+- **Status**: active
+
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: robot-docusigner / producao-conectividade
-- **Phase / Task**: Fase 15 / T29 (Parametrização e Registro de Conexão de Produção)
-- **Completed**: T01..T28 + AD-021 + Registro T29 / AD-022
-- **In-progress**: T29 (Parametrização e Conectividade de Produção)
-- **Next step**: Configuração do `.env` no servidor de produção e build dos robôs com chaves emitidas
+- **Feature**: robot-docusigner / makefile-shared-tools
+- **Phase / Task**: Sincronização de comandos Makefile e ferramentas de diagnóstico
+- **Completed**: T01..T28 + AD-021 + AD-022 + AD-023 (Makefile & Tools)
+- **In-progress**: Handoff e documentação concluídos
+- **Next step**: Executar fluxo de commit e PR conforme regras
 - **Blockers**: none
 - **Branch**: main

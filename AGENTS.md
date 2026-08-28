@@ -6,15 +6,22 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 
 | Comando                                                                         | O que faz                                             |
 | ------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `npm start`                                                                     | Produção (`node backend/src/server.js`)               |
-| `npm run dev`                                                                   | Dev com nodemon (`backend/src/server.js`)             |
-| `npm test`                                                                      | Testes nativos (`node --test` em `test/**/*.test.js`) |
+| `npm start` / `make start`                                                      | Produção (`node backend/src/server.js`)               |
+| `npm run dev` / `make dev`                                                      | Dev com nodemon (`backend/src/server.js`)             |
+| `npm test` / `make test`                                                        | Testes nativos (`node --test` em `test/**/*.test.js`) |
 | `npm run test:backend`                                                          | Testes backend (`test/backend/**`)                    |
 | `npm run test:robot`                                                            | Testes robô (`test/robot/**`)                         |
-| `npm run build:robot`                                                           | Gera executáveis do robô                              |
+| `npm run build:robot` / `make build-robot`                                      | Gera executáveis do robô                              |
 | `npx playwright install chromium`                                               | Instala browser Chromium para o robô                  |
-| `docker compose up --build`                                                     | Sobe servidor em container Docker local               |
-| `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` | Sobe servidor em produção via Docker                  |
+| `docker compose up --build` / `make up-dev`                                     | Sobe servidor em container Docker local               |
+| `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` | Sobe servidor em produção via Docker (`make up-prod`)  |
+| `make tunnel`                                                                   | Abre túnel SSH seguro com MongoDB remoto (27018)      |
+| `make db-and-collection`                                                        | Exibe árvore de bancos e coleções MongoDB local       |
+| `make db-and-collection-prod`                                                   | Exibe árvore de bancos e coleções no container prod   |
+| `make fetch-robot-debug-images`                                                 | Baixa screenshots de debug do container de produção   |
+| `make routes-inventory`                                                         | Gera inventário de rotas HTTP em `.specs/`            |
+| `make routes-inventory-check`                                                   | Valida integridade do inventário de rotas (CI)        |
+| `make clean` / `make clean-test` / `make clean-all`                             | Limpeza de build, artefatos temporários e dependências |
 
 Porta padrão: **3111** (configurável via `PORT`).
 
