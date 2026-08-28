@@ -48,6 +48,7 @@ npm run typecheck         # Type check (se disponível)
 | REQ-MFA-IMAP-02 | T18 | ✅ imapClient.test.js | ✅ IMAP Hardening & Resilience | — |
 | REQ-MFA-IMAP-06 | T24 | ✅ imapClient.test.js | ✅ Filtro Subject & mfaTriggerTime | — |
 | REQ-MFA-IMAP-07 | T25 | ✅ job-runner.js / docusign.js | ✅ Persistência storageState | — |
+| REQ-MFA-IMAP-08 | T26 | ✅ docusign.test.js | ✅ Hardening & Resiliência storageState | — |
 
 ---
 
@@ -683,7 +684,48 @@ Garantir que mensagens legadas ou com assuntos não relacionados a MFA não seja
 - [x] `mfaTriggerTime` registrado e propagado até a rotina IMAP.
 - [x] Filtro estrito de assunto e timestamp ignora mensagens legadas e divergentes.
 - [x] Regex genérica `\b(\d{6})\b` expurgada.
-- [x] Testes unitários cobrindo decodificação MIME, parsing e filtros temporais.
+---
+
+## Fase 14 — Hardening, Isolamento e Resiliência da Sessão Playwright
+
+### T26: Proteção de Sessão, Criação Recursiva de Diretórios, Permissão 0o600 e Duplo Redirect
+
+- **Req**: REQ-MFA-IMAP-08
+- **Status**: [x] Complete (2026-08-28)
+- **Esforço**: 1.5h | Paralelizável: Sim
+- **Depende de**: T25
+
+**Contexto**:
+Garantir que arquivos de sessão com cookies (`session-docusign.json`) nunca vazem em commits ou builds Docker, tratar criação de diretórios pai de caminhos customizados, restringir permissões em sistemas UNIX (0o600), persistir rotações de cookies pós-envio/consulta, prevenir loops infinitos em telas de login OAuth e repassar caminho customizado ao `JobRunner`.
+
+**O quê**:
+1. **P0 (Isolamento de Segredos)**: Adicionar `session-docusign.json` e `**/session-docusign.json` no `.gitignore` e `.dockerignore`.
+2. **P0 (Diretório Recursivo)**: Criar diretório pai via `fs.mkdirSync(path.dirname(sessionPath), { recursive: true })` antes de carregar e salvar storageState.
+3. **P1 (Permissão Restrita 0o600)**: Aplicar `fs.chmodSync(sessionPath, 0o600)` com fallback best-effort.
+4. **P1 (Persistência Pós-Operação)**: Invocar `saveSessionState(page, sessionPath)` ao término de `sendEnvelope` e `checkEnvelopeStatus`.
+5. **P1 (Proteção contra Duplo Redirect)**: Em `sendEnvelope` e `checkEnvelopeStatus`, validar a URL após reautenticação e lançar erro explícito se permanecer em rotas OAuth/login.
+6. **P1 (Propagação de Configuração)**: Expor `DOCUSIGN_SESSION_PATH` em `config.js` e repassar a `JobRunner` no `main.js`.
+7. **P2 (Testes e Documentação)**: Criar suíte de testes unitários `robot/src/browser/docusign.test.js` e documentar `DOCUSIGN_SESSION_PATH` em `.env.example`, `README.md` e `AGENTS.md`.
+
+**Onde**:
+- `.gitignore`
+- `.dockerignore`
+- `robot/src/browser/docusign.js`
+- `robot/src/job-runner.js`
+- `robot/src/config.js`
+- `robot/src/main.js`
+- `robot/src/browser/docusign.test.js`
+- `.env.example`
+- `README.md`
+- `AGENTS.md`
+
+**Feito quando**:
+- [x] Arquivo de sessão protegido contra commits acidentais e inclusão em containers.
+- [x] Caminhos customizados com subpastas inexistentes criados sem erro ENOENT.
+- [x] Permissão 0o600 aplicada.
+- [x] Cookies atualizados pós-envio e consulta gravados em disco.
+- [x] Duplo redirect detectado com falha rápida (fail-fast).
+- [x] 100% dos testes unitários e de regressão passando (160/160 testes).
 
 ---
 

@@ -158,6 +158,15 @@ export class JobRunner {
         viewport: { width: 1366, height: 768 },
       };
 
+      if (this.sessionFilePath) {
+        try {
+          const dir = path.dirname(this.sessionFilePath);
+          if (dir && !fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+        } catch (_) {}
+      }
+
       if (this.sessionFilePath && fs.existsSync(this.sessionFilePath)) {
         logger.step("JobRunner", `Carregando sessão persistida (storageState) de: ${this.sessionFilePath}`);
         contextOptions.storageState = this.sessionFilePath;

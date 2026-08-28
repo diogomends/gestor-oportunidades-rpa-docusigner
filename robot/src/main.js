@@ -55,7 +55,10 @@ async function bootstrap() {
     await api.sendHeartbeat("active", null, 0);
 
     // 4. Iniciar runner e scheduler
-    const runner = new JobRunner(api, { headless: config.HEADLESS });
+    const runner = new JobRunner(api, {
+      headless: config.HEADLESS,
+      sessionFilePath: config.DOCUSIGN_SESSION_PATH || undefined,
+    });
     const scheduler = new Scheduler(api, runner, systemConfig, config.POLL_INTERVAL_SECONDS);
 
     process.on("SIGINT", () => {

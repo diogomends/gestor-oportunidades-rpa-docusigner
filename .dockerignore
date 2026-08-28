@@ -4,6 +4,9 @@ node_modules/
 tmp/
 logs/
 *.log
+session-docusign.json
+**/session-docusign.json
+robot/session-docusign.json
 .DS_Store
 .git
 .gitignore

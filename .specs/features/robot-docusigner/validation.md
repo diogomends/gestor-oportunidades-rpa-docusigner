@@ -149,4 +149,23 @@
 - [x] `ensureAuthenticated` persiste `storageState` localmente após sucesso de autenticação/MFA.
 - [x] Invalidação automática e reautenticação transparente ao detectar sessão expirada em operações de envio/status.
 
+---
+
+## 10. Critérios de Validação — Task T26: Hardening, Isolamento e Resiliência da Sessão Playwright
+
+- **Data**: 2026-08-28
+- **Status**: ✅ Aprovado
+- **Escopo**: Prevenção de vazamento no Git/Docker, criação recursiva de pastas (`mkdirSync`), restrição de permissão UNIX (`0o600`), persistência contínua de sessão pós-envio/status, proteção contra duplo redirect e repasse de caminho customizado.
+
+### Cenários de Validação Executados (T26)
+- [x] **P0 - Isolamento Git & Docker**: `session-docusign.json` e `**/session-docusign.json` adicionados a `.gitignore` e `.dockerignore`.
+- [x] **P0 - Criação de Diretório Recursivo**: `path.dirname(sessionPath)` verificado e criado com `{ recursive: true }` em `docusign.js` (`saveSessionState`) e `job-runner.js` (`JobRunner.processJob`).
+- [x] **P1 - Permissão Segura (0o600)**: `fs.chmodSync(sessionPath, 0o600)` executado após gravação de storageState com tratamento defensivo de erros (`catch`).
+- [x] **P1 - Persistência Pós-Operação**: `saveSessionState` invocado ao final de `sendEnvelope` e `checkEnvelopeStatus`, assegurando persistência da rotação de cookies.
+- [x] **P1 - Proteção Contra Duplo Redirect**: Redirecionamento persistente para `/oauth/`, `/login` ou `identity.` após reautenticação lança exceção imediata (`Falha de autenticação persistente...`), eliminando loops e timeouts cegos em inputs.
+- [x] **P1 - Repasse de Configuração**: `DOCUSIGN_SESSION_PATH` carregado de variáveis de ambiente/config.json em `config.js` e injetado na instanciação de `JobRunner` em `main.js`.
+- [x] **P2 - Testes Unitários de Hardening**: Criada suíte `robot/src/browser/docusign.test.js` com 6 cenários de teste validando criação de diretório, persistência de sessão ativa, remoção de sessão expirada e lançamento de exceção em duplo redirect.
+- [x] **P2 - Documentação**: Variável `DOCUSIGN_SESSION_PATH` documentada em `.env.example`, `README.md` e `AGENTS.md`.
+- [x] **Regressão Global**: 160 testes (121 backend + 39 robot browser) executados e aprovados com 100% de sucesso.
+
 

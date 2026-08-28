@@ -143,7 +143,7 @@
   - `robot/src/browser/imapClient.test.js`
 - **Ações**:
   1. [x] **T24.1**: Passar `mfaTriggerTime = Date.now()` de `docusign.js` para `fetchMfaCodeViaImap`.
-  2. [x] **T24.2**: Buscar cabeçalhos `Subject` e `Date` no IMAP (`BODY.PEEK[HEADER.FIELDS (SUBJECT DATE)]` ou `INTERNALDATE`).
+  2. [x] **T24.2**: Buscar dados e metadados no IMAP em roundtrip único via `UID FETCH ${uid} (INTERNALDATE BODY.PEEK[])`, extraindo `Subject` e `Date`/`INTERNALDATE` diretamente (decisão PonyTail 1 roundtrip vs 2).
   3. [x] **T24.3**: Filtrar mensagens pelo título *"Verificar um novo dispositivo"* (com decodificação MIME) e descartar e-mails com data anterior a `mfaTriggerTime`.
   4. [x] **T24.4**: Remover a regex permissiva `\b(\d{6})\b` em `extractMfaCodeFromText`, mantendo padrões estritos de código DocuSign.
 
@@ -158,5 +158,30 @@
   1. [x] **T25.1**: Configurar salvamento de `storageState: "session-docusign.json"` em `ensureAuthenticated` após login com sucesso.
   2. [x] **T25.2**: Configurar `chromium.launch` / `newContext` no `JobRunner` para carregar `storageState` se o arquivo existir.
   3. [x] **T25.3**: Em caso de expiração de sessão ou redirecionamento OAuth, invalidar o arquivo local e forçar novo ciclo de autenticação.
+
+---
+
+### [x] T26: Hardening, Isolamento e Resiliência da Sessão Playwright (2026-08-28)
+- **Objetivo**: Prevenir vazamento de cookies/sessão em commits e Docker, garantir criação recursiva de diretórios (`mkdirSync`), aplicar permissões seguras (`0o600`), salvar sessão pós-operação (`sendEnvelope` e `checkEnvelopeStatus`), proteger contra duplo redirect infinito em OAuth e repassar `sessionFilePath` customizado via `config.json` / `DOCUSIGN_SESSION_PATH`.
+- **Arquivos**:
+  - `.gitignore`
+  - `.dockerignore`
+  - `robot/src/browser/docusign.js`
+  - `robot/src/job-runner.js`
+  - `robot/src/config.js`
+  - `robot/src/main.js`
+  - `robot/src/browser/docusign.test.js`
+  - `.env.example`
+  - `README.md`
+  - `AGENTS.md`
+- **Ações**:
+  1. [x] **T26.1 (P0)**: Adicionar `session-docusign.json` e `**/session-docusign.json` no `.gitignore` e `.dockerignore`.
+  2. [x] **T26.2 (P0)**: Adicionar `fs.mkdirSync(path.dirname(sessionPath), { recursive: true })` antes do salvamento e carregamento de sessão.
+  3. [x] **T26.3 (P1)**: Aplicar `fs.chmodSync(sessionPath, 0o600)` com fallback best-effort.
+  4. [x] **T26.4 (P1)**: Salvar `storageState` atualizado ao término de `sendEnvelope` e `checkEnvelopeStatus`.
+  5. [x] **T26.5 (P1)**: Validar URL após segundo redirect em `sendEnvelope` e `checkEnvelopeStatus` lançando erro explícito em vez de travar o robô.
+  6. [x] **T26.6 (P1)**: Repassar `DOCUSIGN_SESSION_PATH` de `config.js` para `JobRunner` em `main.js`.
+  7. [x] **T26.7 (P2)**: Criar suíte de testes unitários `robot/src/browser/docusign.test.js` e documentar a variável em `.env.example`, `README.md` e `AGENTS.md`.
+
 
 

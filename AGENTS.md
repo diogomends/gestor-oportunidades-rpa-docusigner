@@ -130,6 +130,7 @@ Fora do prefixo:
 | `DOCUSIGN_BASE_PATH`    | Não         | na.docusign.net |
 | `USUARIO_DOCUSIGNER`    | Não         | —           |
 | `SENHA_DOCUSIGNER`      | Não         | —           |
+| `DOCUSIGN_SESSION_PATH` | Não         | `session-docusign.json` |
 | `GESTOR_API_URL`        | Sim         | `http://localhost:3000/api` |
 | `ROBOT_API_KEY`         | Sim         | —           |
 
