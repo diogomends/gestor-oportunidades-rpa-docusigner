@@ -78,7 +78,7 @@ export function decodeMimeHeader(header) {
     }
     return text;
   });
-  return decodeQuotedPrintable(decoded).trim();
+  return decoded.trim();
 }
 
 /**
