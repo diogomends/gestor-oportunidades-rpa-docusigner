@@ -110,7 +110,7 @@ export async function ensureAuthenticated(page, credentials, options = {}) {
 
     if (mfaInput) {
       logger.step("Browser", "🔍 Tela de verificação (MFA/2FA) da DocuSign localizada! Iniciando resolução de código...");
-      const mfaTriggerTime = Date.now();
+      let mfaTriggerTime = Date.now();
       const mailCreds = credentials.token_notification_email || credentials;
       const testedCodes = [];
       const MAX_MFA_ATTEMPTS = 3;
@@ -125,7 +125,7 @@ export async function ensureAuthenticated(page, credentials, options = {}) {
           try {
             logger.step("Browser", "Iniciando consulta ao servidor de e-mail via IMAP nativo...");
             otpCode = await fetchMfaCodeViaImap(mailCreds, {
-              maxWaitMs: 30000,
+              maxWaitMs: 90000,
               excludedCodes: testedCodes,
               mfaTriggerTime,
             });
@@ -138,6 +138,7 @@ export async function ensureAuthenticated(page, credentials, options = {}) {
         if (!otpCode) {
           logger.step("Browser", "IMAP não retornou código. Executando fallback via Webmail Roundcube...");
           otpCode = await fetchMfaCodeFromRoundcube(page.context(), mailCreds, {
+            maxWaitMs: 90000,
             mfaTriggerTime,
             excludedCodes: testedCodes,
           });
@@ -196,6 +197,7 @@ export async function ensureAuthenticated(page, credentials, options = {}) {
           if (attempt < MAX_MFA_ATTEMPTS) {
             logger.step("Browser", "Limpando campo de código e aguardando chegada do novo e-mail da DocuSign...");
             await page.fill(mfaSel.input || "input[type='tel']", "").catch(() => {});
+            mfaTriggerTime = Date.now();
             await randomDelay(3000, 5000);
             continue;
           }

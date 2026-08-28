@@ -447,9 +447,10 @@ export class ImapClient {
           logger.warn("IMAP", `Mensagem UID ${uid} ignorada: sem data/INTERNALDATE para validar mfaTriggerTime.`);
           continue;
         }
-        const toleranceMs = 30000; // 30s de tolerância para skew de relógio
-        if (metadata.date.getTime() < mfaTriggerTime - toleranceMs) {
-          logger.step("IMAP", `Mensagem UID ${uid} ignorada: recebida em ${metadata.date.toISOString()} (anterior ao disparo de MFA ${new Date(mfaTriggerTime).toISOString()}).`);
+        // Validação de Timestamp (mfaTriggerTime) com janela de validade para e-mails recentes pré-existentes (10 minutos)
+        const maxAgeMs = 10 * 60 * 1000; // 10 minutos de janela de validade para códigos pré-existentes / reinício
+        if (metadata.date.getTime() < mfaTriggerTime - maxAgeMs) {
+          logger.step("IMAP", `Mensagem UID ${uid} ignorada: recebida em ${metadata.date.toISOString()} (expirada, anterior a 10 min do disparo de MFA ${new Date(mfaTriggerTime).toISOString()}).`);
           continue;
         }
       }
@@ -534,7 +535,7 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
   const host = mailCredentials?.host || "unitynordeste.com.br";
   const port = Number(mailCredentials?.port) || 993;
   const tlsEnabled = mailCredentials?.tls !== false;
-  const maxWaitMs = options.maxWaitMs || 30000;
+  const maxWaitMs = options.maxWaitMs || 90000;
   let currentIntervalMs = options.pollIntervalMs || 3000;
   const backoffFactor = options.backoffFactor || 1.2;
   const maxPollIntervalMs = options.maxPollIntervalMs || 6000;
