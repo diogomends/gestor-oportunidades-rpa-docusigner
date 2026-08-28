@@ -3,20 +3,21 @@ import net from "node:net";
 import logger from "../utils/logger.js";
 
 /**
- * Decodifica texto codificado em Quoted-Printable para UTF-8.
+ * Decodifica texto codificado em Quoted-Printable.
  * @param {string} input - String codificada em Quoted-Printable.
- * @returns {string} Texto decodificado em UTF-8.
+ * @param {BufferEncoding} [encoding="utf8"] - Encoding de destino do buffer (ex: utf8, latin1).
+ * @returns {string} Texto decodificado.
  */
-export function decodeQuotedPrintable(input) {
+export function decodeQuotedPrintable(input, encoding = "utf8") {
   if (!input || typeof input !== "string") return "";
   // 1. Remove quebras de linha suaves (soft line breaks: =\r\n ou =\n)
   const cleaned = input.replace(/=\r?\n/g, "");
-  // 2. Converte sequências contíguas de =XX para bytes UTF-8
+  // 2. Converte sequências contíguas de =XX para bytes no charset especificado
   return cleaned.replace(/((?:=[0-9A-Fa-f]{2})+)/g, (match) => {
     try {
       const hexes = match.split("=").filter(Boolean);
       const bytes = hexes.map((h) => parseInt(h, 16));
-      return Buffer.from(bytes).toString("utf8");
+      return Buffer.from(bytes).toString(encoding);
     } catch {
       return match;
     }
@@ -70,7 +71,7 @@ export function decodeMimeHeader(header) {
       }
       if (enc === "Q") {
         const qp = text.replace(/_/g, " ");
-        return decodeQuotedPrintable(qp);
+        return decodeQuotedPrintable(qp, bufEncoding);
       }
     } catch {
       return text;
@@ -395,7 +396,7 @@ export class ImapClient {
    * @param {Object} [options={}] - Opções de busca (ex: excludedCodes, mfaTriggerTime, subjectFilter).
    * @param {string[]} [options.excludedCodes=[]] - Códigos já testados e inválidos a ignorar.
    * @param {number} [options.mfaTriggerTime] - Timestamp (ms) em que o MFA foi disparado na tela.
-   * @param {string} [options.subjectFilter="Verificar um novo dispositivo"] - Texto esperado no assunto do e-mail.
+   * @param {string} [options.subjectFilter="Verificar um novo dispositivo"] - Texto esperado no assunto do e-mail (string vazia desabilita o filtro).
    * @returns {Promise<string|null>} Código extraído ou null.
    */
   async fetchLatestMfaCode(email, password, options = {}) {
@@ -433,8 +434,8 @@ export class ImapClient {
       const fetchRes = await this.sendCommand(`UID FETCH ${uid} (INTERNALDATE BODY.PEEK[])`);
       const metadata = parseEmailMetadata(fetchRes.raw);
 
-      // Validação de Assunto (Subject)
-      const subjectMatches = metadata.subject.toLowerCase().includes(expectedSubject.toLowerCase());
+      // Validação de Assunto (Subject) — string vazia desabilita o filtro
+      const subjectMatches = !expectedSubject || metadata.subject.toLowerCase().includes(expectedSubject.toLowerCase());
       if (!subjectMatches) {
         logger.step("IMAP", `Mensagem UID ${uid} ignorada: assunto "${metadata.subject || "(sem assunto)"}" não corresponde a "${expectedSubject}".`);
         continue;

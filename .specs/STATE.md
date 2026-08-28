@@ -116,6 +116,28 @@ Evolução da resolução de 2FA/MFA da DocuSign. Em substituição à navegaç�
 - Planilha importada precisa de mapeamento de colunas configurado.
 ## Changelog
 
+### [5.56.0] - 2026-08-28
+
+#### Corrigido / Aprimorado (P0, P1, P2)
+- **Hardening, Isolamento e Resiliência da Sessão Playwright (T26)**:
+  - `.gitignore` & `.dockerignore`: Adicionado isolamento de `session-docusign.json` e `**/session-docusign.json` para prevenir commits acidentais e inclusão no Docker.
+  - `robot/src/browser/docusign.js`: Criada função `saveSessionState` com criação recursiva de diretórios (`mkdirSync`) e permissão UNIX segura `0o600`; persistência contínua de cookies ao final de `sendEnvelope` e `checkEnvelopeStatus`; proteção contra loops de duplo redirecionamento OAuth com lançamento de erro explícito.
+  - `robot/src/job-runner.js`: Adicionada verificação e criação do diretório pai de `sessionFilePath` antes de carregar `storageState`.
+  - `robot/src/config.js` & `robot/src/main.js`: Suporte a `DOCUSIGN_SESSION_PATH` e repasse para `JobRunner`.
+  - `robot/src/browser/docusign.test.js`: Nova suíte de testes unitários cobrindo criação recursiva de diretórios, persistência de sessão ativa, invalidação e detecção de duplo redirect.
+  - `robot/src/browser/imapClient.js`: Ajustada decodificação Quoted-Printable para preservar charset informado em cabeçalhos MIME (ex.: ISO-8859-1).
+  - `.env.example`, `README.md`, `AGENTS.md`: Documentada variável `DOCUSIGN_SESSION_PATH`.
+  - `.specs/`: Sincronizados `tasks.md`, `validation.md` e `STATE.md`.
+
+### [5.55.2] - 2026-08-28
+
+#### Corrigido / Aprimorado
+- **Contrato Temporal e Expurgo de Regex Genérica no Fallback Roundcube & Hardening IMAP**:
+  - `robot/src/browser/roundcube.js`: Implementado suporte a `mfaTriggerTime`, `subjectFilter` e `excludedCodes` dentro do loop de polling; implementado parser de data `parseRoundcubeDate` com tolerância de clock skew de 30s; expurgada a regex permissiva `\b(\d{6})\b`.
+  - `robot/src/browser/imapClient.js`: Tornada explícita e documentada a possibilidade de desabilitar o filtro de assunto via string vazia (`!expectedSubject`); assegurado mapeamento de charset na decodificação de Quoted-Printable.
+  - `robot/src/browser/imapClient.test.js` & `robot/src/browser/roundcube.test.js`: Cobertura de testes unitários para filtros, charset ISO-8859-1 e parseamento de datas da interface do webmail.
+  - `.specs/features/robot-docusigner/sub-specs/mfa-imap/tasks.md`: Sincronizada a ação T24.2 com o registro arquitetural de `validation.md` (UID FETCH único PonyTail).
+
 ### [5.55.1] - 2026-08-28
 
 #### Corrigido / Aprimorado

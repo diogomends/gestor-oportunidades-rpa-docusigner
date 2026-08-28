@@ -39,6 +39,7 @@ export function loadConfig() {
     ROBOT_KEY: process.env.ROBOT_KEY || fileConfig.ROBOT_KEY || "",
     HEADLESS: process.env.HEADLESS !== undefined ? (process.env.HEADLESS === "true" || process.env.HEADLESS === true) : (fileConfig.HEADLESS !== false),
     POLL_INTERVAL_SECONDS: parseInt(process.env.POLL_INTERVAL_SECONDS || fileConfig.POLL_INTERVAL_SECONDS || "15", 10),
+    DOCUSIGN_SESSION_PATH: process.env.DOCUSIGN_SESSION_PATH || fileConfig.DOCUSIGN_SESSION_PATH || "",
   };
 
   return config;

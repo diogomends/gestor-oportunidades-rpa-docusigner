@@ -90,6 +90,7 @@ O repositório está integrado com **GitHub Actions**:
 | `DOCUSIGN_BASE_PATH` | Não | na.docusign.net | Base URL da API DocuSign |
 | `USUARIO_DOCUSIGNER`    | Não         | —           | Usuário para login no robô |
 | `SENHA_DOCUSIGNER`      | Não         | —           | Senha para login no robô |
+| `DOCUSIGN_SESSION_PATH` | Não         | `session-docusign.json` | Caminho do arquivo storageState de persistência da sessão do robô |
 | `GESTOR_API_URL`        | Sim         | `http://localhost:3000/api` | URL da API do gestor-oportunidades |
 | `ROBOT_API_KEY`         | Sim         | —           | Chave de API do robô (validada no bootstrap) |
 
