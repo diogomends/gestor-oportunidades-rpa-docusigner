@@ -97,6 +97,9 @@ O repositório está integrado com **GitHub Actions**:
 | `ROBOT_KEY`                     | Não         | —                           | Chave de API do robô standalone para autenticação na API            |
 | `HEADLESS`                      | Não         | `true`                      | `true` para rodar em segundo plano, `false` para exibir o navegador |
 | `POLL_INTERVAL_SECONDS`         | Não         | `15`                        | Intervalo em segundos para consulta de jobs na fila                 |
+| `DEPLOY_HOST`                   | Não         | `root@165.227.212.57`       | Host SSH para deploy e comandos remotos em produção                 |
+| `DEPLOY_KEY` / `DEPLOY_KEY_PATH`| Não         | —                           | Caminho da chave SSH privada para autenticação remota              |
+| `REMOTE_PROJECT_PATH`           | Não         | —                           | Caminho do projeto no servidor remoto                               |
 
 > As credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. O robô standalone carrega automaticamente o arquivo `.env` da raiz do projeto ou diretório local. A resolução de MFA (2FA) da DocuSign utiliza as credenciais de e-mail de notificação (`token_notification_email`: `email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), permitindo extração rápida em ~1s via protocolo IMAP direto com fallback para Roundcube Webmail. O robô detecta a tela de MFA pelo texto ("Get Code From Your Email"), por múltiplos seletores de formulário (`name="security_code"`, `pattern="[0-9]{6}"`, `placeholder="Enter code"`) e submete pelo botão de confirmação (`data-qa="verify-code"`, texto "Verify" ou tecla Enter).
 
@@ -113,17 +116,35 @@ O repositório está integrado com **GitHub Actions**:
 
 ### Makefile (via `make`)
 
-| Comando                | Descrição                                                                                                                                                                       |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `make dev`             | Inicia servidor em desenvolvimento                                                                                                                                              |
-| `make test`            | Roda testes nativos                                                                                                                                                             |
-| `make test-headed`     | Roda o robô com navegador visível (`HEADLESS=false`)                                                                                                                            |
-| `make test-headed-ps`  | Idem, mas via PowerShell (para Windows CMD)                                                                                                                                     |
-| `make build-robot`     | Gera executáveis .exe dos robôs standalone com chave(s) embutida(s). Use KEY="rf_sec_xxx" para chave específica, HEADLESS=false para modo headed e API_URL para URL customizada |
-| `make install`         | Instala dependências de tudo (backend + robot)                                                                                                                                  |
-| `make install-backend` | Instala dependências do backend                                                                                                                                                 |
-| `make install-robot`   | Instala dependências do robô                                                                                                                                                    |
-| `make clean`           | Limpa pastas de build anteriores                                                                                                                                                |
+| Comando                      | Descrição                                                                                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `make start`                 | Inicia o backend em produção                                                                                                                                                    |
+| `make dev`                   | Inicia servidor em desenvolvimento                                                                                                                                              |
+| `make test`                  | Roda testes nativos                                                                                                                                                             |
+| `make test-headed`           | Roda o robô com navegador visível (`HEADLESS=false`)                                                                                                                            |
+| `make test-headed-ps`        | Idem, mas via PowerShell (para Windows CMD)                                                                                                                                     |
+| `make build-robot`           | Gera executáveis .exe dos robôs standalone com chave(s) embutida(s). Use KEY="rf_sec_xxx" para chave específica, HEADLESS=false para modo headed e API_URL para URL customizada |
+| `make install`               | Instala dependências de tudo (backend + robot)                                                                                                                                  |
+| `make install-backend`       | Instala dependências do backend                                                                                                                                                 |
+| `make install-robot`         | Instala dependências do robô                                                                                                                                                    |
+| `make clean`                 | Limpa pastas de build anteriores                                                                                                                                                |
+| `make clean-test`            | Limpa arquivos temporários de teste                                                                                                                                             |
+| `make clean-all`             | Limpa builds, temporários e `node_modules`                                                                                                                                      |
+| `make up-dev`                | Sobe servidor em container Docker local                                                                                                                                         |
+| `make up-prod`               | Sobe servidor em produção via Docker Compose (`docker-compose.prod.yml`)                                                                                                        |
+| `make down`                  | Para containers Docker da aplicação                                                                                                                                             |
+| `make logs`                  | Exibe logs contínuos dos containers Docker                                                                                                                                      |
+| `make reset`                 | Reinicia containers Docker com rebuild completo                                                                                                                                 |
+| `make tunnel`                | Abre túnel SSH seguro com MongoDB remoto (porta 27018)                                                                                                                          |
+| `make db-and-collection`     | Exibe árvore de bancos e coleções no MongoDB local                                                                                                                              |
+| `make db-and-collection-prod`| Exibe árvore de bancos e coleções no container de produção                                                                                                                      |
+| `make mongosh-contracts`     | Conecta via mongosh no banco local de contratos                                                                                                                                 |
+| `make mongosh-contracts-prod`| Conecta via mongosh no banco de contratos remoto (via túnel)                                                                                                                    |
+| `make ssh-uploads-prod`      | Abre sessão SSH interativa direto na pasta uploads/ em produção                                                                                                                 |
+| `make ls-uploads-prod`       | Lista diretórios e arquivos da pasta uploads/ em produção (suporta `DIR=...`)                                                                                                   |
+| `make fetch-robot-debug-images` | Baixa screenshots de debug do container de produção para `tmp/robot-debug/`                                                                                                  |
+| `make routes-inventory`      | Gera inventário de rotas HTTP em `.specs/routes-inventory.md`                                                                                                                   |
+| `make routes-inventory-check`| Valida integridade do inventário de rotas no CI                                                                                                                                 |
 
 ## Componentes do Projeto
 

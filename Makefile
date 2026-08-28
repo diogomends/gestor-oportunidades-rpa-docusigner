@@ -31,7 +31,7 @@ else
     SSH_EXEC = cat tools/db-and-collection.js | ssh $(SSH_OPTS) $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
 endif
 
-.PHONY: help dev start test test-headed test-headed-ps build-robot install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod fetch-robot-debug-images uploads-prod uploads-prod routes-inventory routes-inventory-check
+.PHONY: help dev start test test-headed test-headed-ps build-robot install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod fetch-robot-debug-images ssh-uploads-prod ls-uploads-prod routes-inventory routes-inventory-check
 
 help:
 	@echo "Makefile - Gestor de Oportunidades RPA DocuSigner"
@@ -64,8 +64,8 @@ help:
 	@echo "  make mongosh-contracts-prod - Consulta contratos no servidor remoto (requer tunnel ativo)"
 	@echo ""
 	@echo "--- Arquivos e Uploads Remotos ---"
-	@echo "  make uploads-prod       - Abre sessao SSH interativa direto na pasta uploads/ em producao"
-	@echo "  make uploads-prod        - Lista diretorios e arquivos da pasta uploads/ em producao (use DIR=...)"
+	@echo "  make ssh-uploads-prod   - Abre sessao SSH interativa direto na pasta uploads/ em producao"
+	@echo "  make ls-uploads-prod    - Lista diretorios e arquivos da pasta uploads/ em producao (use DIR=...)"
 	@echo ""
 	@echo "--- Utilitarios e Logs do Robo ---"
 	@echo "  make fetch-robot-debug-images - Baixa screenshots de debug do container de producao para tmp/robot-debug/"
@@ -151,10 +151,10 @@ mongosh-contracts-prod:
 
 ## Arquivos e Uploads Remotos
 
-uploads-prod:
+ssh-uploads-prod:
 	powershell -Command "& '$(SSH_BIN)' $(SSH_OPTS) -t $(DEPLOY_HOST) 'cd $(REMOTE_UPLOADS_PATH) && exec bash -i'"
 
-uploads-prod:
+ls-uploads-prod:
 	powershell -Command "& '$(SSH_BIN)' $(SSH_OPTS) $(DEPLOY_HOST) 'cd $(REMOTE_UPLOADS_PATH) && ls -la $(DIR)'"
 
 ## Utilitários e Logs

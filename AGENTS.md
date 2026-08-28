@@ -13,11 +13,14 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | `npm run test:robot`                                                            | Testes robô (`test/robot/**`)                         |
 | `npm run build:robot` / `make build-robot`                                      | Gera executáveis do robô                              |
 | `npx playwright install chromium`                                               | Instala browser Chromium para o robô                  |
+| `make install` / `make install-backend` / `make install-robot`                  | Instalação de dependências (raiz/backend/robô)        |
 | `docker compose up --build` / `make up-dev`                                     | Sobe servidor em container Docker local               |
 | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` | Sobe servidor em produção via Docker (`make up-prod`)  |
+| `make down` / `make logs` / `make reset`                                        | Gestão de containers Docker (parar/logs/reset)        |
 | `make tunnel`                                                                   | Abre túnel SSH seguro com MongoDB remoto (27018)      |
 | `make db-and-collection`                                                        | Exibe árvore de bancos e coleções MongoDB local       |
 | `make db-and-collection-prod`                                                   | Exibe árvore de bancos e coleções no container prod   |
+| `make mongosh-contracts` / `make mongosh-contracts-prod`                        | Conexão mongosh ao banco de contratos (local/remoto)  |
 | `make ssh-uploads-prod`                                                         | Abre sessão SSH interativa na pasta uploads de prod  |
 | `make ls-uploads-prod`                                                          | Lista arquivos e pastas em uploads no servidor prod   |
 | `make fetch-robot-debug-images`                                                 | Baixa screenshots de debug do container de produção   |
@@ -151,6 +154,9 @@ Fora do prefixo:
 | `ROBOT_KEY`                     | Não         | —                           |
 | `HEADLESS`                      | Não         | `true`                      |
 | `POLL_INTERVAL_SECONDS`         | Não         | `15`                        |
+| `DEPLOY_HOST`                   | Não         | `root@165.227.212.57`       |
+| `DEPLOY_KEY` / `DEPLOY_KEY_PATH`| Não         | —                           |
+| `REMOTE_PROJECT_PATH`           | Não         | —                           |
 
 > Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. O robô standalone (`robot/src/config.js`) carrega automaticamente o arquivo `.env` da raiz e aceita `URI_PROD` como fallback para `API_URL`. A resolução de MFA (2FA) DocuSign consome as credenciais de `token_notification_email` (`email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), operando via socket IMAP direto com fallback para Roundcube Webmail. O robô detecta a tela de MFA pelo texto ("Get Code From Your Email"), por seletores de input (`name="security_code"`, `pattern="[0-9]{6}"`, `placeholder="Enter code"`) e submete pelo botão de confirmação (`data-qa="verify-code"`, texto "Verify" ou tecla Enter).
 
