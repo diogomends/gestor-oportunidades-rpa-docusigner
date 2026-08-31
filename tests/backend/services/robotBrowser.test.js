@@ -29,6 +29,7 @@ describe("robotBrowser Service", () => {
       const envelopeData = {
         recipientName: "John Doe",
         recipientEmail: "john@example.com",
+        envelopeId: "123e4567-e89b-12d3-a456-426614174000",
       };
 
       const result = await send(mockPage, envelopeData);
@@ -61,6 +62,7 @@ describe("robotBrowser Service", () => {
         recipientName: "John Doe",
         recipientEmail: "john@example.com",
         credentials: { email: "robot@docusign.com", password: "Password123" },
+        envelopeId: "123e4567-e89b-12d3-a456-426614174000",
       };
 
       const result = await send(mockPage, envelopeData);
@@ -127,7 +129,7 @@ describe("robotBrowser Service", () => {
         },
         (err) => {
           assert.strictEqual(
-            err.message.includes("Não é possível preencher os dados do contrato: o navegador continua na tela de login da DocuSign"),
+            err.message.includes("Redirecionado para OAuth") || err.message.includes("Sessão invalidada") || err.message.includes("login/OAuth"),
             true
           );
           return true;

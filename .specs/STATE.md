@@ -156,17 +156,25 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-034
+- **Decision**: Centralização de `LOGIN_URL_REGEX`/`isLoginUrl` em `backend/src/modules/robot-docusign/services/loginUrl.js` como fonte única; `steps/stepUtils.js` re-exporta e `robotSession.js` importa direto, eliminando duplicação e divergência `/login`/`/password`.
+- **Reason**: Corrigir C1 do hardening (regex divergente e claim falso de unicidade), quebrar ciclo `stepUtils↔robotSession` e garantir paridade futura via módulo sem dependências.
+- **Trade-off**: Novo arquivo de 11L; `stepUtils` mantém re-export para compatibilidade com `agreementsService`/`authStep`.
+- **Scope**: `backend/src/modules/robot-docusign/services/loginUrl.js`, `backend/src/modules/robot-docusign/services/steps/stepUtils.js`, `backend/src/modules/robot-docusign/services/robotSession.js`, `tests/backend/services/robotBrowser.test.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: refactor-robot-orchestrator-solid
-- **Phase / Task**: Refatoração do robotOrchestrator.js finalizada
-- **Completed**: Encapsulamento de Playwright em robotBrowser, extração de contractSyncService, simplificação do shouldUseRobot e integração com withRetry
-- **In-progress**: Finalizado
+- **Feature**: fix/robot-docusign-loginUrl-centralize
+- **Phase / Task**: Centralização isLoginUrl e correção de testes de regressão finalizada
+- **Completed**: Fonte única loginUrl.js (11L), stepUtils re-export, robotSession sem duplicação, 3 testes robotBrowser fixados (177/177)
+- **In-progress**: Docs (STATE AD-034, README/AGENTS) atualizados
 - **Next step**: Commit, PR e merge
 - **Blockers**: none
-- **Branch**: refactor/robot-orchestrator-solid
+- **Branch**: fix/robot-docusign-loginUrl-centralize
 
 
 

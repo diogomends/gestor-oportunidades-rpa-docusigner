@@ -66,7 +66,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │               ├── routes.js          # Rotas Express (prefixo /api/robot-docusign)
 │               ├── controllers/       # robotDocusignController.js, robotInstanceController.js
 │               ├── models/            # RobotJob.js, RobotSession.js, RobotInstance.js
-│               ├── services/          # robotOrchestrator.js, robotBrowser.js, robotScheduler.js, robotSession.js, robotSelectors.js, agreementsService.js, contractSyncService.js, steps/
+│               ├── services/          # robotOrchestrator.js, robotBrowser.js, robotScheduler.js, robotSession.js, robotSelectors.js, agreementsService.js, contractSyncService.js, loginUrl.js, steps/
 │               ├── selectors/         # Selectors CSS para automação do DocuSign
 │               └── routes/            # robotInstanceRoutes.js
 ├── robot/
