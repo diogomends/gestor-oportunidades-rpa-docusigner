@@ -247,14 +247,31 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-045
+- **Decision**: Adição de trava de concorrência atômica `let isRunning = false` com checagem antecipada (retornando `{ status: "busy", reason: "already_running" }`) e liberação garantida no bloco `try ... finally { isRunning = false; }` dentro de `syncAllContractsStatus` (`statusSyncScheduler.js`), além de exposição do helper `isStatusSyncRunning()`.
+- **Reason**: Evitar execuções simultâneas do Playwright quando uma consulta demorar mais que o intervalo periódico configurado ou quando a rota `POST /api/robot-docusign/sync-status` for disparada concomitantemente, impedindo invalidação de sessão na DocuSign e race conditions no MongoDB.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `backend/src/modules/robot-docusign/seletorApiRobot/index.js`, `tests/backend/services/statusSyncScheduler.test.js`, `tests/backend/controllers/robotDocusignController.test.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
+### AD-046
+- **Decision**: Eliminação de coerção arbitrária no mapeamento de status em `statusSyncScheduler.js` (`mapEnvelopeStatusToContractStatus`), retornando `null` para status desconhecidos, vazios, rascunhos ou inesperados em vez de `"enviado"`, prevenindo alterações indevidas de estado nos contratos do MongoDB (Princípio Anti-Phantom Success).
+- **Reason**: Anteriormente, a cláusula `default:` retornava `"enviado"`, fazendo com que envelopes em rascunho (`draft`) ou retornos vazios/desconhecidos da DocuSign forçassem contratos em estado `gerado` para `enviado` sem envio real.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `tests/backend/services/statusSyncScheduler.test.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: fix/docusign-recipient-column-fallback-sanitization
-- **Phase / Task**: Correção do fallback de coluna de destinatário e sanitização de prefixos Para/To
-- **Completed**: AD-044 documentada, `agreementsService.js` e `agreements.js` atualizados com fallback para 2ª coluna e remoção de prefixos `Para:`/`To:`, e testes em `docusign.test.js` sincronizados.
+- **Feature**: fix/status-sync-anti-phantom-success
+- **Phase / Task**: Correção de Anti-Phantom Success no mapeamento padrão de status do DocuSign
+- **Completed**: AD-046 documentada, `mapEnvelopeStatusToContractStatus` atualizado para retornar `null` em status não catalogados, loop de sincronização protegido contra transições fantasmas e 100% de testes unitários e de regressão aprovados (139 testes no backend).
 - **In-progress**: Finalização de commit e PR
 - **Next step**: Executar fluxo de commit, PR e merge
 - **Blockers**: none
 - **Branch**: main
+
 
 
