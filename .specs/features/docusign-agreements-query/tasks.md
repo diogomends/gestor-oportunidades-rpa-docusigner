@@ -108,3 +108,41 @@ graph TD
 - **Tests**: `test/backend/modules/robot-docusign/robotOrchestrator.test.js`
 - **Gate**: `node --env-file=.env.dev --test test/backend/**/*.test.js`
 - **Commit**: `feat(robot): integrate agreements query action with job runner and orchestrator`
+
+---
+
+### T06: Correção de Extração de EnvelopeId e Subject no OneDS Moderno
+
+- **Req**: REQ-AGR-06
+- **Status**: [x] completed
+- **Esforço**: 30m | Paralelável: Sim
+- **Depende de**: T03
+- **O quê**: Atualizar `agreementsService.js` e `agreements.js` para extrair o UUID do envelope diretamente de `tr[data-qa^="manage-envelopes-list.row."]` e o assunto a partir de `button[data-qa$="-mobile-name"]` e `[data-qa$="-mobile-name-text"]`, preservando os fallbacks para `href` de `<a>`.
+- **Onde**:
+  - `backend/src/modules/robot-docusign/browserrobot/agreementsService.js`
+  - `robot/src/browser/agreements.js`
+  - `backend/src/modules/robot-docusign/browserrobot/robotSelectors.js`
+  - `robot/src/browser/selectors.js`
+- **Tests**: `tests/robot/browser/docusign.test.js`
+- **Gate**: `node --env-file=.env.dev --test tests/robot/browser/docusign.test.js`
+- **Commit**: `fix(robot): extract envelopeId from row data-qa and subject from mobile button`
+
+---
+
+### T07: Restrição de Seleção de Linhas ao Corpo da Tabela (tbody)
+
+- **Req**: REQ-AGR-07
+- **Status**: [x] completed
+- **Esforço**: 15m | Paralelável: Sim
+- **Depende de**: T03, T06
+- **O quê**: Ajustar `selectors.agreements.row`, `agreements.js` e `agreementsService.js` para mirar especificamente as linhas do corpo da tabela (`tbody[data-qa='manage-envelopes-list.body'] tr, tr[data-qa^='manage-envelopes-list.row.']`), evitando que a linha do cabeçalho `<thead>` seja capturada como primeiro item.
+- **Onde**:
+  - `robot/src/browser/selectors.js`
+  - `robot/src/browser/agreements.js`
+  - `backend/src/modules/robot-docusign/browserrobot/agreementsService.js`
+  - `tests/robot/browser/selectors.test.js`
+- **Tests**: `tests/robot/browser/selectors.test.js`
+- **Gate**: `node --env-file=.env.dev --test tests/robot/browser/selectors.test.js`
+- **Commit**: `fix(robot): target tbody rows to ignore header row in agreements list`
+
+
