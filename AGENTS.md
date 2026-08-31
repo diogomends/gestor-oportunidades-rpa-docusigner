@@ -8,9 +8,9 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | ------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | `npm start` / `make start`                                                      | Produção (`node backend/src/server.js`)               |
 | `npm run dev` / `make dev`                                                      | Dev com nodemon (`backend/src/server.js`)             |
-| `npm test` / `make test`                                                        | Testes nativos (`node --test` em `test/**/*.test.js`) |
-| `npm run test:backend`                                                          | Testes backend (`test/backend/**`)                    |
-| `npm run test:robot`                                                            | Testes robô (`test/robot/**`)                         |
+| `npm test` / `make test`                                                        | Testes nativos (`node --test` em `tests/**/*.test.js`) |
+| `npm run test:backend`                                                          | Testes backend (`tests/backend/**`)                    |
+| `npm run test:robot`                                                            | Testes robô (`tests/robot/**`)                         |
 | `npm run build:robot` / `make build-robot`                                      | Gera executáveis do robô                              |
 | `npx playwright install chromium`                                               | Instala browser Chromium para o robô                  |
 | `make install` / `make install-backend` / `make install-robot`                  | Instalação de dependências (raiz/backend/robô)        |
@@ -168,7 +168,7 @@ Fora do prefixo:
 - **Validação**: Zod para request body/params em controllers.
 - **Autorização**: `protect` (JWT Bearer) + `authorize("admin")` nas rotas.
 - **Erros ACL**: HTTP 403 com mensagem em português.
-- **Testes**: `node --env-file=.env.dev --test` nativo (sem Jest) em `test/**/*.test.js` (`test/backend` + `test/robot`). Mocks via `node:test`. Supertest para integração. Carrega variáveis de ambiente diretamente de `.env.dev`. **Não rodar sem ser solicitado.**
+- **Testes**: `node --env-file=.env.dev --test` nativo (sem Jest) em `tests/**/*.test.js` (`tests/backend` + `tests/robot`). Mocks via `node:test`. Supertest para integração. Carrega variáveis de ambiente diretamente de `.env.dev`. **Não rodar sem ser solicitado.**
 - **Idioma**: pt-BR em mensagens, commits e documentação.
 - **Commit**: sempre `--no-verify` em `git commit` e `git push`. Gerar comandos, nunca executar. Seguir `.agents/rules/commit.md`.
 - **JSDoc obrigatório**: Toda função, método ou classe criada/alterada DEVE ter JSDoc. Sem exceção.
