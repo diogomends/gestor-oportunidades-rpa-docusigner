@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import RobotSession from "../models/RobotSession.js";
+import { getSelectors as _getMfaSelectors } from "./robotSelectors.js";
 
 /**
  * Timeout estendido (90s) para a etapa MFA/2FA — DocuSign demora mais para
@@ -8,9 +9,8 @@ import RobotSession from "../models/RobotSession.js";
  */
 export const MFA_TIMEOUT = 90000;
 
-/** Seletor CSS composto para campo de código MFA/OTP. @type {string} */
-const DEFAULT_MFA_SELECTOR =
-  "input[name='security_code'], input[placeholder='Enter code'], input[pattern='[0-9]{6}'], input[type='tel'], input[data-testid='mfa-code'], input[autocomplete='one-time-code'], input[name='mfa-code'], input[id*='otp'], #code, input[name='code']";
+/** Seletor CSS composto para campo de código MFA/OTP — fonte canônica em robotSelectors.js:mfa.input (ponytail: evita duplicação). @type {string} */
+const DEFAULT_MFA_SELECTOR = _getMfaSelectors().mfa.input;
 
 /**
  * Captura um screenshot de depuração e salva em tmp/robot-debug/.
@@ -133,18 +133,14 @@ function createAuthError(code, message) {
 
 /**
  * Verifica se a URL atual ainda pertence ao fluxo de login/MFA da DocuSign.
+ * Sincronizado com steps/stepUtils.js:LOGIN_URL_REGEX — manter paridade.
  *
  * @param {string} url - URL a ser verificada.
  * @returns {boolean} True se estiver na tela de login/MFA.
  */
 function isLoginUrl(url) {
   if (!url) return false;
-  return (
-    url.includes("account.docusign.com") ||
-    url.includes("apps.docusign.com") ||
-    url.includes("/auth?") ||
-    url.includes("/oauth/")
-  );
+  return /account\.docusign\.com|apps\.docusign\.com|\/oauth\/|\/login|\/password|\/auth\?/.test(String(url));
 }
 
 /**

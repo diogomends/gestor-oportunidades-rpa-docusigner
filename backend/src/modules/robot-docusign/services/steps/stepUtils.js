@@ -63,7 +63,7 @@ export async function guardedAction(action, page, email) {
   const url = page && typeof page.url === "function" ? page.url() : "";
   if (isLoginUrl(url)) {
     if (email) {
-      await robotSession.invalidateSession(email).catch(() => {});
+      await robotSession.invalidateSession(email).catch((e) => console.warn("[guardedAction] falha ao invalidar sessão:", e?.message || e));
     }
     const redirectMsg = `Redirecionado para OAuth durante interação com a página (${url}). Sessão invalidada — o robô realizará novo login na próxima tentativa.`;
     throw new Error(redirectMsg, executionError ? { cause: executionError } : undefined);

@@ -1,4 +1,4 @@
-import { isLoginUrl } from "./stepUtils.js";
+import { assertPage, isLoginUrl } from "./stepUtils.js";
 
 /**
  * Extrai ou resolve o identificador único do envelope após a submissão.
@@ -14,21 +14,22 @@ export async function extractEnvelopeId(page, sendSel = {}, fallbackEnvelopeId) 
     return fallbackEnvelopeId.trim();
   }
 
+  assertPage(page);
+
   let extractedId = null;
 
-  if (page && typeof page.url === "function") {
-    const currentUrl = page.url();
-    if (isLoginUrl(currentUrl)) {
-      throw new Error(`Não foi possível extrair envelopeId: o navegador foi redirecionado para a tela de autenticação (${currentUrl}).`);
-    }
-
-    const match = currentUrl.match(/\/envelopes\/([0-9a-fA-F-]{20,}|[0-9a-fA-F-]{36}|[a-zA-Z0-9-]{10,})/i);
-    if (match && match[1]) {
-      extractedId = match[1];
-    }
+  const currentUrl = page.url();
+  if (isLoginUrl(currentUrl)) {
+    throw new Error(`Não foi possível extrair envelopeId: o navegador foi redirecionado para a tela de autenticação (${currentUrl}).`);
   }
 
-  if (!extractedId && page && typeof page.getAttribute === "function" && sendSel?.send_button) {
+  const match = currentUrl.match(/\/envelopes\/([0-9a-fA-F-]{20,}|[0-9a-fA-F-]{36})/i);
+  if (match && match[1]) {
+    extractedId = match[1];
+  }
+
+  // ponytail: data-envelope-id não existe em docusign-ui.json — mantido apenas como fallback defensivo, remover se confirmar inexistência em prod
+  if (!extractedId && typeof page.getAttribute === "function" && sendSel?.send_button) {
     extractedId = await page.getAttribute(sendSel.send_button, "data-envelope-id").catch(() => null);
   }
 

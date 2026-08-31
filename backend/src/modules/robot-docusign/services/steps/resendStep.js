@@ -22,9 +22,13 @@ export async function resendEnvelope(page, envelopeId, selectors) {
   if (typeof page.click === "function") {
     await guardedAction(() => page.click(resendButton), page);
     if (typeof page.waitForSelector === "function") {
-      await page
+      const toastOk = await page
         .waitForSelector("[data-testid='resend-success'], .toast-success, [data-qa='toast-message']", { timeout: 8000 })
-        .catch(() => {});
+        .then(() => true)
+        .catch(() => false);
+      if (!toastOk) {
+        throw new Error("Reenvio não confirmado pela interface — toast de sucesso não apareceu após clicar em reenviar.");
+      }
     }
   }
 
