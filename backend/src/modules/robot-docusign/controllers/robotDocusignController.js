@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 import { z } from "zod";
 import RobotJob from "../models/RobotJob.js";
 import SystemConfig from "../../../models/SystemConfig.js";
-import robotOrchestrator, { robotEvents } from "../services/robotOrchestrator.js";
-import robotSession from "../services/robotSession.js";
-import robotScheduler from "../services/robotScheduler.js";
+import robotOrchestrator, { robotEvents } from "../seletorApiRobot/index.js";
+import robotSession from "../browserrobot/robotSession.js";
+import robotScheduler from "../seletorApiRobot/robotScheduler.js";
 import { encryptText } from "../../../utils/crypto.js";
 
 /**

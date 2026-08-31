@@ -157,16 +157,19 @@
 - **Status**: active
 
 ### AD-034
-- **Decision**: Centralização de `LOGIN_URL_REGEX`/`isLoginUrl` em `backend/src/modules/robot-docusign/services/loginUrl.js` como fonte única; `steps/stepUtils.js` re-exporta e `robotSession.js` importa direto, eliminando duplicação e divergência `/login`/`/password`.
+- **Decision**: Centralização de `LOGIN_URL_REGEX`/`isLoginUrl` em `backend/src/modules/robot-docusign/browserrobot/loginUrl.js` como fonte única (barrel em `services/loginUrl.js` para retrocompatibilidade); `browserrobot/steps/stepUtils.js` re-exporta e `browserrobot/robotSession.js` importa direto, eliminando duplicação e divergência `/login`/`/password`.
 - **Reason**: Corrigir C1 do hardening (regex divergente e claim falso de unicidade), quebrar ciclo `stepUtils↔robotSession` e garantir paridade futura via módulo sem dependências.
-- **Trade-off**: Novo arquivo de 11L; `stepUtils` mantém re-export para compatibilidade com `agreementsService`/`authStep`.
-- **Scope**: `backend/src/modules/robot-docusign/services/loginUrl.js`, `backend/src/modules/robot-docusign/services/steps/stepUtils.js`, `backend/src/modules/robot-docusign/services/robotSession.js`, `tests/backend/services/robotBrowser.test.js`
+- **Trade-off**: Novo arquivo de 11L em `browserrobot/`; `services/` mantém barrels para compatibilidade com `agreementsService`/`authStep`.
+- **Scope**: `backend/src/modules/robot-docusign/browserrobot/loginUrl.js`, `backend/src/modules/robot-docusign/services/loginUrl.js`, `backend/src/modules/robot-docusign/browserrobot/steps/stepUtils.js`, `backend/src/modules/robot-docusign/services/steps/stepUtils.js`, `backend/src/modules/robot-docusign/browserrobot/robotSession.js`, `tests/backend/services/robotBrowser.test.js`
 - **Date**: 2026-08-31
+- **Status**: active
+
+> **Nota AD-034 → AD-035**: Fonte canônica migrada de `services/loginUrl.js` para `browserrobot/loginUrl.js` em AD-035; `services/` convertido em barrel.
 ### AD-035
-- **Decision**: Decomposição estrutural do domínio `robot-docusign/` em dois submódulos de alta coesão: `browserrobot/` (automação Playwright, steps, sessões, acordos, seletores) e `seletorApiRobot/` (orquestração, seleção de modo, apiActionService, config, eventos, scheduler, contractSyncService), mantendo a pasta `services/` como barrels de retrocompatibilidade direta.
-- **Reason**: Aplicação plena dos princípios SOLID (SRP, ISP e DIP com isolamento absoluto entre infraestrutura de navegador e orquestração de negócios) e PonyTail (zero sobre-engenharia, zero quebra de contratos legados).
+- **Decision**: Decomposição estrutural do domínio `robot-docusign/` em dois submódulos de alta coesão: `browserrobot/` (automação Playwright, steps, sessões, acordos, seletores) e `seletorApiRobot/` (orquestração, seleção de modo, apiActionService, config, eventos, scheduler, contractSyncService), padronização de queries Mongoose e conversão integral de `services/steps/` e `services/*.js` em barrels de re-exportação (DRY/PonyTail).
+- **Reason**: Aplicação plena dos princípios SOLID (SRP, ISP e DIP com isolamento absoluto entre infraestrutura de navegador e orquestração de negócios) e PonyTail (zero sobre-engenharia, zero duplicação de lógica e 100% de retrocompatibilidade com controllers e testes).
 - **Trade-off**: N/A.
-- **Scope**: `backend/src/modules/robot-docusign/browserrobot/*`, `backend/src/modules/robot-docusign/seletorApiRobot/*`, `backend/src/modules/robot-docusign/services/*`, `backend/src/modules/robot-docusign/index.js`
+- **Scope**: `backend/src/modules/robot-docusign/browserrobot/*`, `backend/src/modules/robot-docusign/seletorApiRobot/*`, `backend/src/modules/robot-docusign/services/*`, `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `backend/src/modules/robot-docusign/index.js`, `README.md`
 - **Date**: 2026-08-31
 - **Status**: active
 
@@ -175,8 +178,8 @@
 ## Handoff
 
 - **Feature**: refactor/robot-docusign-submodules-split
-- **Phase / Task**: Separação nos submódulos browserrobot e seletorApiRobot finalizada
-- **Completed**: Criação de browserrobot/ e seletorApiRobot/, barrels de compatibilidade em services/, index.js atualizado e docs sincronizadas
+- **Phase / Task**: Code review e correções aplicadas (padronização de query Mongoose, importações canônicas no controller, conversão de steps legados em barrels e sincronização de docs)
+- **Completed**: Criação dos submódulos browserrobot e seletorApiRobot, barrels de compatibilidade em services/, controller atualizado, README.md e STATE.md sincronizados
 - **In-progress**: Finalizado
 - **Next step**: Commit, PR e merge
 - **Blockers**: none

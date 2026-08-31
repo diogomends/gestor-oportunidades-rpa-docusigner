@@ -171,14 +171,16 @@ backend/
 │   ├── utils/             # crypto.js, timeRestrictionService.js
 │   └── modules/
 │       └── robot-docusign/  # Módulo de domínio
-│           ├── index.js
-│           ├── routes.js
-│           ├── controllers/
-│           ├── models/        # RobotJob, RobotSession, RobotInstance
-│           ├── services/      # robotOrchestrator, robotBrowser, robotScheduler, robotSession, robotSelectors, agreementsService, contractSyncService, loginUrl, steps/
-│           ├── selectors/     # CSS selectors para automação
-│           └── routes/
-├── test/              # Testes (raiz do projeto)
+│           ├── index.js           # Exporta routes, orchestrator, session, scheduler, browserrobot, seletorApiRobot
+│           ├── routes.js          # Rotas Express (prefixo /api/robot-docusign)
+│           ├── controllers/       # robotDocusignController.js, robotInstanceController.js
+│           ├── models/            # RobotJob.js, RobotSession.js, RobotInstance.js
+│           ├── selectors/         # Selectors CSS para automação do DocuSign
+│           ├── routes/            # robotInstanceRoutes.js
+│           ├── browserrobot/      # Submódulo Playwright (index.js, robotSession.js, agreementsService.js, robotSelectors.js, steps/)
+│           ├── seletorApiRobot/   # Submódulo de Seleção & Orquestração (index.js, orchestratorConfig.js, orchestratorEvents.js, apiActionService.js, contractSyncService.js, robotScheduler.js)
+│           └── services/          # Barrels de retrocompatibilidade direta
+├── tests/             # Testes nativos (raiz do projeto)
 │   ├── backend/controllers|models|services
 │   └── robot/browser/
 ```
