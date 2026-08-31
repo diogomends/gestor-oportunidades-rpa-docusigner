@@ -28,11 +28,6 @@ export async function extractEnvelopeId(page, sendSel = {}, fallbackEnvelopeId) 
     extractedId = match[1];
   }
 
-  // ponytail: data-envelope-id não existe em docusign-ui.json — mantido apenas como fallback defensivo, remover se confirmar inexistência em prod
-  if (!extractedId && typeof page.getAttribute === "function" && sendSel?.send_button) {
-    extractedId = await page.getAttribute(sendSel.send_button, "data-envelope-id").catch(() => null);
-  }
-
   if (!extractedId || typeof extractedId !== "string" || !extractedId.trim()) {
     throw new Error(
       "Não foi possível extrair o envelopeId após a submissão do contrato no DocuSign. Verifique se o envelope foi criado corretamente."

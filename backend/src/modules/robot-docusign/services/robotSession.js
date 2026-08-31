@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import RobotSession from "../models/RobotSession.js";
 import { getSelectors as _getMfaSelectors } from "./robotSelectors.js";
+import { isLoginUrl } from "./loginUrl.js";
 
 /**
  * Timeout estendido (90s) para a etapa MFA/2FA — DocuSign demora mais para
@@ -131,17 +132,7 @@ function createAuthError(code, message) {
   return err;
 }
 
-/**
- * Verifica se a URL atual ainda pertence ao fluxo de login/MFA da DocuSign.
- * Sincronizado com steps/stepUtils.js:LOGIN_URL_REGEX — manter paridade.
- *
- * @param {string} url - URL a ser verificada.
- * @returns {boolean} True se estiver na tela de login/MFA.
- */
-function isLoginUrl(url) {
-  if (!url) return false;
-  return /account\.docusign\.com|apps\.docusign\.com|\/oauth\/|\/login|\/password|\/auth\?/.test(String(url));
-}
+
 
 /**
  * Detecta se a tela de MFA/2FA apareceu após a submissão da senha.

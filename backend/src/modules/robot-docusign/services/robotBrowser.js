@@ -130,11 +130,104 @@ export async function queryAgreements(page, options = {}) {
   return await fetchAgreementsByRepresentative(page, options);
 }
 
+/**
+ * Executa uma ação do robô com gerenciamento completo do ciclo de vida do navegador Chromium.
+ *
+ * @param {string} action - Ação a ser executada ('send', 'status', 'download', 'resend', 'reports', 'query_agreements').
+ * @param {Object} [options={}] - Parâmetros, dados do contrato e credenciais.
+ * @returns {Promise<*>} Resultado da operação executada.
+ * @throws {Error} Lança erro caso a ação falhe ou não seja suportada.
+ */
+export async function executeWithBrowser(action, options = {}) {
+  let browser = options.browser || null;
+  let context = options.context || null;
+  let page = options.page || null;
+  let launchedBrowser = false;
+
+  try {
+    if (!page) {
+      const { chromium } = await import("playwright");
+      const launchOptions = {
+        headless: options.headless !== false,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      };
+      if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+        launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+      }
+      browser = await chromium.launch(launchOptions);
+      context = await browser.newContext();
+      page = await context.newPage();
+      launchedBrowser = true;
+    }
+
+    if (options.credentials?.email && options.credentials?.password) {
+      try {
+        await robotSession.getOrRefreshSession(page, context, options.credentials);
+      } catch (sessErr) {
+        console.warn(`[robotBrowser] Aviso ao carregar sessão: ${sessErr.message}`);
+      }
+    }
+
+    const envelopeId =
+      options.envelopeId ||
+      options.contract?.envelopeId ||
+      options.contract?.docusign_envelope_id;
+
+    const envelopeData = {
+      recipientName:
+        options.recipientName ||
+        options.contract?.client?.representante?.nome ||
+        options.contract?.signer?.name ||
+        options.contract?.name ||
+        options.contract?.clientName,
+      recipientEmail:
+        options.recipientEmail ||
+        options.contract?.client?.representante?.email ||
+        options.contract?.signer?.email ||
+        options.contract?.email ||
+        options.contract?.clientEmail,
+      subject: options.subject,
+      message: options.message,
+      documentPath: options.documentPath || options.pdfPath,
+      envelopeId,
+      credentials: options.credentials,
+      ...options.envelopeData,
+      ...options,
+    };
+
+    switch (action) {
+      case "send":
+        return await send(page, envelopeData);
+      case "status":
+        return await status(page, envelopeId);
+      case "download":
+        return await download(page, envelopeId, options.downloadDir || "./downloads", options.fileName);
+      case "resend":
+        return await resend(page, envelopeId);
+      case "reports":
+        return await reports(page, options);
+      case "query_agreements":
+      case "queryAgreements":
+        return await queryAgreements(page, options);
+      default:
+        throw new Error(`Ação '${action}' não é suportada pelo robotBrowser.`);
+    }
+  } finally {
+    if (launchedBrowser && browser) {
+      try {
+        await browser.close();
+      } catch (closeErr) {
+        console.warn(`[robotBrowser] Erro ao fechar navegador: ${closeErr.message}`);
+      }
+    }
+  }
+}
+
 export { withRetry };
 
 /**
  * Exportação padrão das operações Playwright do robô.
- * @type {{send: function, status: function, download: function, resend: function, reports: function, queryAgreements: function, withRetry: function}}
+ * @type {{send: function, status: function, download: function, resend: function, reports: function, queryAgreements: function, executeWithBrowser: function, withRetry: function}}
  */
 export default {
   send,
@@ -143,6 +236,7 @@ export default {
   resend,
   reports,
   queryAgreements,
+  executeWithBrowser,
   withRetry,
 };
 

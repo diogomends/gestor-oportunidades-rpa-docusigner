@@ -21,6 +21,10 @@ export async function downloadDocument(page, envelopeId, downloadDir, fileName, 
   }
 
   const resolvedDir = path.resolve(downloadDir.trim());
+  const ALLOWED_ROOT = path.resolve(process.cwd(), "uploads");
+  if (resolvedDir !== ALLOWED_ROOT && !resolvedDir.startsWith(ALLOWED_ROOT + path.sep)) {
+    throw new Error(`Diretório de download fora da raiz permitida (uploads): "${resolvedDir}".`);
+  }
   await fs.promises.mkdir(resolvedDir, { recursive: true });
 
   const resolvedSelectors = selectors || resolveSelectors();
