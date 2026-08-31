@@ -41,6 +41,7 @@ So that the Opportunity Manager (Gestor de Oportunidades) receives accurate agre
 - **AC-02.3**: If the extracted status does not match known values (`Concluído`, `Aguardando outros`, `Aguardando`, `Anulado`, `Falha na entrega`), the system SHALL emit a warning alert and preserve the exact raw status text.
 - **AC-02.4**: When parsing modern OneDS rows, the robot SHALL extract the UUID (`envelopeId`) from the row attribute `tr[data-qa^="manage-envelopes-list.row."]` and the `subject` from `button[data-qa$="-mobile-name"]` (or `[data-qa$="-mobile-name-text"]`), falling back to `href` in tags `<a>` for legacy compatibility.
 - **AC-02.5**: When querying table rows, the robot SHALL target exclusively `tbody` elements (`tbody[data-qa="manage-envelopes-list.body"] tr, tr[data-qa^="manage-envelopes-list.row."]`) to avoid capturing the table header `<thead>` row (`manage-envelopes-list.header.row`).
+- **AC-02.6**: When extracting recipient from envelope rows, the robot SHALL query `[data-qa$="-mobile-from"]`, fallback to `td:nth-child(2) [data-qa$="-mobile-from"]` or `td:nth-child(2)`, and sanitize UI prefixes (`"Para:"` or `"To:"`) before filtering and payload assignment.
 
 ## Requirement Traceability
 
@@ -53,4 +54,5 @@ So that the Opportunity Manager (Gestor de Oportunidades) receives accurate agre
 | REQ-AGR-05 | Detecção e alerta estruturado para status não mapeados | implemented |
 | REQ-AGR-06 | Extração de envelopeId via `data-qa` da linha e subject via `button[data-qa$='-mobile-name']` (OneDS) | implemented |
 | REQ-AGR-07 | Segmentação estrita no corpo da tabela (tbody) para ignorar o thead | implemented |
+| REQ-AGR-08 | Fallback da coluna de destinatário para td:nth-child(2) e sanitização dos prefixos Para: e To: | implemented |
 
