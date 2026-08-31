@@ -85,7 +85,11 @@ export async function extractEnvelopesFromCurrentPage(page, repName = "") {
   }
 
   const normalizedTargetRep = normalizeText(repName);
-  const rows = await page.$$("[data-qa='manage-envelopes-list.table'] tr, tr[data-testid='envelope-row']").catch(() => []);
+  const rows = await page
+    .$$(
+      "tbody[data-qa='manage-envelopes-list.body'] tr, tr[data-qa^='manage-envelopes-list.row.'], tr[data-testid='envelope-row']"
+    )
+    .catch(() => []);
   const envelopes = [];
   const unknownStatuses = [];
 
@@ -112,14 +116,23 @@ export async function extractEnvelopesFromCurrentPage(page, repName = "") {
       });
     }
 
+    const rowDataQa = typeof row.getAttribute === "function" ? (await row.getAttribute("data-qa").catch(() => "")) : "";
+    const rowIdMatch = rowDataQa ? rowDataQa.match(/manage-envelopes-list\.row\.([a-zA-Z0-9-]+)/i) : null;
+
     const subjectEl =
+      (await row.$("button[data-qa$='-mobile-name']").catch(() => null)) ||
+      (await row.$("[data-qa$='-mobile-name-text']").catch(() => null)) ||
       (await row.$("[data-qa$='-subject']").catch(() => null)) ||
       (await row.$("a[data-qa*='envelope-']").catch(() => null)) ||
       (await row.$("a").catch(() => null));
     const subject = subjectEl && typeof subjectEl.innerText === "function" ? (await subjectEl.innerText()).trim() : "";
-    const href = subjectEl && typeof subjectEl.getAttribute === "function" ? await subjectEl.getAttribute("href").catch(() => "") : "";
-    const idMatch = href ? href.match(/\/documents\/details\/([a-zA-Z0-9-]+)/i) || href.match(/\/documents\/([a-zA-Z0-9-]+)/i) : null;
-    const envelopeId = idMatch ? idMatch[1] : null;
+
+    let envelopeId = rowIdMatch ? rowIdMatch[1] : null;
+    if (!envelopeId) {
+      const href = subjectEl && typeof subjectEl.getAttribute === "function" ? await subjectEl.getAttribute("href").catch(() => "") : "";
+      const idMatch = href ? href.match(/\/documents\/details\/([a-zA-Z0-9-]+)/i) || href.match(/\/documents\/([a-zA-Z0-9-]+)/i) : null;
+      envelopeId = idMatch ? idMatch[1] : null;
+    }
 
     envelopes.push({
       recipient: rawFrom,

@@ -223,13 +223,30 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-042
+- **Decision**: Extração direta do UUID (`envelopeId`) a partir do atributo `data-qa` da tag `<tr>` (`manage-envelopes-list.row.<UUID>`) e captura do `subject` a partir de `button[data-qa$='-mobile-name']` e `[data-qa$='-mobile-name-text']` com fallbacks para `href` de `<a>` e seletores legados.
+- **Reason**: Adequação à arquitetura moderna OneDS do DocuSign, que não utiliza mais links `<a>` com `href` para navegação nos envelopes, evitando retorno de `envelopeId: null` e assunto vazio durante a conciliação de acordos.
+- **Trade-off**: N/A. Totalmente retrocompatível com mocks e páginas legadas.
+- **Scope**: `backend/src/modules/robot-docusign/browserrobot/agreementsService.js`, `robot/src/browser/agreements.js`, `backend/src/modules/robot-docusign/browserrobot/robotSelectors.js`, `robot/src/browser/selectors.js`, `tests/robot/browser/docusign.test.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
+### AD-043
+- **Decision**: Refinamento do seletor de linhas da tabela de acordos para `tbody[data-qa='manage-envelopes-list.body'] tr, tr[data-qa^='manage-envelopes-list.row.']`.
+- **Reason**: Evitar que a busca por `[data-qa='manage-envelopes-list.table'] tr` capture a linha do cabeçalho `<thead>` (`manage-envelopes-list.header.row`), eliminando iteração com registro nulo no início da tabela.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/browserrobot/agreementsService.js`, `robot/src/browser/agreements.js`, `robot/src/browser/selectors.js`, `tests/robot/browser/selectors.test.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: feature/separate-send-and-status-routines
-- **Phase / Task**: Separação modular de rotinas de envio síncrono e consulta periódica geral de status com download de assinados
-- **Completed**: AD-041 documentada, `statusSyncScheduler.js` criado, `robotScheduler.js` ajustado para remover auto-envio, `triggerJob` síncrono e rota `sync-status` exposta.
+- **Feature**: fix/docusign-table-row-tbody-selector
+- **Phase / Task**: Restringir seleção de linhas da tabela de acordos ao tbody para ignorar o thead
+- **Completed**: AD-043 documentada, `agreementsService.js`, `agreements.js` e `selectors.js` atualizados para segmentar o corpo da tabela, e testes de seletores sincronizados.
 - **In-progress**: Finalização de commit e PR
 - **Next step**: Executar fluxo de commit, PR e merge
 - **Blockers**: none
 - **Branch**: main
+
 

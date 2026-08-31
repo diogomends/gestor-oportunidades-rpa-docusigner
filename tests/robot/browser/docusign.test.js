@@ -336,6 +336,36 @@ describe("Robot Standalone - DocuSign Browser & Session Hardening Tests", () => 
       assert.equal(result.unknownStatuses.length, 1);
       assert.equal(result.unknownStatuses[0].rawStatus, "Status Customizado Inédito");
     });
+
+    it("deve extrair envelopeId do data-qa da linha e subject de button[data-qa$='-mobile-name'] no OneDS moderno", async () => {
+      const mockRows = [
+        {
+          getAttribute: async (attr) => (attr === "data-qa" ? "manage-envelopes-list.row.0af34d93-505d-83a8-8261-0a9fb21521ec" : null),
+          $: async (sel) => {
+            if (sel.includes("mobile-from")) {
+              return { innerText: async () => "Representante Silva" };
+            }
+            if (sel.includes("status")) {
+              return { innerText: async () => "Concluído" };
+            }
+            if (sel.includes("mobile-name")) {
+              return { innerText: async () => "Contrato Master 2026" };
+            }
+            return null;
+          },
+        },
+      ];
+
+      const mockPage = {
+        $$: async () => mockRows,
+      };
+
+      const result = await extractEnvelopesFromCurrentPage(mockPage, "Silva");
+      assert.equal(result.envelopes.length, 1);
+      assert.equal(result.envelopes[0].envelopeId, "0af34d93-505d-83a8-8261-0a9fb21521ec");
+      assert.equal(result.envelopes[0].subject, "Contrato Master 2026");
+      assert.equal(result.envelopes[0].status, "completed");
+    });
   });
 
   describe("fetchAgreementsByRepresentative", () => {
