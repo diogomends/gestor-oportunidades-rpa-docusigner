@@ -247,30 +247,37 @@ export async function syncAllContractsStatus(options = {}) {
   }
 }
 
-/** Identificador do timer de polling de status. @type {NodeJS.Timeout|null} */
+/** Timer do timeout inicial de boot. @type {NodeJS.Timeout|null} */
+let initialTimeoutId = null;
+
+/** Timer do loop periódico de status. @type {NodeJS.Timeout|null} */
 let statusTimerId = null;
 
 /**
- * Inicia o loop periódico do scheduler de consulta geral de status.
+ * Inicia o loop periódico do scheduler de consulta de status geral.
  *
- * @param {number} [overrideIntervalMs] - Intervalo opcional em milissegundos. Se omitido, carrega de SystemConfig (scheduleInterval).
- * @returns {Promise<NodeJS.Timeout>} Instância do timer criado.
- * @async
+ * @param {number} [intervalMs] - Intervalo opcional em milissegundos para sobrescrever configuração.
+ * @returns {Promise<NodeJS.Timeout|null>} A instância do timer criado ou null se desabilitado.
  */
-export async function start(overrideIntervalMs) {
+export async function start(intervalMs) {
   if (statusTimerId) {
     console.log("[statusSyncScheduler] Scheduler de status já está em execução.");
     return statusTimerId;
   }
 
   const config = await getRobotConfig();
-  const intervalMinutes = config.schedule?.intervalMinutes || config.schedule?.interval_minutes || 15;
-  const intervalMs = overrideIntervalMs || Math.max(1, intervalMinutes) * 60 * 1000;
+  const schedule = config.schedule || {};
+
+  const intervalMinutes = schedule.intervalMinutes || schedule.interval_minutes || 10;
+  if (!intervalMs) {
+    intervalMs = intervalMinutes * 60 * 1000;
+  }
 
   console.log(`[statusSyncScheduler] Iniciando loop de consulta periódica de status (intervalo: ${intervalMinutes} min / ${intervalMs}ms)...`);
 
   // Executa uma checagem inicial após 5 segundos do boot
-  setTimeout(() => {
+  initialTimeoutId = setTimeout(() => {
+    initialTimeoutId = null;
     syncAllContractsStatus().catch((err) => {
       console.error("[statusSyncScheduler] Erro na consulta de status inicial:", err);
     });
@@ -289,6 +296,10 @@ export async function start(overrideIntervalMs) {
  * Para o loop periódico do scheduler de consulta de status.
  */
 export function stop() {
+  if (initialTimeoutId) {
+    clearTimeout(initialTimeoutId);
+    initialTimeoutId = null;
+  }
   if (statusTimerId) {
     clearInterval(statusTimerId);
     statusTimerId = null;
