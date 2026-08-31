@@ -9,7 +9,6 @@ import { sendEnvelope, checkEnvelopeStatus } from "./envelopes.js";
 import { extractEnvelopesFromCurrentPage, fetchAgreementsByRepresentative } from "./agreements.js";
 import { normalizeText, normalizeEnvelopeStatus } from "./statusParser.js";
 
-// Re-exports nomeados para manter compatibilidade total
 export {
   randomDelay,
   isAuthenticationUrl,
@@ -24,7 +23,7 @@ export {
 };
 
 /**
- * Objeto padrão com todas as operações da suíte DocuSign.
+ * Objeto unificado contendo todas as operações da fachada DocuSign.
  * @constant
  * @type {Object}
  */
@@ -35,10 +34,10 @@ const docusignFacade = {
   saveSessionState,
   sendEnvelope,
   checkEnvelopeStatus,
-  normalizeText,
-  normalizeEnvelopeStatus,
   extractEnvelopesFromCurrentPage,
   fetchAgreementsByRepresentative,
+  normalizeText,
+  normalizeEnvelopeStatus,
 };
 
 export default docusignFacade;

@@ -9,10 +9,10 @@
     "start:backend": "npm --prefix backend start",
     "dev:backend": "npm --prefix backend run dev",
     "test:backend": "npm --prefix backend test",
-    "test:robot": "node --env-file=.env.dev --test test/robot/**/*.test.js",
+    "test:robot": "node --env-file=.env.dev --test \"tests/robot/**/*.test.js\"",
     "start:robot": "npm --prefix robot start",
     "build:robot": "npm --prefix robot run build",
-    "test": "node --env-file=.env.dev --test test/**/*.test.js"
+    "test": "node --env-file=.env.dev --test \"tests/**/*.test.js\""
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

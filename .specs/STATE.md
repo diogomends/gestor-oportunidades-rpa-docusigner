@@ -112,18 +112,36 @@
 - **Trade-off**: N/A. Preservação 100% das assinaturas e contratos públicos consumidos por `job-runner.js` e backend.
 - **Scope**: `robot/src/browser/*`, `robot/src/browser/docusign.js`
 - **Date**: 2026-08-31
+- **Status**: superseded by AD-030
+
+> **Nota AD-028 → AD-030**: Facade com `default` removido em AD-030; apenas barrel named permanece.
+
+### AD-029
+- **Decision**: Correção do regex de asserção de persistência de autenticação em `tests/robot/browser/docusign.test.js` e padronização dos scripts de teste nos manifests `package.json` para o diretório `tests/` (plural).
+- **Reason**: Garantir 100% de cobertura e aprovação na suíte de testes de regressão nativa (`node --test`) executada via `npm test` sem intermediários ou sobre-engenharia (*PonyTail*).
+- **Trade-off**: N/A.
+- **Scope**: `package.json`, `backend/package.json`, `robot/package.json`, `tests/robot/browser/docusign.test.js`, `AGENTS.md`
+- **Date**: 2026-08-31
+- **Status**: active
+
+### AD-030
+- **Decision**: Simplificação do Facade `robot/src/browser/docusign.js` para barrel de re-exports diretos (`export { } from`) com remoção do objeto `docusignFacade` e `export default` morto (0 consumidores — `job-runner.js:4` e `robotBrowser.js:327` usam apenas named imports, validado via grep).
+- **Reason**: Ponytail rung 6 — 44L → 11L (-38L, -75%), eliminar import intermediário + objeto redundante mantendo identidade referencial 10/10 e 100% compatibilidade de assinaturas.
+- **Trade-off**: Perde `default` import; reintroduzir quando `.exe` legado exigir (YAGNI).
+- **Scope**: `robot/src/browser/docusign.js`
+- **Date**: 2026-08-31
 - **Status**: active
 
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: refactor-browser-modules-solid-ponytail
-- **Phase / Task**: Modularização e Facade Concluídas
-- **Completed**: `statusParser.js`, `auth.js`, `envelopes.js`, `agreements.js`, `docusign.js` (Facade), `STATE.md`
+- **Feature**: refactor-docusign-facade-barrel-ponytail
+- **Phase / Task**: Barrel PonyTail P1+P2 Executado
+- **Completed**: `robot/src/browser/docusign.js` (44L→11L, barrel direto, sem default), `.specs/STATE.md` (AD-030)
 - **In-progress**: Finalizado
 - **Next step**: Commit, PR e merge
 - **Blockers**: none
-- **Branch**: refactor/robot-browser-solid-ponytail
+- **Branch**: refactor/docusign-facade-barrel-ponytail
 
 
