@@ -98,14 +98,23 @@
 - **Date**: 2026-08-28
 - **Status**: active
 
+### AD-027
+- **Decision**: Criação da especificação TLC Spec-Driven para a feature `docusign-agreements-query` cobrindo consulta paginada de acordos/documentos DocuSign via RPA, com filtro por representante (`Para:`), cálculo dinâmico de datas (5 dias atrás até hoje) e validação resiliente de status com alerta para status não mapeados.
+- **Reason**: Automatizar a coleta e conciliação do status de envelopes diretamente na interface Web da DocuSign para o Gestor de Oportunidades.
+- **Trade-off**: Depende da estabilidade dos seletores `data-qa="manage-envelopes-list.*"` da interface web do DocuSign.
+- **Scope**: `.specs/features/docusign-agreements-query/`, `robot/src/browser/selectors.js`, `robot/src/browser/docusign.js`, `robot/src/job-runner.js`
+- **Date**: 2026-08-28
+- **Status**: active
+
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: robot-docusigner / makefile-mongosh-commands
-- **Phase / Task**: Adição de comandos mongosh para consulta de jobs, instâncias e configs do robô no Makefile
-- **Completed**: AD-021 + AD-022 + AD-023 + AD-024 + AD-025 + AD-026
-- **In-progress**: Finalização de PR e merge
-- **Next step**: Executar fluxo de commit e PR conforme regras
+- **Feature**: docusign-agreements-query
+- **Phase / Task**: Execução e Validação Concluídas (T01 a T05)
+- **Completed**: `spec.md`, `tasks.md`, `validation.md`, T01 (Seletores e URL Builder), T02 (Normalizador de Status), T03 (Extrator de Linhas e Filtro por Rep), T04 (Paginação Contínua), T05 (Integração Job Runner e Orchestrator)
+- **In-progress**: Finalizado
+- **Next step**: Commit, PR e merge
 - **Blockers**: none
-- **Branch**: feat/makefile-mongosh-robot-collections
+- **Branch**: feat/docusign-agreements-query
+
