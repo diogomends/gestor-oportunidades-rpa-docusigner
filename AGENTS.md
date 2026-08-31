@@ -31,6 +31,7 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | `make routes-inventory`                                                         | Gera inventário de rotas HTTP em `.specs/`            |
 | `make routes-inventory-check`                                                   | Valida integridade do inventário de rotas (CI)        |
 | `make clean` / `make clean-test` / `make clean-all`                             | Limpeza de build, artefatos temporários e dependências |
+| `make opencode-switcher` / `make opencode-conta1` / `make opencode-conta2`      | Alternador e seletor de contas do OpenCode CLI        |
 
 Porta padrão: **3111** (configurável via `PORT`).
 

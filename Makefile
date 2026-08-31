@@ -33,7 +33,7 @@ else
     SSH_EXEC_CHECK_JOBS = cat tools/check-pending-jobs.js | ssh $(SSH_OPTS) $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
 endif
 
-.PHONY: help dev start test test-headed test-headed-ps build-robot install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel check-pending-jobs check-pending-jobs-prod db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod mongosh-jobs mongosh-jobs-prod mongosh-instances mongosh-instances-prod mongosh-config mongosh-config-prod fetch-robot-debug-images ssh-uploads-prod ls-uploads-prod routes-inventory routes-inventory-check
+.PHONY: help dev start test test-headed test-headed-ps build-robot install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel check-pending-jobs check-pending-jobs-prod db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod mongosh-jobs mongosh-jobs-prod mongosh-instances mongosh-instances-prod mongosh-config mongosh-config-prod fetch-robot-debug-images ssh-uploads-prod ls-uploads-prod routes-inventory routes-inventory-check opencode-switcher opencode-conta1 opencode-conta2
 
 help:
 	@echo "Makefile - Gestor de Oportunidades RPA DocuSigner"
@@ -84,6 +84,11 @@ help:
 	@echo "  make clean                    - Limpa pastas de build do robo"
 	@echo "  make clean-test               - Limpa artefatos temporarios de testes"
 	@echo "  make clean-all                - Limpeza completa (build, logs e node_modules)"
+	@echo ""
+	@echo "--- OpenCode Account Switcher ---"
+	@echo "  make opencode-switcher        - Abre o menu interativo do alternador de contas OpenCode"
+	@echo "  make opencode-conta1          - Ativa diretamente a Conta 1 no OpenCode"
+	@echo "  make opencode-conta2          - Ativa diretamente a Conta 2 no OpenCode"
 	@echo ""
 	@echo "EXEMPLOS DE BUILD COM CHAVE EMBUTIDA:"
 	@echo "  1. Build Automatico Multi-Chave: make build-robot"
@@ -215,3 +220,14 @@ clean-test:
 
 clean-all: clean clean-test
 	powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue node_modules, backend\node_modules, robot\node_modules"
+
+## OpenCode Switcher
+
+opencode-switcher:
+	powershell -Command "& 'C:\www\opencode-switcher\opencode-switcher.exe'"
+
+opencode-conta1:
+	powershell -Command "& 'C:\www\opencode-switcher\opencode-conta1.exe'"
+
+opencode-conta2:
+	powershell -Command "& 'C:\www\opencode-switcher\opencode-conta2.exe'"
