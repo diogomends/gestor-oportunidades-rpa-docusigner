@@ -1,21 +1,8 @@
 import { getSelectors } from "../robotSelectors.js";
 import robotSession from "../robotSession.js";
+import { LOGIN_URL_REGEX, isLoginUrl } from "../loginUrl.js";
 
-/**
- * Expressão regular centralizada para detecção de URLs de autenticação e telas de login/OAuth da DocuSign.
- * @constant {RegExp}
- */
-export const LOGIN_URL_REGEX = /account\.docusign\.com|apps\.docusign\.com|\/oauth\/|\/login|\/password|\/auth\?/;
-
-/**
- * Valida se uma determinada URL pertence ao fluxo de login/autenticação DocuSign.
- *
- * @param {string} [url=""] - URL a ser validada.
- * @returns {boolean} True se a URL for de autenticação/login.
- */
-export function isLoginUrl(url = "") {
-  return LOGIN_URL_REGEX.test(String(url || ""));
-}
+export { LOGIN_URL_REGEX, isLoginUrl };
 
 /**
  * Valida se a instância fornecida de Page do Playwright é válida.

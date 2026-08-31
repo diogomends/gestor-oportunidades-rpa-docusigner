@@ -175,7 +175,7 @@ backend/
 │           ├── routes.js
 │           ├── controllers/
 │           ├── models/        # RobotJob, RobotSession, RobotInstance
-│           ├── services/      # robotOrchestrator, robotBrowser, robotScheduler
+│           ├── services/      # robotOrchestrator, robotBrowser, robotScheduler, robotSession, robotSelectors, agreementsService, contractSyncService, loginUrl, steps/
 │           ├── selectors/     # CSS selectors para automação
 │           └── routes/
 ├── test/              # Testes (raiz do projeto)
