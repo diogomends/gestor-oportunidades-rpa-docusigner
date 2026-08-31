@@ -97,7 +97,7 @@ export async function shouldUseRobot(contract, options = {}) {
   }
 
   const config = await getRobotConfig();
-  if (config.enabled === false || config.mode === "api") {
+  if (config.mode !== "robot") {
     return false;
   }
 

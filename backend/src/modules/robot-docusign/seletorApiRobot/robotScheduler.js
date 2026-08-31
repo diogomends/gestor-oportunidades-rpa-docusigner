@@ -23,7 +23,7 @@ export async function processPendingJobs(options = {}) {
 
   // 1. Verificar se o robô está habilitado
   const config = await robotOrchestrator.getRobotConfig();
-  if (!config.enabled || config.mode === "api") {
+  if (config.mode !== "robot") {
     console.log("[robotScheduler] Robô desabilitado ou configurado em modo API. Pulando execução.");
     return {
       success: true,
