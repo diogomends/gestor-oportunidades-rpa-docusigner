@@ -181,16 +181,26 @@
 - **Trade-off**: N/A.
 - **Scope**: `backend/src/modules/robot-docusign/browserrobot/index.js`, `backend/src/modules/robot-docusign/browserrobot/browserRobot.js`
 - **Date**: 2026-08-31
+- **Status**: superseded by AD-037
+
+> **Nota AD-036 → AD-037**: `steps/sendStep.js` e `steps/executeWithBrowserStep.js` consolidados em `browserRobot.js`; barrel `index.js` mantido puro.
+
+### AD-037
+- **Decision**: Consolidação de `backend/src/modules/robot-docusign/browserrobot/steps/sendStep.js` e `steps/executeWithBrowserStep.js` em `backend/src/modules/robot-docusign/browserrobot/browserRobot.js`; exclusão dos steps intermediários e manutenção de `browserrobot/index.js` como barrel puro (`send`, `executeWithBrowser`, `status`, `download`, `resend`, `reports`, `queryAgreements`, `withRetry`).
+- **Reason**: PonyTail rungs 2/6 — eliminar duplicação/indireção: `browserRobot.js` já centralizava o ciclo de vida Playwright e pipeline `send`; steps separados eram fachadas finas sem reuso externo. Redução de 2 arquivos (-184 linhas) com 100% de compatibilidade de assinatura validada via `git log --name-status` e `browserRobot.test`.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/browserrobot/browserRobot.js`, `backend/src/modules/robot-docusign/browserrobot/index.js`, `backend/src/modules/robot-docusign/browserrobot/steps/*`
+- **Date**: 2026-08-31
 - **Status**: active
 
 ## Handoff
 
-- **Feature**: refactor/browserrobot-index-barrel
-- **Phase / Task**: Execução concluída — `browserRobot.js` criado e `index.js` refatorado como barrel puro
-- **Completed**: Criação de `browserRobot.js` (orquestração de `send` e `executeWithBrowser`), refatoração de `index.js` como barrel de imports atômicos e re-exportação
-- **In-progress**: Finalizado
-- **Next step**: Commit, PR e merge
+- **Feature**: refactor/browserrobot-consolidation
+- **Phase / Task**: Consolidação concluída — `sendStep.js` e `executeWithBrowserStep.js` removidos, `browserRobot.js` como fonte única de `send`/`executeWithBrowser`, `index.js` barrel puro
+- **Completed**: AD-037 registrado, `browserRobot.js` validado como orquestrador único, deleções pendentes de commit
+- **In-progress**: Aguardando commit/PR
+- **Next step**: Commit, PR e merge em `main`
 - **Blockers**: none
-- **Branch**: refactor/browserrobot-index-barrel
+- **Branch**: refactor/browserrobot-consolidation
 
 
