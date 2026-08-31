@@ -23,15 +23,17 @@ ifeq ($(OS),Windows_NT)
     SSH_OPTS = -i $(DEPLOY_KEY) -o StrictHostKeyChecking=no
     SSH_TUNNEL = powershell -Command "$(SSH_BIN) $(SSH_OPTS) -L 27018:127.0.0.1:27017 $(DEPLOY_HOST) -N"
     SSH_EXEC = powershell -Command "Get-Content tools/db-and-collection.js | $(SSH_BIN) $(SSH_OPTS) $(DEPLOY_HOST) 'docker exec -i app_docusigner node -'"
+    SSH_EXEC_CHECK_JOBS = powershell -Command "Get-Content tools/check-pending-jobs.js | $(SSH_BIN) $(SSH_OPTS) $(DEPLOY_HOST) 'docker exec -i app_docusigner node -'"
 else
     SCP_BIN := scp
     SSH_BIN := ssh
     SSH_OPTS = -o StrictHostKeyChecking=no
     SSH_TUNNEL = ssh $(SSH_OPTS) -L 27018:127.0.0.1:27017 $(DEPLOY_HOST) -N
     SSH_EXEC = cat tools/db-and-collection.js | ssh $(SSH_OPTS) $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
+    SSH_EXEC_CHECK_JOBS = cat tools/check-pending-jobs.js | ssh $(SSH_OPTS) $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
 endif
 
-.PHONY: help dev start test test-headed test-headed-ps build-robot install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod mongosh-jobs mongosh-jobs-prod mongosh-instances mongosh-instances-prod mongosh-config mongosh-config-prod fetch-robot-debug-images ssh-uploads-prod ls-uploads-prod routes-inventory routes-inventory-check
+.PHONY: help dev start test test-headed test-headed-ps build-robot install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel check-pending-jobs check-pending-jobs-prod db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod mongosh-jobs mongosh-jobs-prod mongosh-instances mongosh-instances-prod mongosh-config mongosh-config-prod fetch-robot-debug-images ssh-uploads-prod ls-uploads-prod routes-inventory routes-inventory-check
 
 help:
 	@echo "Makefile - Gestor de Oportunidades RPA DocuSigner"
@@ -57,6 +59,8 @@ help:
 	@echo "  make reset           - Reinicia stack Docker limpa"
 	@echo ""
 	@echo "--- Banco de Dados e Diagnostico ---"
+	@echo "  make check-pending-jobs      - Diagnostico de jobs pendentes e contratos elegiveis (local)"
+	@echo "  make check-pending-jobs-prod - Diagnostico de jobs pendentes no container de producao"
 	@echo "  make tunnel          - Abre tunel SSH para o MongoDB remoto (porta 27018)"
 	@echo "  make db-and-collection      - Lista bancos e colecoes do MongoDB (local)"
 	@echo "  make db-and-collection-prod - Lista bancos e colecoes no container de producao"
@@ -141,6 +145,12 @@ tunnel:
 	@echo Abrindo tunel SSH seguro com a producao na porta 27018...
 	@echo Mantenha este terminal aberto para realizar as consultas.
 	$(SSH_TUNNEL)
+
+check-pending-jobs:
+	node tools/check-pending-jobs.js
+
+check-pending-jobs-prod:
+	$(SSH_EXEC_CHECK_JOBS)
 
 db-and-collection:
 	node tools/db-and-collection.js
