@@ -239,11 +239,19 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-044
+- **Decision**: Correção do seletor de fallback da coluna de destinatário em `extractEnvelopesFromCurrentPage` para `td:nth-child(2) [data-qa$='-mobile-from']` e `td:nth-child(2)` (anteriormente apontando para a 3ª coluna de status `td:nth-child(3)`), e sanitização dos prefixos de interface `"Para:"` e `"To:"` através de `replace(/^(para|to):\s*/i, "").trim()`.
+- **Reason**: Evitar falsos negativos na comparação com o representante do filtro e garantir que o campo `recipient` retornado contenha apenas o nome limpo do destinatário sem prefixos visuais da UI.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/browserrobot/agreementsService.js`, `robot/src/browser/agreements.js`, `tests/robot/browser/docusign.test.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: fix/docusign-table-row-tbody-selector
-- **Phase / Task**: Restringir seleção de linhas da tabela de acordos ao tbody para ignorar o thead
-- **Completed**: AD-043 documentada, `agreementsService.js`, `agreements.js` e `selectors.js` atualizados para segmentar o corpo da tabela, e testes de seletores sincronizados.
+- **Feature**: fix/docusign-recipient-column-fallback-sanitization
+- **Phase / Task**: Correção do fallback de coluna de destinatário e sanitização de prefixos Para/To
+- **Completed**: AD-044 documentada, `agreementsService.js` e `agreements.js` atualizados com fallback para 2ª coluna e remoção de prefixos `Para:`/`To:`, e testes em `docusign.test.js` sincronizados.
 - **In-progress**: Finalização de commit e PR
 - **Next step**: Executar fluxo de commit, PR e merge
 - **Blockers**: none
