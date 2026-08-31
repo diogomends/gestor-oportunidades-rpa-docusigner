@@ -132,16 +132,25 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-031
+- **Decision**: Refatoração modular de `backend/src/modules/robot-docusign/services/robotBrowser.js` em micro-etapas atômicas localizadas em `backend/src/modules/robot-docusign/services/steps/` (`stepUtils.js`, `authStep.js`, `uploadDocumentStep.js`, `fillRecipientStep.js`, `fillMessageStep.js`, `submitEnvelopeStep.js`, `extractEnvelopeIdStep.js`, `statusStep.js`, `downloadStep.js`, `resendStep.js`, `reportsStep.js`, `retryStep.js`).
+- **Reason**: Aplicação estrita dos princípios SOLID (Single Responsibility Principle) e PonyTail, modularizando o pipeline de envio e desacoplando funções de automação Playwright em etapas lineares e testáveis com preservação de 100% de retrocompatibilidade para os chamadores.
+- **Trade-off**: Criação de subdiretório `steps/` para abrigar a granularidade das ações.
+- **Scope**: `backend/src/modules/robot-docusign/services/robotBrowser.js`, `backend/src/modules/robot-docusign/services/steps/*`
+- **Date**: 2026-08-31
+- **Status**: active
+
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: refactor-docusign-facade-barrel-ponytail
-- **Phase / Task**: Barrel PonyTail P1+P2 Executado
-- **Completed**: `robot/src/browser/docusign.js` (44L→11L, barrel direto, sem default), `.specs/STATE.md` (AD-030)
+- **Feature**: refactor-robot-browser-steps
+- **Phase / Task**: Modularização de robotBrowser em steps executada com sucesso
+- **Completed**: Criação dos módulos em `backend/src/modules/robot-docusign/services/steps/*`, refatoração de `robotBrowser.js`, atualização de `.specs/STATE.md` (AD-031)
 - **In-progress**: Finalizado
 - **Next step**: Commit, PR e merge
 - **Blockers**: none
-- **Branch**: refactor/docusign-facade-barrel-ponytail
+- **Branch**: refactor/robot-browser-steps
+
 
 
