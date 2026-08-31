@@ -263,15 +263,20 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-047
+- **Decision**: Adição do rastreamento e limpeza de `initialTimeoutId` na função `stop()` dos agendadores `robotScheduler.js` e `statusSyncScheduler.js`, injeção explícita de `process.env.ROBOT_API_KEY` na suíte de testes de `statusSyncScheduler.test.js` e criação do arquivo `.env.dev` com parâmetros padrão de desenvolvimento e testes.
+- **Reason**: Eliminar vazamento de callbacks assíncronos (`setTimeout` órfãos) que disparavam consultas de banco de dados em segundo plano após o término dos testes, garantindo 100% de isolamento, idempotência e aprovação dos 195 testes da suíte completa de regressão (`npm test`).
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `tests/backend/services/statusSyncScheduler.test.js`, `.env.dev`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: fix/status-sync-anti-phantom-success
-- **Phase / Task**: Correção de Anti-Phantom Success no mapeamento padrão de status do DocuSign
-- **Completed**: AD-046 documentada, `mapEnvelopeStatusToContractStatus` atualizado para retornar `null` em status não catalogados, loop de sincronização protegido contra transições fantasmas e 100% de testes unitários e de regressão aprovados (139 testes no backend).
+- **Feature**: fix/regression-suite-timer-isolation
+- **Phase / Task**: Execução e documentação dos testes de regressão com isolamento de timers assíncronos
+- **Completed**: AD-047 documentada, `initialTimeoutId` adicionado e limpo em `stop()` em `statusSyncScheduler.js` e `robotScheduler.js`, ambiente de teste `.env.dev` configurado e 100% dos testes de regressão aprovados (195/195 testes).
 - **In-progress**: Finalização de commit e PR
 - **Next step**: Executar fluxo de commit, PR e merge
 - **Blockers**: none
 - **Branch**: main
-
-
-
