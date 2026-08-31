@@ -221,4 +221,20 @@
 - [x] **Resiliência `job-runner.js`**: `mkdirSync` com `logger.warn` em falha de criação de diretório de sessão.
 - [x] **Regressão**: 39 testes browser (`imapClient.test.js` + `roundcube.test.js`) + 160 globais passando.
 
+---
+
+## 13. Critérios de Validação — Trava de Concorrência (isRunning / Mutex) no Scheduler de Status (AD-045)
+
+- **Data**: 2026-08-31
+- **Status**: ✅ Concluído e Validado (190/190 testes de regressão passando: 134 backend + 56 robot)
+- **Escopo**: Implementação de trava atômica `let isRunning = false` com liberação obrigatória via `try...finally` em `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, prevenindo execuções simultâneas de Playwright e colisões no MongoDB.
+
+### Cenários de Validação Executados (AD-045)
+- [x] **Bloqueio de Concorrência Simultânea**: Quando `syncAllContractsStatus` é acionado enquanto `isRunning === true`, a função retorna imediatamente `{ success: true, checked: 0, updated: 0, downloaded: 0, status: "busy", reason: "already_running" }` sem instanciar novo browser.
+- [x] **Liberação Garantida em Exceções (`try...finally`)**: Se `browserrobot.executeWithBrowser` ou operações de banco falharem, o bloco `finally` garante que `isRunning = false` seja redefinido, permitindo que ciclos subsequentes operem normalmente.
+- [x] **Exposição do Helper de Introspecção**: Função `isStatusSyncRunning()` exportada em `statusSyncScheduler.js` e re-exportada em `seletorApiRobot/index.js` para monitoramento de estado em tempo real.
+- [x] **Bypass e Early Exits**: Garantido reset de `isRunning` em todos os retornos antecipados (`mode !== "robot"`, `statusCheck === false`, `outside_working_hours`, `no_active_contracts`).
+- [x] **Regressão e Cobertura**: 100% de aprovação na suíte de testes unitários e de integração dedicada (`tests/backend/services/statusSyncScheduler.test.js`) e rotas HTTP (`POST /api/robot-docusign/sync-status`).
+
+
 

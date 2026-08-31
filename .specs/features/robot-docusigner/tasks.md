@@ -54,6 +54,7 @@ node --env-file=.env.dev --test test/robot/**/*.test.js        # Apenas robô
 | REQ-MFA-IMAP-06 | T24 | ✅ imapClient.test.js | ✅ Filtro Subject & mfaTriggerTime | — |
 | REQ-MFA-IMAP-07 | T25 | ✅ job-runner.js / docusign.js | ✅ Persistência storageState | — |
 | REQ-MFA-IMAP-08 | T26 | ✅ docusign.test.js | ✅ Hardening & Resiliência storageState | — |
+| REQ-SCHED-01 | T27 | ✅ statusSyncScheduler.test.js | ✅ statusSyncScheduler (isRunning) | — |
 
 ---
 
@@ -1026,11 +1027,71 @@ O robô RPA possui arquitetura desacoplada onde o Servidor Central Docker (`back
 - `robot/src/job-runner.js`
 
 **Feito quando**:
-- [x] Helper criado com `trim()` cobrindo whitespace; exporta `GERADO_ELIGIBLE_FILTER` + 3 funções
-- [x] `getNextJob` com revert de contrato legado e DRY via helper
-- [x] `robotScheduler` com pós-filtro da API e filtro no fallback
-- [x] `job-runner` com validação pré-browser (pdfUrl + e-mail) padronizada
-- [x] `node --check` OK nos 4 arquivos, `npm test` 177 pass, docs (`STATE AD-038`, `SPEC US-013`, `validation §12`) atualizados
+---
+
+## Fase 18 — Critérios de Busca de Contratos Elegíveis (Todos exceto Rascunho)
+
+### T41: Atualização do Filtro de Elegibilidade para Todos os Status Não-Rascunho
+
+- **Req**: REQ-ELIG-02 (US-014)
+- **Status**: [ ] Pending
+- **Esforço**: 1h | Paralelável: Não
+- **Depende de**: T38
+
+**Contexto**:
+Anteriormente, o robô filtrava apenas contratos com `status: "gerado"`. O novo critério expande a busca para capturar qualquer contrato cujo status seja diferente de `"rascunho"` (`status: { $ne: "rascunho" }`), desde que satisfaça simultaneamente as regras obrigatórias de integridade: PDF anexado (`documents.originalUrl` não-vazio) e e-mail do destinatário presente.
+
+**O quê**:
+1. **Helper Centralizado (`contractEligibility.js`)**:
+   - Atualizar `GERADO_ELIGIBLE_FILTER` com `status: { $ne: "rascunho" }`.
+   - Exportar aliases `CONTRACT_ELIGIBLE_FILTER` e `ELIGIBLE_CONTRACTS_FILTER` apontando para o mesmo objeto mantendo 100% de compatibilidade referencial (PonyTail/DRY).
+2. **Consumo no Servidor Central (`robotInstanceController.js` e `robotScheduler.js`)**:
+   - Garantir que `getNextJob` e `processPendingJobs` capturem contratos elegíveis com status `$ne: "rascunho"`.
+   - Preservar a validação em memória via `isEligibleForSend` (`hasPdf` + `hasRecipientEmail`).
+3. **Ferramenta de Diagnóstico (`tools/check-pending-jobs.js`)**:
+   - Atualizar a consulta de diagnóstico para listar contratos com `status: { $ne: "rascunho" }` e rotular conformidade de elegibilidade.
+4. **Documentação e Testes**:
+   - Atualizar testes unitários em `test/backend/` cobrindo status diversos (ex.: `"gerado"`, `"pendente"`) e garantindo rejeição de `"rascunho"`.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/utils/contractEligibility.js`
+- `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`
+- `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`
+- `tools/check-pending-jobs.js`
+- `test/backend/utils/contractEligibility.test.js`
+
+**Feito quando**:
+- [ ] `GERADO_ELIGIBLE_FILTER` e aliases atualizados para `status: { $ne: "rascunho" }`.
+- [ ] Contratos com `status: "rascunho"` são estritamente ignorados pelo robô e scheduler.
+- [ ] Contratos com status não-rascunho, com PDF e e-mail válidos são capturados e processados normalmente.
+- [ ] Ferramenta `check-pending-jobs.js` reflete a nova regra.
+---
+
+### T27: Trava de Concorrência Atômica (isRunning / Mutex) no Scheduler de Status
+
+- **Req**: REQ-SCHED-01
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 1h | Paralelável: Sim
+- **Depende de**: AD-041, AD-045
+
+**Contexto**:
+O `syncAllContractsStatus` em `statusSyncScheduler.js` não possuía trava de concorrência atômica, permitindo que execuções lentas de Playwright ou chamadas sob demanda via `POST /sync-status` gerassem instâncias sobrepostas de navegador, invalidando cookies de autenticação e criando race conditions no MongoDB.
+
+**O quê**:
+1. Flag de módulo `let isRunning = false` com checagem antecipada (retornando `{ status: "busy", reason: "already_running" }`).
+2. Liberação garantida em bloco `try ... finally { isRunning = false; }`.
+3. Exportação do helper `isStatusSyncRunning()`.
+4. Testes unitários e de regressão em `tests/backend/services/statusSyncScheduler.test.js`.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`
+- `backend/src/modules/robot-docusign/seletorApiRobot/index.js`
+- `tests/backend/services/statusSyncScheduler.test.js`
+
+**Feito quando**:
+- [x] Flag `isRunning` bloqueia chamadas concorrentes com status `busy` e reason `already_running`.
+- [x] Bloco `try...finally` garante liberação da trava em sucessos, falhas ou early returns.
+- [x] Testes de regressão cobrindo concorrência, erros e bypass passando 100%.
 
 ---
 
