@@ -148,17 +148,25 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-033
+- **Decision**: Desacoplamento e simplificação do `robotOrchestrator.js` com extração de `contractSyncService.js`, encapsulamento do ciclo de vida do Playwright em `robotBrowser.executeWithBrowser` e eliminação de queries de concorrência redundantes no orquestrador.
+- **Reason**: Aplicação rigorosa dos princípios SOLID (SRP isolando persistência externa e DIP desacoplando o browser) e PonyTail (eliminação de sobre-engenharia, redução de linhas de 622 para ~410 e eliminação de loops com setTimeout bloqueante).
+- **Trade-off**: N/A. Preservação 100% dos contratos e exports consumidos por controllers e scheduler.
+- **Scope**: `backend/src/modules/robot-docusign/services/robotOrchestrator.js`, `backend/src/modules/robot-docusign/services/robotBrowser.js`, `backend/src/modules/robot-docusign/services/contractSyncService.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: steps-hardening-ad031
-- **Phase / Task**: Hardening pós-AD-031 dos steps modulares finalizado (T31-T36)
-- **Completed**: Implementação de T31 a T36, eliminação de sucesso fantasma, helpers centralizados, agreementsService desacoplado, cache mtime e retry seletivo
+- **Feature**: refactor-robot-orchestrator-solid
+- **Phase / Task**: Refatoração do robotOrchestrator.js finalizada
+- **Completed**: Encapsulamento de Playwright em robotBrowser, extração de contractSyncService, simplificação do shouldUseRobot e integração com withRetry
 - **In-progress**: Finalizado
 - **Next step**: Commit, PR e merge
 - **Blockers**: none
-- **Branch**: fix/steps-hardening-ad031
+- **Branch**: refactor/robot-orchestrator-solid
 
 
 

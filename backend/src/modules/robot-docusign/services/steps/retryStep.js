@@ -38,7 +38,7 @@ export async function withRetry(operationFn, optionsOrMaxRetries = 3, delayMs = 
       }
 
       if (typeof options.onRetry === "function") {
-        options.onRetry(err, attempt);
+        await options.onRetry(err, attempt);
       }
 
       const backoffDelay = baseDelayMs * Math.pow(2, attempt - 1);

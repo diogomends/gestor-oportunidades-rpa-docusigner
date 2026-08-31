@@ -39,12 +39,8 @@ export async function checkStatus(page, envelopeId, selectors) {
   let rawStatus = "";
 
   if (targetSelector) {
-    if (typeof page.waitForSelector === "function") {
-      await page.waitForSelector(targetSelector, { timeout: 10000 }).catch(() => null);
-    }
-    if (typeof page.textContent === "function") {
-      rawStatus = (await page.textContent(targetSelector)) || "";
-    }
+    await page.waitForSelector(targetSelector, { timeout: 10000 }).catch(() => null);
+    rawStatus = (await page.textContent(targetSelector).catch(() => "")) || "";
   }
 
   const normalizedStatus = rawStatus.trim().toLowerCase();

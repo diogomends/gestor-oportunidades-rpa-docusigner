@@ -20,6 +20,10 @@ export async function uploadDocument(page, sendSel = {}, documentPath, email) {
   }
 
   const resolvedPath = path.resolve(documentPath);
+  const ALLOWED_ROOT = path.resolve(process.cwd(), "uploads");
+  if (resolvedPath !== ALLOWED_ROOT && !resolvedPath.startsWith(ALLOWED_ROOT + path.sep)) {
+    throw new Error(`Documento fora da raiz permitida (uploads): "${resolvedPath}".`);
+  }
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`Documento para upload não encontrado no caminho: "${resolvedPath}".`);
   }
