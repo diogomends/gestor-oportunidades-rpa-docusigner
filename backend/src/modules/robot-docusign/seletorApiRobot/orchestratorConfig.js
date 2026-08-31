@@ -10,8 +10,21 @@ import { decryptText } from "../../../utils/crypto.js";
  * Configuração padrão fallback para o Robô DocuSign.
  */
 export const DEFAULT_ROBOT_DOCUSIGN_CONFIG = {
-  enabled: false,
+  enabled: true,
   mode: "robot",
+  operations: {
+    send: true,
+    statusCheck: true,
+    download: true,
+    reports: true,
+    resend: true,
+  },
+  schedule: {
+    enabled: true,
+    intervalMinutes: 15,
+    startHour: "07:00",
+    endHour: "19:00",
+  },
   limits: {
     max_concurrent: 1,
   },
@@ -48,6 +61,14 @@ export async function getRobotConfig() {
   const config = {
     ...DEFAULT_ROBOT_DOCUSIGN_CONFIG,
     ...savedValue,
+    operations: {
+      ...DEFAULT_ROBOT_DOCUSIGN_CONFIG.operations,
+      ...(savedValue.operations || {}),
+    },
+    schedule: {
+      ...DEFAULT_ROBOT_DOCUSIGN_CONFIG.schedule,
+      ...(savedValue.schedule || {}),
+    },
     limits: {
       ...DEFAULT_ROBOT_DOCUSIGN_CONFIG.limits,
       ...(savedValue.limits || {}),
@@ -98,6 +119,19 @@ export async function shouldUseRobot(contract, options = {}) {
 
   const config = await getRobotConfig();
   if (config.mode !== "robot") {
+    return false;
+  }
+
+  const action = options?.action || "send";
+  const opMap = {
+    send: config.operations?.send,
+    status: config.operations?.statusCheck,
+    download: config.operations?.download,
+    reports: config.operations?.reports,
+    resend: config.operations?.resend,
+  };
+
+  if (opMap[action] === false) {
     return false;
   }
 

@@ -202,19 +202,19 @@
 - **Status**: active
 
 
-### AD-039
-- **Decision**: Correção do bug de sobrescrita da chave `$or` em `RobotJob.findOneAndUpdate` no endpoint `GET /api/robot-docusign/instance/next-job` (`robotInstanceController.js`) agrupando os filtros de status e lock dentro de `$and: [ { $or: ... }, { $or: ... } ]`, e adição de logs explicativos de polling no robô desktop (`robot/src/scheduler.js`).
-- **Reason**: No JavaScript, duas chaves `$or` no mesmo objeto faziam a segunda sobrescrever a primeira, ignorando o filtro de status `pending`/`retrying` e puxando jobs legados já concluídos, bloqueando a fila de processamento local.
+### AD-040
+- **Decision**: Sincronização do modo do robô como única fonte da verdade (`enabled: robotConfig.mode === "robot"`) em `getInstanceConfig`, sincronização do `DEFAULT_ROBOT_DOCUSIGN_CONFIG` com `enabled: true, mode: "robot"`, inclusão de schemas Zod para `operations` e `schedule` em `updateConfigSchema`, e validação granular da flag `operations.send !== false` no orquestrador (`shouldUseRobot`), no scheduler periódico (`robotScheduler.js`), no lock de jobs (`getNextJob`) e no cliente frontend (`docusignService.js`).
+- **Reason**: Evitar falso-negativo no robô cliente em .exe quando registros legados no MongoDB continham `enabled: false` apesar de `mode: "robot"`, e garantir que administradores possam desabilitar individualmente operações de envio sem que o robô continue capturando contratos `gerado`.
 - **Trade-off**: N/A.
-- **Scope**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `robot/src/scheduler.js`
+- **Scope**: `backend/src/modules/robot-docusign/seletorApiRobot/orchestratorConfig.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `backend/src/modules/robot-docusign/seletorApiRobot/index.js`, `gestor-oportunidades/public/modules/contratos/services/docusignService.js`
 - **Date**: 2026-08-31
 - **Status**: active
 
 ## Handoff
 
-- **Feature**: fix/next-job-query-and-polling-logs
-- **Phase / Task**: Correção da query `$and` em `getNextJob` e logs descritivos de polling no scheduler do robô local
-- **Completed**: AD-039 registrado, `node --check` validado sem erros nos arquivos alterados
+- **Feature**: fix/sync-robot-mode-and-operations-flags
+- **Phase / Task**: Sincronização do modo como fonte da verdade e validação granular de `operations.send`
+- **Completed**: AD-040 registrado, código atualizado em ambos os repositórios
 - **In-progress**: Finalização de commit e PR
 - **Next step**: Executar fluxo de commit, PR e merge
 - **Blockers**: none

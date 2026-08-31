@@ -239,8 +239,15 @@ export const getInstanceConfig = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      enabled: robotConfig.enabled && robotConfig.mode !== "api",
+      enabled: robotConfig.mode === "robot",
       mode: robotConfig.mode,
+      operations: robotConfig.operations || {
+        send: true,
+        statusCheck: true,
+        download: true,
+        reports: true,
+        resend: true,
+      },
       isAllowedNow,
       schedule: {
         interval_seconds: 15,
@@ -352,8 +359,8 @@ export const getNextJob = async (req, res) => {
       { new: true, sort: { createdAt: 1 } }
     );
 
-    // 5. Se não houver job na fila, verificar se há Contrato com status 'gerado' e documento PDF anexado
-    if (!job) {
+    // 5. Se não houver job na fila, verificar se há Contrato com status 'gerado' e documento PDF anexado (se envio permitido)
+    if (!job && config.operations?.send !== false) {
       const contract = await Contract.findOneAndUpdate(
         GERADO_ELIGIBLE_FILTER,
         { $set: { status: "em_processamento_robot" } },
