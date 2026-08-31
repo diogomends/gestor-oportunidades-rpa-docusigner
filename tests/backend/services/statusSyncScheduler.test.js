@@ -50,14 +50,18 @@ function mockSystemConfigs({ robotConfig = {}, accessRestriction = null } = {}) 
 }
 
 describe("Robot DocuSign - Unit & Regression Tests: statusSyncScheduler", () => {
+  const originalRobotApiKey = process.env.ROBOT_API_KEY;
+
   beforeEach(() => {
     mock.restoreAll();
     stop();
+    process.env.ROBOT_API_KEY = "test_robot_api_key";
   });
 
   afterEach(() => {
     mock.restoreAll();
     stop();
+    process.env.ROBOT_API_KEY = originalRobotApiKey;
   });
 
   it("deve iniciar com a trava isRunning como false", () => {
