@@ -39,6 +39,8 @@ So that the Opportunity Manager (Gestor de Oportunidades) receives accurate agre
 - **AC-02.1**: When scanning rows in `[data-qa="manage-envelopes-list.table"]`, the robot SHALL inspect `[data-qa$="-mobile-from"]` and verify if it contains the representative name.
 - **AC-02.2**: When a matching representative is found, the robot SHALL extract the envelope status from `[data-qa$="-status-status"]` (or fallback to `[data-qa$="-mobile-status"]`).
 - **AC-02.3**: If the extracted status does not match known values (`Concluído`, `Aguardando outros`, `Aguardando`, `Anulado`, `Falha na entrega`), the system SHALL emit a warning alert and preserve the exact raw status text.
+- **AC-02.4**: When parsing modern OneDS rows, the robot SHALL extract the UUID (`envelopeId`) from the row attribute `tr[data-qa^="manage-envelopes-list.row."]` and the `subject` from `button[data-qa$="-mobile-name"]` (or `[data-qa$="-mobile-name-text"]`), falling back to `href` in tags `<a>` for legacy compatibility.
+- **AC-02.5**: When querying table rows, the robot SHALL target exclusively `tbody` elements (`tbody[data-qa="manage-envelopes-list.body"] tr, tr[data-qa^="manage-envelopes-list.row."]`) to avoid capturing the table header `<thead>` row (`manage-envelopes-list.header.row`).
 
 ## Requirement Traceability
 
@@ -49,3 +51,6 @@ So that the Opportunity Manager (Gestor de Oportunidades) receives accurate agre
 | REQ-AGR-03 | Extração e normalização de status dos recebedores | implemented |
 | REQ-AGR-04 | Navegação paginada contínua até o botão `pagination-next` desabilitado | implemented |
 | REQ-AGR-05 | Detecção e alerta estruturado para status não mapeados | implemented |
+| REQ-AGR-06 | Extração de envelopeId via `data-qa` da linha e subject via `button[data-qa$='-mobile-name']` (OneDS) | implemented |
+| REQ-AGR-07 | Segmentação estrita no corpo da tabela (tbody) para ignorar o thead | implemented |
+
