@@ -34,7 +34,7 @@ export async function processPendingJobs(options = {}) {
   }
 
   // 2. Verificar horário de funcionamento
-  const accessConfig = await SystemConfig.findOne({ key: "access_restriction" })?.lean();
+  const accessConfig = await SystemConfig.findOne({ key: "access_restriction" }).lean();
   if (accessConfig?.value?.enabled) {
     const isAllowed = isTimeAccessAllowed(accessConfig.value);
     if (!isAllowed) {
