@@ -415,6 +415,8 @@ robot/
 | REQ-MFA-IMAP-02 | US-012 | 11 - Fallback & Resilient Polling | Done |
 | REQ-MFA-IMAP-03 | US-012 | 11 - Bytecode & Build Compatibility | Done |
 | REQ-ELIG-01 | US-013 | 17 - Elegibilidade PDF+E-mail (3 camadas) | Done |
+| REQ-ELIG-02 | US-014 | 18 - Elegibilidade Todos exceto Rascunho | Pending |
+| REQ-SCHED-01 | US-015 | 19 - Trava de Concorrência (isRunning/Mutex) no Scheduler | Done |
 
 ## Variações da Implementação & Notas Técnicas
 
@@ -568,6 +570,30 @@ robot/
 4. WHEN `robotScheduler` recebe contrato da API `gestorApiClient` sem elegibilidade THEN SHALL descartar em memória e cair no fallback Mongoose filtrado
 5. WHEN `job-runner` recebe `action:"send"` sem `pdfUrl` ou sem `recipientEmail` THEN SHALL lançar erro antes de `chromium.launch` com mensagem padronizada
 6. WHEN validação Mongo usa `$ne:""` THEN whitespace SHALL ser coberto por `hasValue(trim)` em memória (`contractEligibility.js`)
+
+---
+
+### US-014: Critérios de Busca de Contratos Elegíveis — Todos exceto Rascunho
+
+**User Story**: Como sistema e operador, quero que o robô busque todos os contratos com status diferente de `"rascunho"` que possuam PDF anexado e e-mail de destinatário válido, permitindo processar contratos em etapas posteriores à criação que estejam aptos para assinatura eletrônica.
+
+**Acceptance Criteria**:
+1. WHEN o robô ou scheduler busca contratos elegíveis THEN SHALL consultar contratos onde `status: { $ne: "rascunho" }`.
+2. WHEN contrato satisfaz simultaneamente: (a) `status !== "rascunho"`, (b) `documents.originalUrl` presente e não-vazio, e (c) e-mail de destinatário presente (`client.representante.email` | `signer.email` | `email` | `clientEmail`) THEN SHALL ser considerado elegível para processamento.
+3. WHEN contrato possui `status: "rascunho"` THEN NÃO SHALL ser capturado pela busca automática.
+4. WHEN contrato possui status diferente de rascunho mas não possui PDF ou e-mail válido THEN NÃO SHALL ser processado e SHALL permanecer em seu status sem gerar travamento.
+
+---
+
+### US-015: Trava de Concorrência Atômica no Scheduler de Status (AD-045)
+
+**User Story**: Como sistema e operador, quero que o scheduler de consulta geral de status (`statusSyncScheduler.js`) e a rota `POST /api/robot-docusign/sync-status` possuam uma trava de concorrência atômica (`isRunning`), garantindo que apenas uma instância de varredura do Playwright execute por vez, prevenindo sobreposição de navegadores, expiração de cookies no DocuSign e race conditions no banco de dados.
+
+**Acceptance Criteria**:
+1. WHEN uma rodada de `syncAllContractsStatus` é acionada enquanto outra já está em andamento (`isRunning === true`) THEN SHALL abortar imediatamente e retornar `{ success: true, checked: 0, updated: 0, downloaded: 0, status: "busy", reason: "already_running" }`.
+2. WHEN `syncAllContractsStatus` finaliza por conclusão, retorno antecipado ou exceção de erro THEN SHALL obrigatoriamente executar `isRunning = false` no bloco `finally`.
+3. WHEN consumidores ou rotas necessitarem consultar o estado da trava THEN SHALL utilizar a função exportada `isStatusSyncRunning()`.
+4. WHEN testes de regressão são executados THEN SHALL validar o bloqueio de concorrência, a liberação sob falhas e a integridade das rotas HTTP.
 
 ## Success Criteria
 
