@@ -10,6 +10,7 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 import app from "./app.js";
 import connectDB, { connectContractsDB } from "./config/database.js";
 import robotScheduler from "./modules/robot-docusign/services/robotScheduler.js";
+import statusSyncScheduler from "./modules/robot-docusign/services/statusSyncScheduler.js";
 import { validateApiKey } from "./services/gestorApiClient.js";
 
 import "./models/User.js";
@@ -25,7 +26,7 @@ const PORT = process.env.PORT || 3111;
  * Bootstraps the backend server:
  * - Connects to primary and contracts MongoDB databases
  * - Validates robot API Key against Gestor API
- * - Starts the RPA background scheduler
+ * - Starts the RPA background scheduler and status sync scheduler
  * - Binds HTTP server on configured PORT
  * @returns {Promise<void>}
  */
@@ -49,6 +50,10 @@ const startServer = async () => {
   // Automatic boot of RPA task scheduler
   robotScheduler.start();
   console.log("[RPA DocuSigner] Agendador de tarefas ativado com sucesso");
+
+  // Automatic boot of RPA status sync scheduler
+  await statusSyncScheduler.start();
+  console.log("[RPA DocuSigner] Agendador de consulta periódica de status ativado com sucesso");
 
   app.listen(PORT, () => {
     console.log(`[RPA DocuSigner] Servidor rodando na porta ${PORT}`);

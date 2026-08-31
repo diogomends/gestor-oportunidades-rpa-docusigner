@@ -13,6 +13,7 @@ import {
   testLogin,
   getQueue,
   processPending,
+  syncAllStatuses,
   streamJobProgress,
 } from "./controllers/robotDocusignController.js";
 
@@ -46,6 +47,7 @@ router.put("/config", authorize("admin"), updateConfig);
 router.post("/test-login", authorize("admin"), testLogin);
 router.get("/queue", getQueue);
 router.post("/process-pending", processPending);
+router.post("/sync-status", syncAllStatuses);
 
 export default router;
 

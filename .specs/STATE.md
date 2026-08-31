@@ -207,9 +207,6 @@
 - **Reason**: No JavaScript, duas chaves `$or` no mesmo objeto faziam a segunda sobrescrever a primeira, ignorando o filtro de status `pending`/`retrying` e puxando jobs legados já concluídos, bloqueando a fila de processamento local.
 - **Trade-off**: N/A.
 - **Scope**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `robot/src/scheduler.js`
-- **Date**: 2026-08-31
-- **Status**: active
-
 ### AD-040
 - **Decision**: Sincronização do modo do robô como única fonte da verdade (`enabled: robotConfig.mode === "robot"`) em `getInstanceConfig`, sincronização do `DEFAULT_ROBOT_DOCUSIGN_CONFIG` com `enabled: true, mode: "robot"`, inclusão de schemas Zod para `operations` e `schedule` em `updateConfigSchema`, e validação granular da flag `operations.send !== false` no orquestrador (`shouldUseRobot`), no scheduler periódico (`robotScheduler.js`), no lock de jobs (`getNextJob`) e no cliente frontend (`docusignService.js`).
 - **Reason**: Evitar falso-negativo no robô cliente em .exe quando registros legados no MongoDB continham `enabled: false` apesar de `mode: "robot"`, e garantir que administradores possam desabilitar individualmente operações de envio sem que o robô continue capturando contratos `gerado`.
@@ -218,12 +215,21 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-041
+- **Decision**: Segregação do Robô DocuSign em duas rotinas independentes: (1) Consulta periódica geral de status (`statusSyncScheduler.js`), consumindo `schedule.intervalMinutes` (5 a 30 min), varrendo contratos ativos não-rascunhos na DocuSign, atualizando diretamente o schema `Contract` (uma única vez para status finais/irreversíveis), baixando automaticamente PDFs de contratos assinados e emitindo notificações via SSE; (2) Envio sob demanda estritamente síncrono acionado pelo botão do frontend (`triggerJob`), removendo o envio automático de contratos `gerado` de `robotScheduler.js`.
+- **Reason**: Atender aos requisitos operacionais do CRM Funil / Gestor de Oportunidades, eliminando envios não autorizados de contratos e garantindo conciliação periódica autônoma de status e arquivamento automático de PDFs assinados.
+- **Trade-off**: N/A. Preservação de todos os endpoints, seletores DOM e contratos de API legados.
+- **Scope**: `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `backend/src/modules/robot-docusign/services/statusSyncScheduler.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `backend/src/modules/robot-docusign/routes.js`, `backend/src/modules/robot-docusign/seletorApiRobot/index.js`, `backend/src/server.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: fix/sync-robot-mode-and-operations-flags
-- **Phase / Task**: Sincronização do modo como fonte da verdade e validação granular de `operations.send`
-- **Completed**: AD-039 e AD-040 documentados, código sincronizado e documentação atualizada
+- **Feature**: feature/separate-send-and-status-routines
+- **Phase / Task**: Separação modular de rotinas de envio síncrono e consulta periódica geral de status com download de assinados
+- **Completed**: AD-041 documentada, `statusSyncScheduler.js` criado, `robotScheduler.js` ajustado para remover auto-envio, `triggerJob` síncrono e rota `sync-status` exposta.
 - **In-progress**: Finalização de commit e PR
 - **Next step**: Executar fluxo de commit, PR e merge
 - **Blockers**: none
 - **Branch**: main
+
