@@ -18,6 +18,7 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` | Sobe servidor em produção via Docker (`make up-prod`)  |
 | `make down` / `make logs` / `make reset`                                        | Gestão de containers Docker (parar/logs/reset)        |
 | `make tunnel`                                                                   | Abre túnel SSH seguro com MongoDB remoto (27018)      |
+| `make check-pending-jobs` / `make check-pending-jobs-prod`                      | Diagnóstico de jobs pendentes e contratos elegíveis   |
 | `make db-and-collection`                                                        | Exibe árvore de bancos e coleções MongoDB local       |
 | `make db-and-collection-prod`                                                   | Exibe árvore de bancos e coleções no container prod   |
 | `make mongosh-contracts` / `make mongosh-contracts-prod`                        | Conexão mongosh ao banco de contratos (local/remoto)  |
