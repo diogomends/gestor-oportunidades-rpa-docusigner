@@ -56,19 +56,55 @@ const defaultSelectors = {
 };
 
 /**
- * Carrega os seletores da interface do DocuSign a partir do arquivo JSON ou do fallback padrão.
+ * Mescla profundamente (1 nível) seletores padrão e customizados para evitar perda de chaves aninhadas.
+ *
+ * @param {Object} defaults - Objeto com os seletores padrões.
+ * @param {Object} overrides - Objeto com sobreposições do arquivo JSON.
+ * @returns {Object} Objeto mesclado.
+ */
+function deepMergeSelectors(defaults, overrides) {
+  if (!overrides || typeof overrides !== "object") return defaults;
+  const result = { ...defaults };
+  for (const key of Object.keys(overrides)) {
+    if (
+      overrides[key] &&
+      typeof overrides[key] === "object" &&
+      !Array.isArray(overrides[key]) &&
+      defaults[key] &&
+      typeof defaults[key] === "object" &&
+      !Array.isArray(defaults[key])
+    ) {
+      result[key] = { ...defaults[key], ...overrides[key] };
+    } else {
+      result[key] = overrides[key];
+    }
+  }
+  return result;
+}
+
+let cachedSelectors = null;
+let lastMtimeMs = 0;
+
+/**
+ * Carrega os seletores da interface do DocuSign com cache leve invalidado por mtime do arquivo JSON.
  *
  * @returns {Object} Objeto contendo os seletores CSS/data-testid para cada componente da interface.
  */
 export function getSelectors() {
   try {
-    if (fs.existsSync(jsonPath)) {
+    const stats = fs.statSync(jsonPath, { throwIfNoEntry: false });
+    if (stats && stats.isFile()) {
+      if (cachedSelectors && stats.mtimeMs === lastMtimeMs) {
+        return cachedSelectors;
+      }
       const content = fs.readFileSync(jsonPath, "utf-8");
       const parsed = JSON.parse(content);
-      return { ...defaultSelectors, ...parsed };
+      cachedSelectors = deepMergeSelectors(defaultSelectors, parsed);
+      lastMtimeMs = stats.mtimeMs;
+      return cachedSelectors;
     }
   } catch {
-    // Em caso de falha de leitura, retorna seletores default
+    // Em caso de falha de leitura, recorre aos seletores default
   }
   return defaultSelectors;
 }

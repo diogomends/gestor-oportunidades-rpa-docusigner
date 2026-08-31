@@ -805,6 +805,205 @@ O robô RPA possui arquitetura desacoplada onde o Servidor Central Docker (`back
 
 ---
 
+## Fase 16 — Hardening Pós-AD-031: Correções CRÍTICAS dos Steps Modulares
+
+> **Origem**: Code review pós-AD-031 (`backend/src/modules/robot-docusign/services/steps/*` + `robotBrowser.js`) com 4 sub-agentes (infra/fluxo/pós-envio/orquestrador). Total: 6 CRÍTICOS + 8 ALTO + 10 MÉDIO. Referência: `.specs/STATE.md AD-031`.
+> **Princípio**: Ponytail full — menor diff que corrige raiz, sem nova dependência; 1 helper centralizado corrige N callers.
+> **Branch**: `fix/steps-hardening-ad031` (a partir de `main`)
+> **Gate**: `npm run lint && node --env-file=.env.dev --test test/**/*.test.js` — 100% passando antes de cada commit
+
+### T31: Eliminar Sucesso Fantasma — extractEnvelopeId, submit, status, download, resend
+
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 2h | Paralelável: Não
+- **Depende de**: AD-031
+- **Severidade**: CRÍTICO (5 achados)
+
+**O quê**:
+1. `steps/extractEnvelopeIdStep.js:24` — remover `return generatedId || env-${Date.now()}`; lançar `throw new Error("Não foi possível extrair envelopeId após envio — verifique se o envelope foi criado")` quando `!generatedId`; validar `fallbackEnvelopeId` com `typeof === "string" && trim()` no topo; regex Frouxa `([a-zA-Z0-9-]+)` → `([0-9a-fA-F-]{20,})` ou `([0-9a-fA-F-]{36})` com teste contra URLs reais; remover dead-code `page.getAttribute(... data-envelope-id)` (atributo inexistente em `robotSelectors.js:33`) ou implementar intercept `POST /restapi/.../envelopes`; checar redirect `isLoginUrl(url)` antes de extrair.
+2. `steps/submitEnvelopeStep.js:11` — `if (!sendSel.send_button) throw new Error("send_button selector missing")`; `if (typeof page.click !== "function") throw`; aguardar navegação antes de extrair: `await Promise.all([page.waitForURL("**/envelopes/**",{timeout:15000}).catch(()=>{}), guardedAction(()=>page.click(sel),page,email)])` ou `waitForLoadState("networkidle")`; validar botão habilitado `waitForSelector(sel+":not([disabled])",{state:"visible"})`; usar `page.locator(sel).first().click()` para seletor composto com vírgula.
+3. `steps/statusStep.js:33` — `return normalizedStatus || "sent"` → `return normalizedStatus || "unknown"` ou `throw new Error("status não encontrado")`; validar contra enum `['sent','delivered','completed','voided',...]`; adicionar `waitUntil:"networkidle"` + `waitForSelector` antes de `textContent`; remover duck-type `typeof page.textContent`.
+4. `steps/downloadStep.js:33` — só `return targetPath` após `downloadEvent.saveAs` com sucesso; senão `throw new Error("download não capturado — verifique acceptDownloads:true e seletor")`; remover 2º `page.click` duplicado; unificar em `guardedAction` com `Promise.race` + timeout.
+5. `steps/resendStep.js:25` — após `page.click`, aguardar `waitForSelector("[data-testid='resend-success'], .toast-success",{timeout:8000})` ou `waitForResponse`; só então `return {success:true}`; senão `throw`.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/services/steps/extractEnvelopeIdStep.js`
+- `backend/src/modules/robot-docusign/services/steps/submitEnvelopeStep.js`
+- `backend/src/modules/robot-docusign/services/steps/statusStep.js`
+- `backend/src/modules/robot-docusign/services/steps/downloadStep.js`
+- `backend/src/modules/robot-docusign/services/steps/resendStep.js`
+
+**Feito quando**:
+- [x] `extractEnvelopeId` nunca sintetiza ID; falha com erro descritivo quando URL não contém envelope
+- [x] `submit` falha ruidosamente se seletor ausente e aguarda navegação antes de extrair
+- [x] `status` retorna `"unknown"` ou throw em vez de `"sent"` falso-positivo
+- [x] `download` só retorna path após `saveAs` confirmado; sem clique duplicado
+- [x] `resend` só retorna `success:true` após confirmação visual/rede
+
+---
+
+### T32: Centralizar Detecção de Redirect e Endurecer guardedAction
+
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 1h | Paralelável: Sim (com T31)
+- **Depende de**: T31
+- **Severidade**: CRÍTICO/ALTO
+
+**O quê**:
+1. `steps/stepUtils.js:26` — `guardedAction` passa a checar URL também no caminho feliz (hoje só no `catch`): `try{await action()} finally{ url=page.url(); if(isLoginUrl(url)) invalidate+throw }`; validar `page` com `page && typeof page.url==="function"` para evitar `TypeError` quando `page=null`; usar `throw new Error(msg,{cause:err})` para preservar stack; `invalidateSession.catch(e=>logger.warn(...))` em vez de `catch(()=>{})` silencioso.
+2. Centralizar `isLoginUrl` — criar `export const isLoginUrl=(u)=>/account\.docusign\.com|apps\.docusign\.com|\/oauth\/|\/login|\/password|\/auth\?/.test(String(u))` em `stepUtils.js` (ou re-exportar de `robotSession.js:140`) e substituir 4 cópias divergentes em `stepUtils.js:31`, `authStep.js:19+28`, `robotBrowser.js:52`, `robotSession.js:140`.
+3. `steps/authStep.js:14` — `page.goto(targetUrl,{waitUntil:"networkidle",timeout:30000})` envolver em `try/catch` com `captureDebugScreenshot`; trocar `networkidle` por `domcontentloaded`+`waitForSelector` sentinela; validar `page?.goto` e `targetUrl` com allowlist `https://*.docusign.com|*.docusign.net` + `startsWith("https://")`; `page.context()` com guard `typeof page.context==="function"`; normalizar `String(page.url?.() ?? "")`.
+4. `robotBrowser.js:49` — remover checagem duplicada `postAuthUrl.includes(...)` (já feita em `authStep` e `guardedAction`); usar `isLoginUrl` centralizado.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/services/steps/stepUtils.js`
+- `backend/src/modules/robot-docusign/services/steps/authStep.js`
+- `backend/src/modules/robot-docusign/services/robotBrowser.js`
+
+**Feito quando**:
+- [x] `guardedAction` invalida sessão tanto em throw quanto em sucesso com redirect silencioso
+- [x] `isLoginUrl` único consumido em 4 lugares, sem divergência `/password`
+- [x] `page=null` não mascara erro original; `cause` preservado; falha de `invalidateSession` logada
+- [x] `ensureAuthenticated` com validação de URL e screenshot em falha
+
+---
+
+### T33: Corrigir resolveSelectors, Seletores e IO Síncrono
+
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 1h | Paralelável: Sim
+- **Depende de**: T32
+- **Severidade**: ALTO/MÉDIO
+
+**O quê**:
+1. `steps/stepUtils.js:9` — `resolveSelectors()` hoje `if(typeof robotSelectors==="object") return robotSelectors` sempre true (dead-code `getSelectors()`). Fix: `export function resolveSelectors(){ return getSelectors(); }` (fresh read) ou cache com `fs.watch`/`mtime`. Decidir cache vs fresh e documentar.
+2. `robotSelectors.js:68` — shallow merge `{...defaultSelectors,...parsed}` perde chaves aninhadas se JSON parcial. Fix: deepMerge 1 nível (`{send:{...default.send,...parsed.send}}`) ou `lodash.merge` (já instalado) ou exigir JSON completo com validação.
+3. `robotSelectors.js:63` + `steps/statusStep.js:22` etc — `fs.existsSync+readFileSync` síncrono per-request (4× por job). Fix: resolver 1× em `robotBrowser.send` e injetar `selectors` nos steps `status/download/resend/reports` (já faz para `send`); ou memoize com `mtime`.
+4. `robotSelectors.js:51` — seletores MFA duplicados com `robotSession.js:12` (`DEFAULT_MFA_SELECTOR` vs `selectors.mfa.input`). Unificar em `robotSelectors.mfa` como fonte única.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/services/steps/stepUtils.js`
+- `backend/src/modules/robot-docusign/services/robotSelectors.js`
+- `backend/src/modules/robot-docusign/services/steps/statusStep.js`
+- `backend/src/modules/robot-docusign/services/steps/downloadStep.js`
+- `backend/src/modules/robot-docusign/services/steps/resendStep.js`
+- `backend/src/modules/robot-docusign/services/steps/reportsStep.js`
+- `backend/src/modules/robot-docusign/services/robotBrowser.js`
+
+**Feito quando**:
+- [x] `resolveSelectors` relê `docusign-ui.json` após alteração sem restart (cache mtime ativo)
+- [x] Override parcial de `docusign-ui.json` não apaga defaults de `send`
+- [x] Máximo 1 IO síncrono por operação (injetado e cacheado)
+- [x] Seletores MFA com fonte única
+
+---
+
+### T34: Validação, Segurança e Path Traversal
+
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 1.5h | Paralelável: Sim
+- **Depende de**: T33
+- **Severidade**: ALTO/MÉDIO
+
+**O quê**:
+1. **Validação `page`** — padronizar `assertPage(page)` helper (`if(!page?.goto || !page?.url) throw TypeError`) e remover duck-type `typeof page.fill==="function"` que mascara page corrompida; `stepUtils` deve validar `action` como função. Aplicar em todos os 12 steps.
+2. **`envelopeId`** — validar com `if(!/^[a-z0-9-]{10,}$/i.test(envelopeId.trim())) throw` antes de interpolar em URL em `statusStep.js:20`, `downloadStep.js:27`, `resendStep.js:19`; trim + tipo `string` não-vazio.
+3. **`downloadStep.js:33` — path traversal** — sanitizar `fileName` com `path.basename(fileName).replace(/[^a-zA-Z0-9._-]/g,"_")` e verificar `targetPath.startsWith(path.resolve(downloadDir))`; validar `downloadDir` com `typeof==="string" && trim()` + allowlist `ALLOWED_ROOT`; trocar `fs.existsSync+mkdirSync` síncronos por `await fs.promises.mkdir(downloadDir,{recursive:true})`.
+4. **`uploadDocumentStep.js:13` — path traversal + validação** — `documentPath` com `fs.existsSync` + `path.extname===".pdf"` + `path.resolve(downloadDir).startsWith(ALLOWED_ROOT)` antes de `setInputFiles`; erro explícito `Documento não encontrado`.
+5. **`recipientEmail`/`subject`/`message`** — `recipientEmail.trim().toLowerCase()` + `z.string().email()` (Zod já no projeto); `subject?.slice(0,200)` e `message` sanitizado antes de logar em `RobotJob` (evita HTML persistido); `fillRecipientStep.js:17` falhar se `!sendSel.recipient_name` quando `recipientName` presente.
+6. **Allowlist `targetUrl`/`baseUrl`** — JSON em disco writable → SSRF interno; validar `new URL(targetUrl).hostname.endsWith("docusign.com")||endsWith("docusign.net")`.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/services/steps/stepUtils.js`
+- `backend/src/modules/robot-docusign/services/steps/uploadDocumentStep.js`
+- `backend/src/modules/robot-docusign/services/steps/fillRecipientStep.js`
+- `backend/src/modules/robot-docusign/services/steps/fillMessageStep.js`
+- `backend/src/modules/robot-docusign/services/steps/downloadStep.js`
+- `backend/src/modules/robot-docusign/services/steps/statusStep.js`
+- `backend/src/modules/robot-docusign/services/steps/resendStep.js`
+
+**Feito quando**:
+- [x] `page` inválido falha rápido com `TypeError` descritivo
+- [x] `envelopeId` malformado rejeitado antes de `page.goto`
+- [x] `download` e `upload` contidos em diretório permitido; traversal bloqueado
+- [x] E-mail validado/normalizado; campos opcionais com limite; logs sem HTML
+
+---
+
+### T35: Retry Seletivo e Integração com Orquestrador
+
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 1h | Paralelável: Sim
+- **Depende de**: T34
+- **Severidade**: ALTO
+
+**O quê**:
+1. `steps/retryStep.js:10` — retry cego retenta `MFA_REQUIRED`/`OTP_INVALID`/erro de validação → lockout. Fix: adicionar `shouldRetry` predicate `({retries:3, delay:1000, shouldRetry:(err)=>!["MFA_REQUIRED","OTP_INVALID"].includes(err.code) && (err.status>=500 || err.retryable!==false)})` ou `if(err.code==="MFA_REQUIRED"||err.code==="OTP_INVALID") throw err` no topo do loop; validar `maxRetries=Math.max(1,Math.floor(Number(maxRetries)||3))` e `delayMs` para evitar `throw undefined`; backoff exponencial `delayMs * Math.pow(2,attempt-1)` + jitter; log por tentativa `logger.warn`/`onRetry` callback.
+2. Integrar `withRetry` no fluxo `robotBrowser.send` — hoje `withRetry` é exportado `robotBrowser.js:130` mas nunca usado em `send`; envolver `send` em `withRetry(()=>doSend())` ou documentar uso no caller `robotOrchestrator.js:271`; decidir e padronizar timeout global (`MFA_TIMEOUT 90s` + `retry 3×1s` vs job timeout do scheduler).
+3. Garantir `captureDebugScreenshot` em catch de `upload/fill/submit` (hoje só `authStep.js:34` captura).
+
+**Onde**:
+- `backend/src/modules/robot-docusign/services/steps/retryStep.js`
+- `backend/src/modules/robot-docusign/services/robotBrowser.js`
+- `backend/src/modules/robot-docusign/services/robotOrchestrator.js`
+
+**Feito quando**:
+- [x] Erros não-retentáveis não são retentados; `MFA_REQUIRED` falha imediato
+- [x] `withRetry(0)` não lança `undefined`; `maxRetries`/`delayMs` validados
+- [x] Backoff exponencial + log por tentativa ativo
+- [x] `send` envolvido em tratamento resiliente com captura de debug screenshots
+
+---
+
+### T36: Desacoplamento, Deduplicação e Helpers Compartilhados
+
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 1.5h | Paralelável: Sim
+- **Depende de**: T35
+- **Severidade**: ALTO/MÉDIO
+
+**O quê**:
+1. **Desacoplar `backend→robot/`** — `robotBrowser.js:126` `await import("../../../../../robot/src/browser/docusign.js")` viola AD-015 (Docker backend não copia `robot/src` → `ERR_MODULE_NOT_FOUND` em prod). Fix: extrair `fetchAgreementsByRepresentative` para `backend/src/modules/robot-docusign/services/agreementsService.js` ou injetar via DI no `robotOrchestrator`; remover import cruzado; trocar dynamic import por import estático ou serviço desacoplado.
+2. **Deduplicar `fill*`** — extrair `async function fillIfPresent(page, selector, value, email)` em `stepUtils.js` e substituir duplicação `fillRecipientStep.js:17` / `fillMessageStep.js:17` (4 ocorrências com `guardedAction`); para opcionais manter skip, para obrigatórios `throw` se seletor ausente.
+3. **Helper de navegação** — extrair `navigateToEnvelope(page, envelopeId, selectors)` e `buildEnvelopeUrl(id, selectors)` em `stepUtils.js` para unificar duplicação `statusStep.js:20`, `downloadStep.js:27`, `resendStep.js:19`, `reportsStep.js:21` (hoje `/documents` vs `/envelopes` divergentes); resolver selectors 1× no orchestrator e injetar.
+4. **Relatórios** — `reportsStep.js:11` `options` (startDate/endDate) é ecoado mas nunca usado; ou aplicar filtros na UI (`page.fill` nos datepickers + `click Apply`) ou remover da assinatura e documentar como não-filtrado; triplicação `total_sent/completed/pending` → loop `for(const [k,sel] of Object.entries({...}))`; sanitizar `parseInt` com `Number(text.replace(/[^\d]/g,""))`; remover echo de `options` no retorno (`return {totalSent,...}` sem `options`); adicionar `waitForSelector` antes de `textContent`.
+5. **Normalização de assinaturas** — padronizar `(page, sendSel, data, email)` vs `(page, {sendSel,email})` vs `uploadDocument(page,sendSel,documentPath,email)` (4ª pos) inconsistente; escolher objeto único `uploadDocument(page,{sendSel,documentPath,email})` ou manter posicional documentado; corrigir `sendSel={}` default que não cobre `null` → `sendSel ?? {}`.
+6. **Export duplicado** — `robotBrowser.js:130` `export {withRetry}` + `export default {withRetry}` duas fontes; manter só named `export {withRetry} from "./steps/retryStep.js"` ou só default.
+7. **Ponytail** — avaliar colapsar 4 steps `fill*+upload` em 1 arquivo `sendSteps.js` OU manter granularidade mas documentar trade-off AD-031 (+77% linhas 285→506L) vs testabilidade; deletar branch morto `resolveSelectors` e fallback `data-envelope-id`.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/services/robotBrowser.js`
+- `backend/src/modules/robot-docusign/services/steps/stepUtils.js`
+- `backend/src/modules/robot-docusign/services/steps/fillRecipientStep.js`
+- `backend/src/modules/robot-docusign/services/steps/fillMessageStep.js`
+- `backend/src/modules/robot-docusign/services/steps/statusStep.js`
+- `backend/src/modules/robot-docusign/services/steps/downloadStep.js`
+- `backend/src/modules/robot-docusign/services/steps/resendStep.js`
+- `backend/src/modules/robot-docusign/services/steps/reportsStep.js`
+- `backend/src/modules/robot-docusign/services/robotSelectors.js`
+- `backend/src/modules/robot-docusign/services/agreementsService.js` (novo)
+
+**Feito quando**:
+- [x] `queryAgreements` sem import cruzado `backend→robot/`; prod sem `ERR_MODULE_NOT_FOUND`
+- [x] `fillIfPresent` e `navigateToEnvelope` centralizados; duplicação eliminada
+- [x] `reports` com loop DRY, parsing resiliente e contrato limpo
+- [x] Assinaturas padronizadas; `null` sendSel tratado
+- [x] Barrel `steps/index.js` não criado (YAGNI) — imports diretos mantidos
+
+---
+
+### Critérios de Aceite Globais Fase 16
+
+- [x] Nenhum "sucesso fantasma": `extractEnvelopeId`/`status`/`download`/`resend` falham ruidosamente quando não há evidência de sucesso
+- [x] `guardedAction` cobre tanto throw quanto redirect silencioso; `isLoginUrl` único
+- [x] `resolveSelectors` com comportamento documentado (cache mtime leve) e deepMerge correto
+- [x] Validação de `page`/`envelopeId`/`fileName`/`documentPath` com allowlist; path traversal bloqueado
+- [x] `withRetry` seletivo com backoff exponencial e log; integrado ao fluxo `send`
+- [x] `backend` sem dependência de `robot/src` em runtime; helpers deduplicados
+- [x] `.specs/STATE.md` AD-032 registrado; `T31-T36` marcados Done; `validation.md` § Fase 16 com cenários validados
+
+---
+
 ## Riscos Identificados
 
 | Risco | Impacto | Mitigação |

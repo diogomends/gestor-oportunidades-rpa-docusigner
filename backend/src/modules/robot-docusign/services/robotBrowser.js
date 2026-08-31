@@ -15,6 +15,8 @@ import { downloadDocument } from "./steps/downloadStep.js";
 import { resendEnvelope } from "./steps/resendStep.js";
 import { extractReports } from "./steps/reportsStep.js";
 import { withRetry } from "./steps/retryStep.js";
+import { fetchAgreementsByRepresentative } from "./agreementsService.js";
+import robotSession from "./robotSession.js";
 
 /**
  * Navega para a página de envio, preenche os dados do destinatário e mensagem, realiza o envio e retorna o ID do envelope.
@@ -46,23 +48,21 @@ export async function send(page, envelopeData = {}) {
   const baseUrl = selectors.baseUrl || "https://app.docusign.com";
   const targetUrl = sendSel.url || `${baseUrl}/send`;
 
-  await ensureAuthenticated(page, targetUrl, envelopeData, selectors);
+  try {
+    await ensureAuthenticated(page, targetUrl, envelopeData, selectors);
 
-  const postAuthUrl = typeof page.url === "function" ? page.url() : "";
-  if (postAuthUrl.includes("account.docusign.com") || postAuthUrl.includes("/oauth/") || postAuthUrl.includes("/login")) {
-    throw new Error(
-      `Não é possível preencher os dados do contrato: o navegador continua na tela de login da DocuSign (${postAuthUrl}).`
-    );
+    const email = envelopeData.credentials?.email;
+
+    await uploadDocument(page, sendSel, documentPath, email);
+    await fillRecipient(page, sendSel, { recipientName, recipientEmail }, email);
+    await fillMessage(page, sendSel, { subject, message }, email);
+    await submitEnvelope(page, sendSel, email);
+
+    return await extractEnvelopeId(page, sendSel, envelopeId);
+  } catch (err) {
+    await robotSession.captureDebugScreenshot(page, "send-failure").catch(() => {});
+    throw err;
   }
-
-  const email = envelopeData.credentials?.email;
-
-  await uploadDocument(page, sendSel, documentPath, email);
-  await fillRecipient(page, sendSel, { recipientName, recipientEmail }, email);
-  await fillMessage(page, sendSel, { subject, message }, email);
-  await submitEnvelope(page, sendSel, email);
-
-  return await extractEnvelopeId(page, sendSel, envelopeId);
 }
 
 /**
@@ -70,10 +70,11 @@ export async function send(page, envelopeData = {}) {
  *
  * @param {Object} page - Instância de página do Playwright.
  * @param {string} envelopeId - Identificador único do envelope DocuSign.
- * @returns {Promise<string>} Status atual do envelope (ex: 'sent', 'delivered', 'signed', 'completed').
+ * @returns {Promise<string>} Status atual do envelope (ex: 'sent', 'delivered', 'signed', 'completed', 'unknown').
  */
 export async function status(page, envelopeId) {
-  return await checkStatus(page, envelopeId);
+  const selectors = resolveSelectors();
+  return await checkStatus(page, envelopeId, selectors);
 }
 
 /**
@@ -86,7 +87,8 @@ export async function status(page, envelopeId) {
  * @returns {Promise<string>} Caminho completo do arquivo PDF salvo localmente.
  */
 export async function download(page, envelopeId, downloadDir, fileName) {
-  return await downloadDocument(page, envelopeId, downloadDir, fileName);
+  const selectors = resolveSelectors();
+  return await downloadDocument(page, envelopeId, downloadDir, fileName, selectors);
 }
 
 /**
@@ -97,7 +99,8 @@ export async function download(page, envelopeId, downloadDir, fileName) {
  * @returns {Promise<{ success: boolean, envelopeId: string }>} Objeto indicando o status do reenvio.
  */
 export async function resend(page, envelopeId) {
-  return await resendEnvelope(page, envelopeId);
+  const selectors = resolveSelectors();
+  return await resendEnvelope(page, envelopeId, selectors);
 }
 
 /**
@@ -105,10 +108,11 @@ export async function resend(page, envelopeId) {
  *
  * @param {Object} page - Instância de página do Playwright.
  * @param {Object} [options={}] - Parâmetros opcionais de consulta de relatório.
- * @returns {Promise<Object>} Objeto contendo métricas coletadas.
+ * @returns {Promise<{totalSent: number, totalCompleted: number, totalPending: number}>} Objeto contendo métricas coletadas.
  */
 export async function reports(page, options = {}) {
-  return await extractReports(page, options);
+  const selectors = resolveSelectors();
+  return await extractReports(page, options, selectors);
 }
 
 /**
@@ -123,7 +127,6 @@ export async function queryAgreements(page, options = {}) {
     throw new Error("Page instance is required for queryAgreements operation");
   }
 
-  const { fetchAgreementsByRepresentative } = await import("../../../../../robot/src/browser/docusign.js");
   return await fetchAgreementsByRepresentative(page, options);
 }
 
@@ -142,3 +145,4 @@ export default {
   queryAgreements,
   withRetry,
 };
+
