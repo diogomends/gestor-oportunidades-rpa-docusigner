@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { sendEnvelope, checkEnvelopeStatus } from "./browser/docusign.js";
+import { sendEnvelope, checkEnvelopeStatus, fetchAgreementsByRepresentative } from "./browser/docusign.js";
 import logger from "./utils/logger.js";
 
 // Compatibility shim for Node.js 18.20.4 up to 20+
@@ -231,6 +231,25 @@ export class JobRunner {
           status: "completed",
           result,
           step: { name: "docusign_status_check", status: "success" },
+        });
+      } else if (action === "query_agreements") {
+        logger.step("JobRunner", `Consultando acordos para representante: ${job.repName || job.representativeName || "Todos"}...`);
+        await this.api.updateJobStatus(jobId, {
+          status: "processing",
+          step: { name: "query_agreements", status: "running" },
+        });
+
+        result = await fetchAgreementsByRepresentative(page, {
+          repName: job.repName || job.representativeName || "",
+          daysBack: job.daysBack || 5,
+          credentials,
+          sessionPath: this.sessionFilePath,
+        });
+
+        await this.api.updateJobStatus(jobId, {
+          status: "completed",
+          result,
+          step: { name: "query_agreements", status: "success" },
         });
       }
 

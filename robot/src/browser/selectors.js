@@ -54,6 +54,31 @@ export const selectors = {
     refresh_button: "a.button.checkmail, a[data-command='checkmail'], a#rcmbtn101, button.checkmail",
     message_body: "#messagebody, #messagecontframe, iframe#messagecontframe, .message-part, #message-body",
   },
+  agreements: {
+    url: "https://apps.docusign.com/send/documents",
+    table: "[data-qa='manage-envelopes-list.table']",
+    row: "[data-qa='manage-envelopes-list.table'] tr",
+    from_recipient: "[data-qa$='-mobile-from']",
+    status: "[data-qa$='-status-status'], [data-qa$='-mobile-status']",
+    pagination_next: "button[data-qa='manage-envelopes-list.footer.pagination-pagination-next']",
+  },
 };
+
+/**
+ * Constrói a URL de consulta de acordos/envelopes na DocuSign com intervalo de datas dinâmico.
+ * @param {number} [daysBack=5] - Quantidade de dias a subtrair da data atual para o filtro 'from'.
+ * @param {string} [baseUrl="https://apps.docusign.com/send/documents"] - URL base da listagem de documentos.
+ * @returns {string} URL formatada com os parâmetros view=agreements, from, to e pageSize=50.
+ */
+export function buildAgreementsUrl(daysBack = 5, baseUrl = "https://apps.docusign.com/send/documents") {
+  const targetDate = new Date();
+  const toDateStr = targetDate.toISOString().split("T")[0];
+
+  const fromDate = new Date(targetDate.getTime());
+  fromDate.setDate(fromDate.getDate() - (typeof daysBack === "number" && daysBack >= 0 ? daysBack : 5));
+  const fromDateStr = fromDate.toISOString().split("T")[0];
+
+  return `${baseUrl}?view=agreements&from=${fromDateStr}&to=${toDateStr}&pageSize=50`;
+}
 
 export default selectors;

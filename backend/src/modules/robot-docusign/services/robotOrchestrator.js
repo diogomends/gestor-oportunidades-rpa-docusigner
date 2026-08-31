@@ -279,6 +279,8 @@ async function executeRobotAction(action, page, contract, options = {}) {
       return await robotBrowser.resend(page, envelopeId);
     case "reports":
       return await robotBrowser.reports(page, options);
+    case "query_agreements":
+      return await robotBrowser.queryAgreements(page, options);
     default:
       if (typeof robotBrowser[action] === "function") {
         return await robotBrowser[action](page, envelopeData);

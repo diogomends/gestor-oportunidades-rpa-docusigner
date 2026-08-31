@@ -313,6 +313,22 @@ export async function reports(page, options = {}) {
 }
 
 /**
+ * Consulta acordos e envelopes na DocuSign com paginação e filtro por representante.
+ *
+ * @param {Object} page - Instância de página do Playwright.
+ * @param {Object} [options={}] - Parâmetros da consulta (repName, daysBack, etc.).
+ * @returns {Promise<Object>} Resultado consolidado da consulta com lista de envelopes e alertas.
+ */
+export async function queryAgreements(page, options = {}) {
+  if (!page) {
+    throw new Error("Page instance is required for queryAgreements operation");
+  }
+
+  const { fetchAgreementsByRepresentative } = await import("../../../../../robot/src/browser/docusign.js");
+  return await fetchAgreementsByRepresentative(page, options);
+}
+
+/**
  * Função utilitária para executar operações com tentativas automáticas (retry) em falhas transitórias.
  *
  * @param {Function} operationFn - Função assíncrona a ser executada com tratamento de retry.
@@ -342,7 +358,7 @@ export async function withRetry(operationFn, maxRetries = 3, delayMs = 1000) {
 
 /**
  * Exportação padrão das operações Playwright do robô.
- * @type {{send: function, status: function, download: function, resend: function, reports: function, withRetry: function}}
+ * @type {{send: function, status: function, download: function, resend: function, reports: function, queryAgreements: function, withRetry: function}}
  */
 export default {
   send,
@@ -350,5 +366,6 @@ export default {
   download,
   resend,
   reports,
+  queryAgreements,
   withRetry,
 };
