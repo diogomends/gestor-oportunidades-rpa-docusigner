@@ -1,35 +1,60 @@
-import { resolveSelectors } from "./stepUtils.js";
+import { assertPage, navigateToEnvelope, resolveSelectors } from "./stepUtils.js";
+
+/**
+ * Lista de status conhecidos e válidos para envelopes DocuSign.
+ * @constant {string[]}
+ */
+export const VALID_ENVELOPE_STATUSES = [
+  "sent",
+  "delivered",
+  "signed",
+  "completed",
+  "voided",
+  "declined",
+  "correcting",
+  "draft",
+  "created",
+  "processing",
+];
 
 /**
  * Navega para o dashboard ou detalhes do envelope e consulta o seu status atual na plataforma DocuSign.
  *
  * @param {Object} page - Instância de página do Playwright.
  * @param {string} envelopeId - Identificador único do envelope DocuSign.
- * @returns {Promise<string>} Status atual do envelope (ex: 'sent', 'delivered', 'signed', 'completed').
- * @throws {Error} Lança erro caso page ou envelopeId não sejam fornecidos.
+ * @param {Object} [selectors] - Seletores opcionais pré-resolvidos.
+ * @returns {Promise<string>} Status atual do envelope (ex: 'sent', 'delivered', 'signed', 'completed', 'unknown').
+ * @throws {Error} Lança erro caso page ou envelopeId não sejam válidos.
  */
-export async function checkStatus(page, envelopeId) {
-  if (!page || !envelopeId) {
-    throw new Error("Page and envelopeId are required for status operation");
-  }
+export async function checkStatus(page, envelopeId, selectors) {
+  assertPage(page);
 
-  const selectors = resolveSelectors();
-  const dashSel = selectors.dashboard || {};
-  const statusSel = selectors.status || {};
-  const baseUrl = selectors.baseUrl || "https://app.docusign.com";
-  const envelopeUrl = `${dashSel.url || `${baseUrl}/documents`}/${envelopeId}`;
+  const resolvedSelectors = selectors || resolveSelectors();
+  const statusSel = resolvedSelectors.status || {};
+  const dashSel = resolvedSelectors.dashboard || {};
 
-  if (typeof page.goto === "function") {
-    await page.goto(envelopeUrl);
-  }
+  await navigateToEnvelope(page, envelopeId, resolvedSelectors);
 
   const targetSelector = statusSel.status_badge || dashSel.status_badge;
   let rawStatus = "";
 
-  if (targetSelector && typeof page.textContent === "function") {
-    rawStatus = (await page.textContent(targetSelector)) || "";
+  if (targetSelector) {
+    if (typeof page.waitForSelector === "function") {
+      await page.waitForSelector(targetSelector, { timeout: 10000 }).catch(() => null);
+    }
+    if (typeof page.textContent === "function") {
+      rawStatus = (await page.textContent(targetSelector)) || "";
+    }
   }
 
   const normalizedStatus = rawStatus.trim().toLowerCase();
-  return normalizedStatus || "sent";
+  if (normalizedStatus && VALID_ENVELOPE_STATUSES.includes(normalizedStatus)) {
+    return normalizedStatus;
+  }
+
+  if (normalizedStatus) {
+    console.warn(`[robot-docusign:statusStep] Status não reconhecido encontrado na UI ("${normalizedStatus}"). Retornando "unknown".`);
+  }
+
+  return "unknown";
 }

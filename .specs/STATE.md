@@ -140,17 +140,25 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-032
+- **Decision**: Hardening pós-AD-031 dos steps modulares do robô com eliminação de falsos-positivos/sucessos fantasmas (`extractEnvelopeId`, `submit`, `status`, `download`, `resend`), cache leve de seletores por `mtime`, desacoplamento de `agreementsService.js` no backend nativo, e retry seletivo com backoff exponencial.
+- **Reason**: Garantir resiliência, segurança (prevenção contra path traversal e redirects silenciosos) e eliminar import cruzado em runtime (`backend→robot/`) em conformidade com AD-015 e os princípios SOLID/PonyTail.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/services/steps/*`, `backend/src/modules/robot-docusign/services/robotBrowser.js`, `backend/src/modules/robot-docusign/services/robotSelectors.js`, `backend/src/modules/robot-docusign/services/agreementsService.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: refactor-robot-browser-steps
-- **Phase / Task**: Modularização de robotBrowser em steps executada com sucesso
-- **Completed**: Criação dos módulos em `backend/src/modules/robot-docusign/services/steps/*`, refatoração de `robotBrowser.js`, atualização de `.specs/STATE.md` (AD-031)
+- **Feature**: steps-hardening-ad031
+- **Phase / Task**: Hardening pós-AD-031 dos steps modulares finalizado (T31-T36)
+- **Completed**: Implementação de T31 a T36, eliminação de sucesso fantasma, helpers centralizados, agreementsService desacoplado, cache mtime e retry seletivo
 - **In-progress**: Finalizado
 - **Next step**: Commit, PR e merge
 - **Blockers**: none
-- **Branch**: refactor/robot-browser-steps
+- **Branch**: fix/steps-hardening-ad031
 
 
 

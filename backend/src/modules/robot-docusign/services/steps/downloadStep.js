@@ -1,41 +1,46 @@
 import fs from "node:fs";
 import path from "node:path";
-import { resolveSelectors } from "./stepUtils.js";
+import { assertPage, navigateToEnvelope, resolveSelectors } from "./stepUtils.js";
 
 /**
- * Navega para a página do envelope concluído, aciona o evento de download e salva o arquivo PDF em disco.
+ * Navega para a página do envelope concluído, aciona o evento de download e salva o arquivo PDF em disco com proteção contra path traversal.
  *
  * @param {Object} page - Instância de página do Playwright.
  * @param {string} envelopeId - Identificador do envelope a ser baixado.
  * @param {string} downloadDir - Caminho do diretório de destino para salvar o arquivo PDF.
  * @param {string} [fileName] - Nome customizado para o arquivo baixado.
+ * @param {Object} [selectors] - Seletores pré-resolvidos opcionais.
  * @returns {Promise<string>} Caminho completo do arquivo PDF salvo localmente.
- * @throws {Error} Lança erro caso page, envelopeId ou downloadDir não sejam informados.
+ * @throws {Error} Lança erro caso page, envelopeId ou downloadDir não sejam válidos ou se o download falhar.
  */
-export async function downloadDocument(page, envelopeId, downloadDir, fileName) {
-  if (!page || !envelopeId || !downloadDir) {
-    throw new Error("Page, envelopeId, and downloadDir are required for download operation");
+export async function downloadDocument(page, envelopeId, downloadDir, fileName, selectors) {
+  assertPage(page);
+
+  if (!downloadDir || typeof downloadDir !== "string" || !downloadDir.trim()) {
+    throw new Error("Diretório de download (downloadDir) inválido fornecido.");
   }
 
-  if (!fs.existsSync(downloadDir)) {
-    fs.mkdirSync(downloadDir, { recursive: true });
+  const resolvedDir = path.resolve(downloadDir.trim());
+  await fs.promises.mkdir(resolvedDir, { recursive: true });
+
+  const resolvedSelectors = selectors || resolveSelectors();
+  const dlSel = resolvedSelectors.download || {};
+
+  await navigateToEnvelope(page, envelopeId, resolvedSelectors);
+
+  const rawFileName = fileName || `contrato_assinado_${envelopeId}.pdf`;
+  const sanitizedFileName = path.basename(rawFileName).replace(/[^a-zA-Z0-9._-]/g, "_");
+  const targetPath = path.join(resolvedDir, sanitizedFileName);
+
+  if (!targetPath.startsWith(resolvedDir)) {
+    throw new Error(`Tentativa de path traversal detectada no salvamento do arquivo: "${targetPath}".`);
   }
 
-  const selectors = resolveSelectors();
-  const dlSel = selectors.download || {};
-  const baseUrl = selectors.baseUrl || "https://app.docusign.com";
-  const envelopeUrl = `${baseUrl}/documents/${envelopeId}`;
-
-  if (typeof page.goto === "function") {
-    await page.goto(envelopeUrl);
-  }
-
-  const pdfFileName = fileName || `contrato_assinado_${envelopeId}.pdf`;
-  const targetPath = path.join(downloadDir, pdfFileName);
+  const downloadButton = dlSel.download_button || "button[data-testid='download-button'], a[data-action='download']";
 
   if (typeof page.waitForEvent === "function" && typeof page.click === "function") {
-    const downloadPromise = page.waitForEvent("download");
-    await page.click(dlSel.download_button || "button[data-testid='download-button']");
+    const downloadPromise = page.waitForEvent("download", { timeout: 30000 });
+    await page.click(downloadButton);
     const downloadEvent = await downloadPromise;
 
     if (downloadEvent && typeof downloadEvent.saveAs === "function") {
@@ -44,9 +49,7 @@ export async function downloadDocument(page, envelopeId, downloadDir, fileName) 
     }
   }
 
-  if (typeof page.click === "function" && dlSel.download_button) {
-    await page.click(dlSel.download_button);
-  }
-
-  return targetPath;
+  throw new Error(
+    "Download do documento não capturado ou não salvo com sucesso. Verifique se o navegador foi iniciado com acceptDownloads: true e se os seletores estão corretos."
+  );
 }
