@@ -281,7 +281,7 @@ export const getNextJob = async (req, res) => {
 
     // 1. Validar se o robô está ativo
     const config = await robotOrchestrator.getRobotConfig();
-    if (!config.enabled || config.mode === "api") {
+    if (config.mode !== "robot") {
       return res.status(200).json({
         hasJob: false,
         reason: "robot_disabled",
