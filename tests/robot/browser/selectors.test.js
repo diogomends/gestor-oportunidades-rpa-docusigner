@@ -7,6 +7,10 @@ describe("Robot Browser Selectors - Agreements Query", () => {
     assert.ok(selectors.agreements, "Chave agreements deve existir nos seletores");
     assert.equal(selectors.agreements.url, "https://apps.docusign.com/send/documents");
     assert.equal(selectors.agreements.table, "[data-qa='manage-envelopes-list.table']");
+    assert.equal(
+      selectors.agreements.row,
+      "tbody[data-qa='manage-envelopes-list.body'] tr, tr[data-qa^='manage-envelopes-list.row.']"
+    );
     assert.equal(selectors.agreements.from_recipient, "[data-qa$='-mobile-from']");
     assert.ok(selectors.agreements.status.includes("-status-status"));
     assert.equal(
