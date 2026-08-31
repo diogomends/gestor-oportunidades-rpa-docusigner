@@ -62,13 +62,15 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │       ├── utils/             # crypto.js, timeRestrictionService.js
 │       └── modules/
 │           └── robot-docusign/  # Módulo de domínio
-│               ├── index.js           # Exporta routes, orchestrator, session, scheduler
+│               ├── index.js           # Exporta routes, orchestrator, session, scheduler, browserrobot, seletorApiRobot
 │               ├── routes.js          # Rotas Express (prefixo /api/robot-docusign)
 │               ├── controllers/       # robotDocusignController.js, robotInstanceController.js
 │               ├── models/            # RobotJob.js, RobotSession.js, RobotInstance.js
-│               ├── services/          # robotOrchestrator.js, robotBrowser.js, robotScheduler.js, robotSession.js, robotSelectors.js, agreementsService.js, contractSyncService.js, loginUrl.js, steps/
 │               ├── selectors/         # Selectors CSS para automação do DocuSign
-│               └── routes/            # robotInstanceRoutes.js
+│               ├── routes/            # robotInstanceRoutes.js
+│               ├── browserrobot/      # Submódulo Playwright (index.js, robotSession.js, agreementsService.js, robotSelectors.js, steps/)
+│               ├── seletorApiRobot/   # Submódulo de Seleção & Orquestração (index.js, orchestratorConfig.js, orchestratorEvents.js, apiActionService.js, contractSyncService.js, robotScheduler.js)
+│               └── services/          # Barrels de retrocompatibilidade direta
 ├── robot/
 │   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, bytenode, esbuild)
 │   ├── src/               # Código-fonte da automação (main, job-runner, scheduler)

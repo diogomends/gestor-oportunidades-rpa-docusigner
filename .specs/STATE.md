@@ -162,19 +162,25 @@
 - **Trade-off**: Novo arquivo de 11L; `stepUtils` mantém re-export para compatibilidade com `agreementsService`/`authStep`.
 - **Scope**: `backend/src/modules/robot-docusign/services/loginUrl.js`, `backend/src/modules/robot-docusign/services/steps/stepUtils.js`, `backend/src/modules/robot-docusign/services/robotSession.js`, `tests/backend/services/robotBrowser.test.js`
 - **Date**: 2026-08-31
+### AD-035
+- **Decision**: Decomposição estrutural do domínio `robot-docusign/` em dois submódulos de alta coesão: `browserrobot/` (automação Playwright, steps, sessões, acordos, seletores) e `seletorApiRobot/` (orquestração, seleção de modo, apiActionService, config, eventos, scheduler, contractSyncService), mantendo a pasta `services/` como barrels de retrocompatibilidade direta.
+- **Reason**: Aplicação plena dos princípios SOLID (SRP, ISP e DIP com isolamento absoluto entre infraestrutura de navegador e orquestração de negócios) e PonyTail (zero sobre-engenharia, zero quebra de contratos legados).
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/browserrobot/*`, `backend/src/modules/robot-docusign/seletorApiRobot/*`, `backend/src/modules/robot-docusign/services/*`, `backend/src/modules/robot-docusign/index.js`
+- **Date**: 2026-08-31
 - **Status**: active
 
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: fix/robot-docusign-loginUrl-centralize
-- **Phase / Task**: Centralização isLoginUrl e correção de testes de regressão finalizada
-- **Completed**: Fonte única loginUrl.js (11L), stepUtils re-export, robotSession sem duplicação, 3 testes robotBrowser fixados (177/177)
-- **In-progress**: Docs (STATE AD-034, README/AGENTS) atualizados
+- **Feature**: refactor/robot-docusign-submodules-split
+- **Phase / Task**: Separação nos submódulos browserrobot e seletorApiRobot finalizada
+- **Completed**: Criação de browserrobot/ e seletorApiRobot/, barrels de compatibilidade em services/, index.js atualizado e docs sincronizadas
+- **In-progress**: Finalizado
 - **Next step**: Commit, PR e merge
 - **Blockers**: none
-- **Branch**: fix/robot-docusign-loginUrl-centralize
+- **Branch**: refactor/robot-docusign-submodules-split
 
 
 
