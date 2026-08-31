@@ -2,6 +2,21 @@ import mongoose from "mongoose";
 import { getContractsConnection } from "../config/database.js";
 
 /**
+ * @typedef {Object} ContractDocument
+ * @property {import("mongoose").Types.ObjectId} [opportunityId]
+ * @property {import("mongoose").Types.ObjectId} [createdBy]
+ * @property {Object} [client]
+ * @property {Array} [negotiation]
+ * @property {Array} [documents]
+ * @property {"rascunho"|"gerado"|"enviado"|"assinado"|"cancelado"} [status]
+ * @property {string|null} [envelopeId]
+ * @property {string|null} [docusign_envelope_id]
+ * @property {Object|null} [tokenInfo]
+ * @property {Date} [createdAt]
+ * @property {Date} [updatedAt]
+ */
+
+/**
  * Mongoose schema representing contracts stored in the 'crm_contracts' database.
  * Includes client details, negotiations, portability lines, document links, status, and DocuSign token trigger info.
  */
@@ -120,6 +135,14 @@ const contractSchema = new mongoose.Schema(
       enum: ["rascunho", "gerado", "enviado", "assinado", "cancelado"],
       default: "rascunho",
     },
+    envelopeId: {
+      type: String,
+      default: null,
+    },
+    docusign_envelope_id: {
+      type: String,
+      default: null,
+    },
     tokenInfo: {
       type: {
         tokenLogin: String,
@@ -141,7 +164,7 @@ const conn = getContractsConnection();
 
 /**
  * Contract Mongoose model compiled on the 'crm_contracts' database connection.
- * @type {import("mongoose").Model<import("mongoose").Document>}
+ * @type {import("mongoose").Model<ContractDocument & import("mongoose").Document>}
  */
-export default conn.model("Contract", contractSchema);
+export default conn.models.Contract || conn.model("Contract", contractSchema);
 

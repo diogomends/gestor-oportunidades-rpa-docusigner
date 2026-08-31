@@ -57,6 +57,7 @@ node --env-file=.env.dev --test test/robot/**/*.test.js        # Apenas robô
 | REQ-SCHED-01 | T27 | ✅ statusSyncScheduler.test.js | ✅ statusSyncScheduler (isRunning) | — |
 | REQ-SCHED-02 | T28 | ✅ statusSyncScheduler.test.js | ✅ Anti-Phantom Success (null mapping) | — |
 | REQ-REGR-01 | T29 | ✅ 195 testes em 13 arquivos | ✅ npm test / make test (100% pass) | — |
+| REQ-CONTRACT-01 | T30 | ✅ Contract.test.js | ✅ Schema envelopeId & docusign_envelope_id | — |
 
 ---
 
@@ -1146,6 +1147,35 @@ Ao executar toda a suíte de testes (`npm test`), timeouts de inicialização ó
 - [x] `stop()` em ambos os schedulers limpa `initialTimeoutId` e timers periódicos.
 - [x] Teste de sincronização de status desacoplado com `ROBOT_API_KEY` isolada.
 - [x] Suíte completa de 195 testes passando com 0 falhas via `npm test`.
+
+---
+
+### T30: Declaração de envelopeId e docusign_envelope_id no Schema de Contract
+
+- **Req**: REQ-CONTRACT-01
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 0.5h | Paralelável: Sim
+- **Depende de**: AD-048
+
+**Contexto**:
+Em `statusSyncScheduler.js`, o código atualiza `envelopeId` via `Contract.findByIdAndUpdate`. Como o schema de `Contract.js` opera com `strict: true` e não declarava essa propriedade, o campo era descartado silenciosamente durante a persistência.
+
+**O quê**:
+1. Declarar explicitamente `envelopeId: { type: String, default: null }` e `docusign_envelope_id: { type: String, default: null }` no schema Mongoose de `Contract.js`.
+2. Adicionar JSDoc `@typedef {ContractDocument}` para tipagem estática e autocomplete.
+3. Criar suíte de testes unitários e de regressão em `tests/backend/models/Contract.test.js`.
+4. Atualizar documentação de schemas em `.specs/database/schema.md` e `.specs/STATE.md`.
+
+**Onde**:
+- `backend/src/models/Contract.js`
+- `tests/backend/models/Contract.test.js`
+- `.specs/database/schema.md`
+- `.specs/STATE.md`
+
+**Feito quando**:
+- [x] `envelopeId` e `docusign_envelope_id` definidos com tipo `String` e default `null` no schema de `Contract.js`.
+- [x] Suíte `Contract.test.js` criada com 4 testes unitários e de regressão passando.
+- [x] Total de 143 testes de backend passando sem falhas.
 
 ---
 

@@ -124,6 +124,9 @@ export async function processPendingJobs(options = {}) {
   }
 }
 
+/** Timer do timeout inicial de boot. @type {NodeJS.Timeout|null} */
+let initialTimeoutId = null;
+
 /** Timer do loop periódico do scheduler. @type {NodeJS.Timeout|null} */
 let timerId = null;
 
@@ -140,7 +143,8 @@ export function start(intervalMs = 30000) {
 
   console.log(`[robotScheduler] Iniciando loop do scheduler (intervalo: ${intervalMs}ms)...`);
 
-  setTimeout(() => {
+  initialTimeoutId = setTimeout(() => {
+    initialTimeoutId = null;
     processPendingJobs().catch((err) => {
       console.error("[robotScheduler] Erro ao processar jobs pendentes no boot:", err);
     });
@@ -159,6 +163,10 @@ export function start(intervalMs = 30000) {
  * Para o loop periódico do scheduler do Robô DocuSign.
  */
 export function stop() {
+  if (initialTimeoutId) {
+    clearTimeout(initialTimeoutId);
+    initialTimeoutId = null;
+  }
   if (timerId) {
     clearInterval(timerId);
     timerId = null;

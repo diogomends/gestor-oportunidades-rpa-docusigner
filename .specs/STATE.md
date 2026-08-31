@@ -271,11 +271,19 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-048
+- **Decision**: Declaração explícita das propriedades `envelopeId` e `docusign_envelope_id` (`{ type: String, default: null }`) no schema Mongoose de `Contract` (`backend/src/models/Contract.js`), tipagem estática via `@typedef {ContractDocument}` JSDoc, e criação de suíte unitária/regressão em `tests/backend/models/Contract.test.js`.
+- **Reason**: Permitir a persistência e atualização correta de `envelopeId` em `statusSyncScheduler.js` e queries sem descarte silencioso em virtude do modo `strict: true` padrão do Mongoose.
+- **Trade-off**: N/A. Total compatibilidade com o schema legado e banco `crm_contracts`.
+- **Scope**: `backend/src/models/Contract.js`, `tests/backend/models/Contract.test.js`, `.specs/database/schema.md`, `.specs/STATE.md`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: fix/regression-suite-timer-isolation
-- **Phase / Task**: Execução e documentação dos testes de regressão com isolamento de timers assíncronos
-- **Completed**: AD-047 documentada, `initialTimeoutId` adicionado e limpo em `stop()` em `statusSyncScheduler.js` e `robotScheduler.js`, ambiente de teste `.env.dev` configurado e 100% dos testes de regressão aprovados (195/195 testes).
+- **Feature**: fix/contract-schema-envelope-id
+- **Phase / Task**: Declaração explícita de `envelopeId` e `docusign_envelope_id` no schema de Contract e testes de regressão (AD-048 / T30)
+- **Completed**: AD-048 documentada em `.specs/STATE.md` e `.specs/database/schema.md`, propriedades adicionadas a `backend/src/models/Contract.js`, suíte `tests/backend/models/Contract.test.js` criada e 100% dos testes aprovados (143/143 testes backend).
 - **In-progress**: Finalização de commit e PR
 - **Next step**: Executar fluxo de commit, PR e merge
 - **Blockers**: none
