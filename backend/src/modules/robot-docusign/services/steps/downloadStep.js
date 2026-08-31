@@ -32,7 +32,7 @@ export async function downloadDocument(page, envelopeId, downloadDir, fileName, 
   const sanitizedFileName = path.basename(rawFileName).replace(/[^a-zA-Z0-9._-]/g, "_");
   const targetPath = path.join(resolvedDir, sanitizedFileName);
 
-  if (!targetPath.startsWith(resolvedDir)) {
+  if (targetPath !== resolvedDir && !targetPath.startsWith(resolvedDir + path.sep)) {
     throw new Error(`Tentativa de path traversal detectada no salvamento do arquivo: "${targetPath}".`);
   }
 

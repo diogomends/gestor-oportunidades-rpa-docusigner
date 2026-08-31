@@ -151,6 +151,17 @@ export async function fetchAgreementsByRepresentative(page, options = {}) {
   const baseUrl = selectors.dashboard?.url || "https://apps.docusign.com/send/documents";
   const targetUrl = buildAgreementsUrl(daysBack, baseUrl);
 
+  try {
+    const parsed = new URL(targetUrl);
+    const isAllowedHost = parsed.hostname.endsWith("docusign.com") || parsed.hostname.endsWith("docusign.net");
+    if (!isAllowedHost) {
+      throw new Error(`URL de destino fora do domínio permitido da DocuSign: "${targetUrl}".`);
+    }
+  } catch (urlErr) {
+    if (urlErr.message.includes("domínio permitido")) throw urlErr;
+    throw new Error(`URL de destino inválida: "${targetUrl}".`);
+  }
+
   await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
 
   const postNavUrl = typeof page.url === "function" ? page.url() : "";
