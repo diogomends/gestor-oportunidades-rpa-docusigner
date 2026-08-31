@@ -53,6 +53,15 @@ const defaultSelectors = {
     text_trigger: "Get Code From Your Email",
     email_option_btn: "button:has-text('Get Code From Your Email'), a:has-text('Get Code From Your Email'), text='Get Code From Your Email'",
   },
+  agreements: {
+    url: "https://apps.docusign.com/send/documents",
+    table: "[data-qa='manage-envelopes-list.table']",
+    row: "[data-qa='manage-envelopes-list.table'] tr, tr[data-qa^='manage-envelopes-list.row.']",
+    from_recipient: "[data-qa$='-mobile-from']",
+    subject_button: "button[data-qa$='-mobile-name'], [data-qa$='-mobile-name-text']",
+    status: "[data-qa$='-status-status'], [data-qa$='-mobile-status']",
+    pagination_next: "button[data-qa='manage-envelopes-list.footer.pagination-pagination-next']",
+  },
 };
 
 /**

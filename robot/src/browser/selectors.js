@@ -57,7 +57,7 @@ export const selectors = {
   agreements: {
     url: "https://apps.docusign.com/send/documents",
     table: "[data-qa='manage-envelopes-list.table']",
-    row: "[data-qa='manage-envelopes-list.table'] tr",
+    row: "tbody[data-qa='manage-envelopes-list.body'] tr, tr[data-qa^='manage-envelopes-list.row.']",
     from_recipient: "[data-qa$='-mobile-from']",
     status: "[data-qa$='-status-status'], [data-qa$='-mobile-status']",
     pagination_next: "button[data-qa='manage-envelopes-list.footer.pagination-pagination-next']",
