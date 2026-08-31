@@ -54,7 +54,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 ├── backend/
 │   ├── package.json       # Dependências e scripts do servidor Express
 │   └── src/
-│       ├── server.js          # Entrypoint: dotenv, import models, connectDB, connectContractsDB, robotScheduler.start(), listen
+│       ├── server.js          # Entrypoint: dotenv, import models, connectDB, connectContractsDB, robotScheduler.start(), statusSyncScheduler.start(), listen
 │       ├── app.js             # Express: JSON 10mb, CORS, Helmet, morgan, montagem de rotas
 │       ├── config/
 │       │   └── database.js    # 3 conexões: default (db_crm_funil), crm_contracts, crm_acl
@@ -71,7 +71,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │               ├── selectors/         # Selectors CSS para automação do DocuSign
 │               ├── routes/            # robotInstanceRoutes.js
 │               ├── browserrobot/      # Submódulo Playwright (index.js barrel, browserRobot.js [send+executeWithBrowser], robotSession.js, agreementsService.js, robotSelectors.js, steps/)
-│               ├── seletorApiRobot/   # Submódulo de Seleção & Orquestração (index.js, orchestratorConfig.js, orchestratorEvents.js, apiActionService.js, contractSyncService.js, robotScheduler.js)
+│               ├── seletorApiRobot/   # Submódulo de Seleção & Orquestração (index.js, orchestratorConfig.js, orchestratorEvents.js, apiActionService.js, contractSyncService.js, robotScheduler.js, statusSyncScheduler.js)
 │               ├── utils/             # contractEligibility.js (GERADO_ELIGIBLE_FILTER, isEligibleForSend/hasPdf/hasRecipientEmail — filtro PDF+e-mail centralizado AD-038)
 │               └── services/          # Barrels de retrocompatibilidade direta
 ├── robot/
@@ -93,7 +93,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 - **ES Modules** puro. Use `import`/`export`.
 - **Frontend**: nenhum neste projeto (serviço backend puro).
 - `server.js` importa models diretamente para garantir registro de schemas antes do uso.
-- `robotScheduler.start()` é chamado automaticamente no boot do servidor.
+- `robotScheduler.start()` e `statusSyncScheduler.start()` são chamados automaticamente no boot do servidor.
 
 ## Rotas
 
@@ -101,7 +101,7 @@ Prefixo `/api/robot-docusign` (exceto `/health` na raiz):
 
 | Método | Rota                                  | Auth                             | Descrição                                                    |
 | ------ | ------------------------------------- | -------------------------------- | ------------------------------------------------------------ |
-| POST   | `/trigger`                            | `protect`                        | Dispara job individual (body: `contractId`/`contract_id`)    |
+| POST   | `/trigger`                            | `protect`                        | Dispara job individual síncrono (body: `contractId`/`contract_id`) |
 | POST   | `/trigger-batch`                      | `protect` + `authorize("admin")` | Dispara jobs em lote                                         |
 | GET    | `/status/:jobId`                      | `protect`                        | Status de um job (busca por `_id` ou `contract_id`)          |
 | GET    | `/jobs`                               | `protect`                        | Lista jobs (filtros + paginação)                             |
@@ -113,6 +113,7 @@ Prefixo `/api/robot-docusign` (exceto `/health` na raiz):
 | POST   | `/test-login`                         | `protect` + `authorize("admin")` | Testa login no DocuSign (aceita `otpCode` opcional)          |
 | GET    | `/queue`                              | `protect`                        | Fila de jobs pendentes/em processamento                      |
 | POST   | `/process-pending`                    | `protect`                        | Processa até 1 contrato pendente (scheduler)                 |
+| POST   | `/sync-status`                        | `protect`                        | Executa varredura de sincronização geral de status sob demanda |
 | GET    | `/instances`                          | `protect` + `authorize("admin")` | Lista instâncias do robô (fleet monitoring)                  |
 | POST   | `/instance/auth`                      | público                          | Autenticação da instância (`X-Robot-Key` ou `email`/`senha`) |
 | GET    | `/instance/instances`                 | `protect` + `authorize("admin")` | Lista instâncias (via sub-router)                            |
