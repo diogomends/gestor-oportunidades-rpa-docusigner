@@ -175,15 +175,21 @@
 
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
+### AD-036
+- **Decision**: Refatoração de `backend/src/modules/robot-docusign/browserrobot/index.js` para barrel puro seguindo o padrão de imports atômicos do `main_robot.py`. Extração dos orquestradores `send` e `executeWithBrowser` para `steps/sendStep.js` e `steps/executeWithBrowserStep.js` respectivamente. O `index.js` passa a conter apenas imports atômicos com aliases e um único `export default { ... }`.
+- **Reason**: Aplicação do padrão de pipeline modular (PonyTail + SRP): nenhuma lógica de negócio vive no orquestrador principal — apenas chamadas de função em ordem, com cada step responsável por sua única responsabilidade.
+- **Trade-off**: Dois novos arquivos em `steps/`; retrocompatibilidade total preservada via aliases de import.
+- **Scope**: `backend/src/modules/robot-docusign/browserrobot/index.js`, `backend/src/modules/robot-docusign/browserrobot/steps/sendStep.js`, `backend/src/modules/robot-docusign/browserrobot/steps/executeWithBrowserStep.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: refactor/robot-docusign-submodules-split
-- **Phase / Task**: Code review e correções aplicadas (padronização de query Mongoose, importações canônicas no controller, conversão de steps legados em barrels e sincronização de docs)
-- **Completed**: Criação dos submódulos browserrobot e seletorApiRobot, barrels de compatibilidade em services/, controller atualizado, README.md e STATE.md sincronizados
-- **In-progress**: Finalizado
+- **Feature**: refactor/browserrobot-index-barrel
+- **Phase / Task**: Execução concluída — barrel puro, steps sendStep.js e executeWithBrowserStep.js criados
+- **Completed**: `browserrobot/index.js` refatorado como barrel puro; `steps/sendStep.js` e `steps/executeWithBrowserStep.js` criados com pipeline sequencial
+- **In-progress**: Aguardando commit, PR e merge
 - **Next step**: Commit, PR e merge
 - **Blockers**: none
-- **Branch**: refactor/robot-docusign-submodules-split
-
-
+- **Branch**: refactor/browserrobot-index-barrel
 
