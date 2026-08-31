@@ -59,7 +59,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │       ├── models/            # User.js, Contract.js, SystemConfig.js (3 modelos)
 │       ├── middlewares/       # authMiddleware.js (protect), roleMiddleware.js (authorize)
 │       ├── services/          # docusignService.js, gestorApiClient.js
-│       ├── utils/             # crypto.js, timeRestrictionService.js
+│   ├── utils/             # crypto.js, timeRestrictionService.js
 │       └── modules/
 │           └── robot-docusign/  # Módulo de domínio
 │               ├── index.js           # Exporta routes, orchestrator, session, scheduler, browserrobot, seletorApiRobot
@@ -70,6 +70,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │               ├── routes/            # robotInstanceRoutes.js
 │               ├── browserrobot/      # Submódulo Playwright (index.js barrel, browserRobot.js [send+executeWithBrowser], robotSession.js, agreementsService.js, robotSelectors.js, steps/)
 │               ├── seletorApiRobot/   # Submódulo de Seleção & Orquestração (index.js, orchestratorConfig.js, orchestratorEvents.js, apiActionService.js, contractSyncService.js, robotScheduler.js)
+│               ├── utils/             # contractEligibility.js (GERADO_ELIGIBLE_FILTER, isEligibleForSend/hasPdf/hasRecipientEmail — filtro PDF+e-mail centralizado AD-038)
 │               └── services/          # Barrels de retrocompatibilidade direta
 ├── robot/
 │   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, bytenode, esbuild)

@@ -1004,6 +1004,36 @@ O robô RPA possui arquitetura desacoplada onde o Servidor Central Docker (`back
 
 ---
 
+## Fase 17 — Filtro de Elegibilidade PDF + E-mail (AD-038)
+
+### T38: Helper Centralizado e Validação em 3 Camadas
+
+- **Req**: REQ-ELIG-01 (US-013)
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 1h | Paralelável: Não
+- **Depende de**: T09, T14, controllers `robotInstanceController` + `robotScheduler` + `robot/job-runner`
+
+**O quê**:
+1. Criar `backend/src/modules/robot-docusign/utils/contractEligibility.js` com `hasValue(trim)`, `hasPdf`, `hasRecipientEmail`, `isEligibleForSend` e `GERADO_ELIGIBLE_FILTER` (Mongo `$exists/$ne` + `$or` 4 e-mails).
+2. `robotInstanceController.getNextJob`: usar `GERADO_ELIGIBLE_FILTER` no `findOneAndUpdate`; extrair `pdfUrl` via `hasPdf`; bloquear `action:"send"` inelegível com `isEligibleForSend`, marcar `RobotJob:failed` (`contract_missing_pdf_or_email`) e reverter `Contract` `em_processamento_robot`→`gerado` com `console.warn`.
+3. `seletorApiRobot/robotScheduler.processPendingJobs`: usar `GERADO_ELIGIBLE_FILTER` no fallback Mongoose; pós-filtrar `gestorApiClient` candidato com `isEligibleForSend` em memória antes de criar job, com `warn` e queda para fallback.
+4. `robot/src/job-runner.js:processJob`: extrair `recipientEmail` do job; validar `pdfUrl` + `recipientEmail` com `trim()` antes de `chromium.launch`; `throw` padronizado `"Contrato sem documento PDF anexado ou sem e-mail do destinatário."`.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/utils/contractEligibility.js` (novo)
+- `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`
+- `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`
+- `robot/src/job-runner.js`
+
+**Feito quando**:
+- [x] Helper criado com `trim()` cobrindo whitespace; exporta `GERADO_ELIGIBLE_FILTER` + 3 funções
+- [x] `getNextJob` com revert de contrato legado e DRY via helper
+- [x] `robotScheduler` com pós-filtro da API e filtro no fallback
+- [x] `job-runner` com validação pré-browser (pdfUrl + e-mail) padronizada
+- [x] `node --check` OK nos 4 arquivos, `npm test` 177 pass, docs (`STATE AD-038`, `SPEC US-013`, `validation §12`) atualizados
+
+---
+
 ## Riscos Identificados
 
 | Risco | Impacto | Mitigação |

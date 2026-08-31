@@ -17,10 +17,11 @@ O robot opera como um serviço de contingência/bridge: enquanto a API não é a
 | Seletores UI | JSON separado no módulo (`selectors/docusign-ui.json`) |
 | Anti-detecção | Delay randômico entre ações |
 | Status tracking | RobotJob model separado (não contamina Contract) |
-| Contratos alvo | Status `gerado` (PDFs prontos para envio) |
+| Contratos alvo | Status `gerado` **e elegível** — exige `documents[].originalUrl` não-vazio + e-mail do destinatário (`client.representante.email` \| `signer.email` \| `email` \| `clientEmail`) via `contractEligibility.js` |
 | Modo de operação | Um contrato por execução |
 | Retry | 3 tentativas, delay exponencial (2s → 4s → 8s) |
 | Logs | Detalhado por passo com timestamp |
+| Elegibilidade | Helper centralizado `utils/contractEligibility.js` (`GERADO_ELIGIBLE_FILTER`, `hasPdf`, `hasRecipientEmail`, `isEligibleForSend` com `trim()`) usado em `getNextJob`, `robotScheduler` e `job-runner` |
 
 ## Arquitetura de 2 Componentes
 
@@ -281,17 +282,18 @@ O projeto é dividido em **2 componentes independentes** no mesmo repositório:
 
 ### [REQ-011] Agendamento (Scheduler Interno)
 
-- **Implementação**: `backend/src/modules/robot-docusign/services/robotScheduler.js` (`start()`/`stop()` + `processPendingJobs()`) iniciado em `backend/src/server.js` via `robotScheduler.start()`. Rota manual `POST /api/robot-docusign/process-pending` exposta para trigger externo/cron.
+- **Implementação**: `backend/src/modules/robot-docusign/services/robotScheduler.js` (`start()`/`stop()` + `processPendingJobs()`) iniciado em `backend/src/server.js` via `robotScheduler.start()`. Rota manual `POST /api/robot-docusign/process-pending` exposta para trigger externo/cron. Elegibilidade via `utils/contractEligibility.js` (`GERADO_ELIGIBLE_FILTER`).
 - **Fluxo**:
   1. Scheduler interno verifica config `robot_docusign.enabled` no SystemConfig
   2. Verifica horário e dia da semana (`isTimeAccessAllowed`) e concorrência (`max_concurrent`)
-  3. Se válido → busca próximo contrato com status `gerado` ou próximo RobotJob pendente
+  3. Se válido → busca próximo contrato com status `gerado` **e elegível** (`documents.originalUrl` + e-mail) ou próximo RobotJob pendente; contratos vindos de `gestorApiClient.fetchPendingContracts` são pós-filtrados em memória via `isEligibleForSend` antes de criar job (fallback Mongoose usa `GERADO_ELIGIBLE_FILTER`)
   4. Processa um contrato via `robotOrchestrator`
   5. Retorna resultado (success/failure + jobId)
 - **Criterios de Aceite**:
   1. WHEN cron aciona function THEN a function SHALL processar no máximo 1 contrato
   2. WHEN nenhum contrato pendente THEN a function SHALL retornar `{ processed: 0 }`
   3. WHEN robot está desabilitado THEN a function SHALL retornar `{ disabled: true }`
+  4. WHEN contrato `gerado` não tem PDF ou e-mail THEN SHALL ser ignorado (sem criar job) e permanecer `gerado` para retry futuro; se veio da API, SHALL caer no fallback Mongoose
 
 ### [REQ-012] Download de PDFs Assinados
 
@@ -383,11 +385,12 @@ robot/
 
 - WHEN DocuSign muda a UI (novo layout/seletores) THEN o robot SHALL falhar graciosamente e logar erro descritivo; correção = atualizar `docusign-ui.json`
 - WHEN sessão expira no meio de uma execução THEN o robot SHALL tentar relogar uma vez antes de falhar
-- WHEN contract não tem PDFs gerados THEN o robot SHALL marcar job como `failed` com erro "PDFs não gerados"
+- WHEN contract `gerado` não tem PDF (`documents[].originalUrl` vazio) ou não tem e-mail do destinatário THEN SHALL ser ignorado em `getNextJob`/`robotScheduler` (sem criar job, status permanece `gerado`); jobs legados `pending` sem elegibilidade SHALL ser marcados `failed` com `reason:"contract_missing_pdf_or_email"` e contrato revertido `em_processamento_robot`→`gerado`; `job-runner` SHALL rejeitar antes de `chromium.launch` com erro `"Contrato sem documento PDF anexado ou sem e-mail do destinatário."`
 - WHEN timeout do Playwright (30s padrão) THEN o robot SHALL retry com tentativa incremental
 - WHEN múltiplos jobs estão running para o mesmo contract THEN o sistema SHALL bloquear (job duplicado)
 - WHEN DO Functions atinge timeout (30s default) THEN a execução SHALL ser retomada ou o job SHALL ser marcado como failed
 - WHEN credenciais DocuSign estão incorretas THEN `test-login` SHALL retornar erro claro e robot SHALL não executar
+- WHEN `documents.originalUrl` ou e-mail contém apenas whitespace THEN SHALL ser tratado como ausente via `trim()` em `hasValue`
 
 ## Requirement Traceability
 
@@ -411,13 +414,15 @@ robot/
 | REQ-MFA-IMAP-01 | US-012 | 11 - Headless IMAP MFA | Done |
 | REQ-MFA-IMAP-02 | US-012 | 11 - Fallback & Resilient Polling | Done |
 | REQ-MFA-IMAP-03 | US-012 | 11 - Bytecode & Build Compatibility | Done |
+| REQ-ELIG-01 | US-013 | 17 - Elegibilidade PDF+E-mail (3 camadas) | Done |
 
 ## Variações da Implementação & Notas Técnicas
 
 - **Trigger de Contrato**: O endpoint `POST /api/robot-docusign/trigger` recebe `contractId` / `contract_id` no body da requisição.
 - **Trigger em Lote**: Adicionado `POST /api/robot-docusign/trigger-batch` (Zod `{ contractIds: z.array(z.string()).min(1) }`) que executa os disparos sequencialmente.
 - **Painel de Interface**: Tela/painel dedicada construída no frontend para acompanhamento de jobs, métricas e configurações do Robô DocuSign.
-- **Agendamento (Scheduler)**: Processamento via `POST /api/robot-docusign/process-pending`. Ao processar, se não houver `RobotJob` em fila, busca automaticamente o `Contract` mais antigo com `status: "gerado"` e dispara o envio.
+- **Agendamento (Scheduler)**: Processamento via `POST /api/robot-docusign/process-pending`. Ao processar, se não houver `RobotJob` em fila, busca automaticamente o `Contract` mais antigo com `status: "gerado"` **e elegível** (`documents.originalUrl` + e-mail via `GERADO_ELIGIBLE_FILTER`; API `gestorApiClient` pós-filtrada por `isEligibleForSend`) e dispara o envio.
+- **Elegibilidade de Contratos**: Módulo `utils/contractEligibility.js` centraliza `GERADO_ELIGIBLE_FILTER` (Mongo), `hasPdf`, `hasRecipientEmail` e `isEligibleForSend` (com `trim()`); usado em `GET /instance/next-job` (criação + pós-validação com revert), `robotScheduler` (fallback + API) e `robot/job-runner.js` (pré-browser).
 - **Criptografia de Credenciais**: Senhas de acesso à DocuSign são criptografadas com `encryptText` (AES-256-CBC) nos endpoints de gravação e decifradas na leitura com `decryptText`.
 - **Status do Contrato e Download do PDF**: No envio bem-sucedido, altera `Contract.status = "enviado"`; no download bem-sucedido, altera `Contract.status = "assinado"` e salva o arquivo em `uploads/{cnpj}_{razao}/contrato_assinado_{envelopeId}.pdf`, definindo `job.signedDocPath`.
 
@@ -549,6 +554,20 @@ robot/
 2. WHEN o e-mail de segurança for localizado no INBOX THEN extrai o código de 6 dígitos via regex e encerra a conexão IMAP
 3. WHEN o código for retornado THEN preenche o input MFA e avança o login no Playwright
 4. WHEN o servidor IMAP falhar THEN registra log defensivo e aplica fallback controlado
+
+---
+
+### US-013: Filtro de Elegibilidade de Contratos (PDF + E-mail)
+
+**User Story**: Como sistema, quero que apenas contratos `gerado` com PDF anexado e e-mail do destinatário entrem na fila do robô, para que jobs legados sem documento não consumam lock/browser e permaneçam `gerado` até o PDF ser gerado.
+
+**Acceptance Criteria**:
+1. WHEN contrato `gerado` não tem `documents[].originalUrl` não-vazio THEN SHALL ser ignorado por `GET /instance/next-job` e `robotScheduler` (sem criar job)
+2. WHEN contrato `gerado` não tem e-mail em `client.representante.email`/`signer.email`/`email`/`clientEmail` THEN SHALL ser ignorado (mesma regra; `trim()` trata whitespace)
+3. WHEN job legado `pending`/`retrying` aponta para contrato inelegível e `GET /next-job` o pega THEN SHALL marcar job `failed` com `contract_missing_pdf_or_email` e reverter `Contract` `em_processamento_robot`→`gerado`
+4. WHEN `robotScheduler` recebe contrato da API `gestorApiClient` sem elegibilidade THEN SHALL descartar em memória e cair no fallback Mongoose filtrado
+5. WHEN `job-runner` recebe `action:"send"` sem `pdfUrl` ou sem `recipientEmail` THEN SHALL lançar erro antes de `chromium.launch` com mensagem padronizada
+6. WHEN validação Mongo usa `$ne:""` THEN whitespace SHALL ser coberto por `hasValue(trim)` em memória (`contractEligibility.js`)
 
 ## Success Criteria
 

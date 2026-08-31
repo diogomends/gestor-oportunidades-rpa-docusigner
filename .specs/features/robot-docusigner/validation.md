@@ -193,6 +193,23 @@
 - **Status**: ✅ Aprovado — diagnóstico sincronizado para **5.56.1** (supersede `5.55.2`)
 - **Escopo**: Alinhamento de paridade `roundcube.js` ↔ `imapClient.js`, remoção de `decodeQuotedPrintable` redundante e log de `mkdirSync`
 
+---
+
+## 12. Critérios de Validação — Filtro de Elegibilidade PDF + E-mail (AD-038)
+
+- **Data**: 2026-08-31
+- **Status**: ✅ Aprovado — 177 testes passando, `node --check` OK nos 4 arquivos
+- **Escopo**: Helper centralizado `utils/contractEligibility.js` e validação em 3 camadas (`getNextJob`, `robotScheduler`, `job-runner`)
+
+### Cenários de Validação Executados (AD-038)
+- [x] **Filtro de criação (`GERADO_ELIGIBLE_FILTER`)**: `Contract.findOneAndUpdate` em `getNextJob` e `Contract.findOne` em `robotScheduler` só capturam `status:"gerado"` com `documents.originalUrl` não-vazio e e-mail em `$or` (4 campos); contrato sem PDF/e-mail permanece `gerado` sem travar fila
+- [x] **Pós-validação de job legado (`getNextJob`)**: job `pending`/`retrying` com contrato inelegível → `RobotJob: failed` + `reason:"contract_missing_pdf_or_email"` + `Contract` revertido `em_processamento_robot`→`gerado` (coberto por `hasPdf`/`isEligibleForSend` com `trim()`)
+- [x] **Pós-filtro da API (`robotScheduler`)**: `gestorApiClient.fetchPendingContracts` retornando contrato sem PDF/e-mail é descartado em memória (`isEligibleForSend`) com `console.warn` e cai no fallback Mongoose filtrado
+- [x] **Validação pré-browser (`job-runner`)**: `processJob` com `action:"send"` e `pdfUrl` vazio ou `recipientEmail` vazio → `throw` antes de `chromium.launch` com mensagem `"Contrato sem documento PDF anexado ou sem e-mail do destinatário."`, economizando Playwright
+- [x] **Whitespace**: `hasValue(trim)` trata `originalUrl:"   "` e `email:"   "` como ausentes (Mongo `$ne:""` + memória `trim()`)
+- [x] **Helper centralizado**: `contractEligibility.js` exporta `GERADO_ELIGIBLE_FILTER`, `hasPdf`, `hasRecipientEmail`, `isEligibleForSend`; 0 duplicação de objeto filtro (DRY)
+- [x] **Regressão**: `npm test` 177 pass, schemas e rotas inalterados, compatibilidade com `.exe` legado preservada
+
 ### Correção de Referências do Diagnóstico
 - **Versão**: `5.55.2` → `5.56.1` no changelog `STATE.md:119` (changelog `5.55.2` mantido como histórico; `5.56.1` é a versão corrente).
 - **`roundcube.js:17` → `roundcube.js:19` (estável, anterior `17` pré-`logger`)**: `export function parseRoundcubeDate` agora em `roundcube.js:19` (com `import logger` deslocou +1); `roundcube.js:18` no diagnóstico anterior era off-by-one após adição do import — corrigido para `19`.

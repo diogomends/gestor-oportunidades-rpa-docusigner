@@ -109,7 +109,7 @@ export class JobRunner {
    * @returns {Promise<{success: boolean, result: any}>} Resultado da execução.
    */
   async processJob(job) {
-    const { jobId, contractId, action, pdfUrl, credentials } = job;
+    const { jobId, contractId, action, pdfUrl, recipientEmail, credentials } = job;
     let tempPdfPath = null;
     let browser = null;
     let context = null;
@@ -117,8 +117,18 @@ export class JobRunner {
     logger.step("JobRunner", `Iniciando execução do job ${jobId} (Contrato: ${contractId}, Ação: ${action})...`);
 
     try {
-      // 1. Download seguro do PDF se necessário para a ação 'send'
-      if (action === "send" && pdfUrl) {
+      // 1. Validação preventiva antes de abrir o navegador (economiza Playwright + download)
+      if (action === "send") {
+        if (!pdfUrl || (typeof pdfUrl === "string" && pdfUrl.trim().length === 0)) {
+          throw new Error("Contrato sem documento PDF anexado ou sem e-mail do destinatário.");
+        }
+        // ponytail: valida e-mail também no robô local para alinhar com backend (getNextJob)
+        const emailOk = typeof recipientEmail === "string" && recipientEmail.trim().length > 0;
+        // Se payload não trouxe recipientEmail mas é elegível, o backend já teria barrado; aqui bloqueia vazio explícito
+        if (recipientEmail !== undefined && !emailOk) {
+          throw new Error("Contrato sem documento PDF anexado ou sem e-mail do destinatário.");
+        }
+
         logger.step("JobRunner", `Baixando PDF do contrato via API central (${pdfUrl})...`);
         await this.api.updateJobStatus(jobId, {
           status: "processing",
