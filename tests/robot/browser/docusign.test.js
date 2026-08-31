@@ -366,6 +366,54 @@ describe("Robot Standalone - DocuSign Browser & Session Hardening Tests", () => 
       assert.equal(result.envelopes[0].subject, "Contrato Master 2026");
       assert.equal(result.envelopes[0].status, "completed");
     });
+
+    it("deve sanitizar prefixos 'Para:' e 'To:' e suportar fallback td:nth-child(2)", async () => {
+      const mockRows = [
+        {
+          $: async (sel) => {
+            if (sel.includes("td:nth-child(2)")) {
+              return { innerText: async () => "Para: Carlos Alberto Santos" };
+            }
+            if (sel.includes("status")) {
+              return { innerText: async () => "Concluído" };
+            }
+            if (sel.includes("mobile-name") || sel === "a") {
+              return {
+                innerText: async () => "Contrato #200",
+                getAttribute: async () => "/documents/details/env-200",
+              };
+            }
+            return null;
+          },
+        },
+        {
+          $: async (sel) => {
+            if (sel.includes("mobile-from")) {
+              return { innerText: async () => "To: John Doe Santos" };
+            }
+            if (sel.includes("status")) {
+              return { innerText: async () => "Concluído" };
+            }
+            if (sel.includes("mobile-name") || sel === "a") {
+              return {
+                innerText: async () => "Contrato #201",
+                getAttribute: async () => "/documents/details/env-201",
+              };
+            }
+            return null;
+          },
+        },
+      ];
+
+      const mockPage = {
+        $$: async () => mockRows,
+      };
+
+      const result = await extractEnvelopesFromCurrentPage(mockPage, "Santos");
+      assert.equal(result.envelopes.length, 2);
+      assert.equal(result.envelopes[0].recipient, "Carlos Alberto Santos");
+      assert.equal(result.envelopes[1].recipient, "John Doe Santos");
+    });
   });
 
   describe("fetchAgreementsByRepresentative", () => {
