@@ -106,15 +106,24 @@
 - **Date**: 2026-08-28
 - **Status**: active
 
+### AD-028
+- **Decision**: Modularização de `robot/src/browser/docusign.js` em submódulos de domínio (`statusParser.js`, `auth.js`, `envelopes.js`, `agreements.js`) mantendo `docusign.js` como Facade retrocompatível com exports nomeados e default.
+- **Reason**: Atender estritamente aos princípios SOLID (SRP para auth/MFA, envelopes, agreements e status parser; OCP com regras declarativas em statusParser; DIP desacoplando MFA helpers) e PonyTail (remoção de import dinâmico de selectors e simplificação de fallbacks).
+- **Trade-off**: N/A. Preservação 100% das assinaturas e contratos públicos consumidos por `job-runner.js` e backend.
+- **Scope**: `robot/src/browser/*`, `robot/src/browser/docusign.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ## Handoff
 
-- **Feature**: docusign-agreements-query
-- **Phase / Task**: Execução e Validação Concluídas (T01 a T05)
-- **Completed**: `spec.md`, `tasks.md`, `validation.md`, T01 (Seletores e URL Builder), T02 (Normalizador de Status), T03 (Extrator de Linhas e Filtro por Rep), T04 (Paginação Contínua), T05 (Integração Job Runner e Orchestrator)
+- **Feature**: refactor-browser-modules-solid-ponytail
+- **Phase / Task**: Modularização e Facade Concluídas
+- **Completed**: `statusParser.js`, `auth.js`, `envelopes.js`, `agreements.js`, `docusign.js` (Facade), `STATE.md`
 - **In-progress**: Finalizado
 - **Next step**: Commit, PR e merge
 - **Blockers**: none
-- **Branch**: feat/docusign-agreements-query
+- **Branch**: refactor/robot-browser-solid-ponytail
+
 
