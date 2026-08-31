@@ -16,7 +16,7 @@ import {
 } from "./orchestratorConfig.js";
 import { robotEvents, emitProgress } from "./orchestratorEvents.js";
 import { syncContractStatus, buildDownloadPath } from "./contractSyncService.js";
-import statusSyncScheduler, { syncAllContractsStatus } from "./statusSyncScheduler.js";
+import statusSyncScheduler, { syncAllContractsStatus, isStatusSyncRunning } from "./statusSyncScheduler.js";
 
 export {
   DEFAULT_ROBOT_DOCUSIGN_CONFIG,
@@ -31,6 +31,7 @@ export {
   buildDownloadPath,
   statusSyncScheduler,
   syncAllContractsStatus,
+  isStatusSyncRunning,
 };
 
 /**
@@ -236,4 +237,5 @@ export default {
   buildDownloadPath,
   statusSyncScheduler,
   syncAllContractsStatus,
+  isStatusSyncRunning,
 };

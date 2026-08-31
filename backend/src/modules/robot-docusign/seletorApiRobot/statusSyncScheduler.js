@@ -27,11 +27,12 @@ function normalizeString(str = "") {
 
 /**
  * Mapeia o status do envelope extraído da DocuSign para o status canônico do modelo Contract.
+ * Retorna null se o status não for reconhecido, for vazio ou rascunho, prevenindo alterações arbitrárias de estado (Anti-Phantom Success).
  *
  * @param {string} [envelopeStatus=""] - Status do envelope na DocuSign.
- * @returns {string} Status correspondente no modelo Contract ('enviado', 'assinado', 'cancelado').
+ * @returns {string|null} Status correspondente no modelo Contract ('enviado', 'assinado', 'cancelado') ou null se não reconhecido.
  */
-function mapEnvelopeStatusToContractStatus(envelopeStatus = "") {
+export function mapEnvelopeStatusToContractStatus(envelopeStatus = "") {
   const normalized = normalizeString(envelopeStatus);
   switch (normalized) {
     case "completed":
@@ -51,9 +52,22 @@ function mapEnvelopeStatusToContractStatus(envelopeStatus = "") {
     case "processing":
     case "enviado":
     case "entregue":
-    default:
       return "enviado";
+    default:
+      return null;
   }
+}
+
+/** Flag indicando se uma varredura de status já está em andamento. @type {boolean} */
+let isRunning = false;
+
+/**
+ * Retorna se o scheduler de status está em execução no momento.
+ *
+ * @returns {boolean} True se estiver rodando, false caso contrário.
+ */
+export function isStatusSyncRunning() {
+  return isRunning;
 }
 
 /**
@@ -61,148 +75,175 @@ function mapEnvelopeStatusToContractStatus(envelopeStatus = "") {
  *
  * @param {Object} [options={}] - Parâmetros adicionais para a sincronização.
  * @param {number} [options.daysBack=30] - Quantidade de dias no passado a consultar na DocuSign.
- * @returns {Promise<{ success: boolean, checked: number, updated: number, downloaded: number, reason?: string, error?: string }>} Relatório da sincronização.
+ * @returns {Promise<{ success: boolean, checked: number, updated: number, downloaded: number, status?: string, reason?: string, error?: string }>} Relatório da sincronização.
  * @async
  */
 export async function syncAllContractsStatus(options = {}) {
-  console.log("[statusSyncScheduler] Iniciando varredura periódica de status geral...");
-
-  // 1. Validar configuração do robô e permissão da operação statusCheck
-  const config = await getRobotConfig();
-  if (config.mode !== "robot") {
-    console.log("[statusSyncScheduler] Robô desabilitado ou em modo API. Pulando consulta de status.");
-    return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "robot_disabled" };
-  }
-
-  if (config.operations?.statusCheck === false) {
-    console.log("[statusSyncScheduler] Operação 'statusCheck' desabilitada nas configurações. Pulando.");
-    return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "status_check_disabled" };
-  }
-
-  // 2. Validar horário de expediente se habilitado
-  const accessConfig = await SystemConfig.findOne({ key: "access_restriction" }).lean();
-  if (accessConfig?.value?.enabled) {
-    const isAllowed = isTimeAccessAllowed(accessConfig.value);
-    if (!isAllowed) {
-      console.log("[statusSyncScheduler] Fora do horário de expediente permitido. Pulando consulta.");
-      return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "outside_working_hours" };
-    }
-  }
-
-  // 3. Buscar contratos ativos no banco (excluindo rascunhos e contratos com status finais irreversíveis)
-  const activeContracts = await Contract.find({
-    status: { $in: ["enviado", "gerado"] },
-  }).lean();
-
-  if (!activeContracts || activeContracts.length === 0) {
-    console.log("[statusSyncScheduler] Nenhum contrato pendente de atualização de status encontrado.");
-    return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "no_active_contracts" };
-  }
-
-  console.log(`[statusSyncScheduler] ${activeContracts.length} contratos ativos identificados para checagem.`);
-
-  let updatedCount = 0;
-  let downloadedCount = 0;
-
-  try {
-    // 4. Consultar listagem geral de acordos na DocuSign via Playwright
-    const daysBack = options.daysBack || 30;
-    const queryResult = await browserrobot.executeWithBrowser("query_agreements", {
-      credentials: config.credentials,
-      daysBack,
-      headless: true,
-    });
-
-    const envelopes = queryResult?.envelopes || [];
-    console.log(`[statusSyncScheduler] ${envelopes.length} envelopes obtidos da DocuSign.`);
-
-    // 5. Cruzar cada contrato ativo com os envelopes retornados
-    for (const contract of activeContracts) {
-      const contractId = contract._id ? contract._id.toString() : contract.id;
-      const repEmail = normalizeString(contract.client?.representante?.email || contract.client?.admin?.email);
-      const repName = normalizeString(contract.client?.representante?.nome || contract.client?.admin?.nome);
-      const storedEnvelopeId = contract.envelopeId || contract.docusign_envelope_id;
-
-      // Localiza o envelope correspondente por ID exato ou por e-mail/nome do destinatário
-      const matchedEnvelope = envelopes.find((env) => {
-        if (storedEnvelopeId && env.envelopeId && env.envelopeId === storedEnvelopeId) {
-          return true;
-        }
-        const envRecipient = normalizeString(env.recipient);
-        if (repEmail && envRecipient.includes(repEmail)) return true;
-        if (repName && envRecipient.includes(repName)) return true;
-        return false;
-      });
-
-      if (!matchedEnvelope) {
-        continue;
-      }
-
-      const targetStatus = mapEnvelopeStatusToContractStatus(matchedEnvelope.status);
-      const isStatusChanged = targetStatus !== contract.status;
-
-      if (isStatusChanged || (matchedEnvelope.envelopeId && !storedEnvelopeId)) {
-        console.log(
-          `[statusSyncScheduler] Atualizando contrato ${contractId}: status '${contract.status}' -> '${targetStatus}' (Envelope: ${matchedEnvelope.envelopeId || "N/A"})`
-        );
-
-        // Atualiza diretamente no banco MongoDB Contract
-        const updatePayload = { status: targetStatus };
-        if (matchedEnvelope.envelopeId) {
-          updatePayload.envelopeId = matchedEnvelope.envelopeId;
-        }
-
-        await Contract.findByIdAndUpdate(contractId, updatePayload);
-        await syncContractStatus(contractId, targetStatus, { envelopeId: matchedEnvelope.envelopeId });
-        updatedCount++;
-
-        // 6. Se o contrato foi assinado/concluído e o download automático está ativo, baixa o PDF
-        if (targetStatus === "assinado" && matchedEnvelope.envelopeId && config.operations?.download !== false) {
-          try {
-            console.log(`[statusSyncScheduler] Baixando PDF assinado para o contrato ${contractId}...`);
-            const paths = buildDownloadPath(contract, matchedEnvelope.envelopeId);
-            await browserrobot.executeWithBrowser("download", {
-              envelopeId: matchedEnvelope.envelopeId,
-              downloadDir: paths.downloadDir,
-              fileName: paths.fileName,
-              credentials: config.credentials,
-            });
-            downloadedCount++;
-            console.log(`[statusSyncScheduler] PDF assinado salvo com sucesso em: ${paths.relativePath}`);
-          } catch (dlErr) {
-            console.error(`[statusSyncScheduler] Erro ao baixar PDF assinado do contrato ${contractId}:`, dlErr.message);
-          }
-        }
-
-        // 7. Notifica frontend em tempo real via evento de progresso SSE
-        robotEvents.emit("job:progress", {
-          jobId: contractId,
-          contractId,
-          status: targetStatus,
-          action: "status",
-          message: `Status do contrato atualizado para: ${targetStatus.toUpperCase()}`,
-          envelopeId: matchedEnvelope.envelopeId,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    }
-
-    console.log(`[statusSyncScheduler] Varredura concluída: ${updatedCount} atualizados, ${downloadedCount} baixados.`);
+  if (isRunning) {
+    console.log("[statusSyncScheduler] Varredura de status já em andamento. Pulando nova execução concorrente.");
     return {
       success: true,
-      checked: activeContracts.length,
-      updated: updatedCount,
-      downloaded: downloadedCount,
+      checked: 0,
+      updated: 0,
+      downloaded: 0,
+      status: "busy",
+      reason: "already_running",
     };
-  } catch (error) {
-    console.error("[statusSyncScheduler] Falha durante a consulta geral de status:", error);
-    return {
-      success: false,
-      checked: activeContracts.length,
-      updated: updatedCount,
-      downloaded: downloadedCount,
-      error: error.message,
-    };
+  }
+
+  isRunning = true;
+  try {
+    console.log("[statusSyncScheduler] Iniciando varredura periódica de status geral...");
+
+    // 1. Validar configuração do robô e permissão da operação statusCheck
+    const config = await getRobotConfig();
+    if (config.mode !== "robot") {
+      console.log("[statusSyncScheduler] Robô desabilitado ou em modo API. Pulando consulta de status.");
+      return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "robot_disabled" };
+    }
+
+    if (config.operations?.statusCheck === false) {
+      console.log("[statusSyncScheduler] Operação 'statusCheck' desabilitada nas configurações. Pulando.");
+      return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "status_check_disabled" };
+    }
+
+    // 2. Validar horário de expediente se habilitado
+    const accessConfig = await SystemConfig.findOne({ key: "access_restriction" }).lean();
+    if (accessConfig?.value?.enabled) {
+      const isAllowed = isTimeAccessAllowed(accessConfig.value);
+      if (!isAllowed) {
+        console.log("[statusSyncScheduler] Fora do horário de expediente permitido. Pulando consulta.");
+        return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "outside_working_hours" };
+      }
+    }
+
+    // 3. Buscar contratos ativos no banco (excluindo rascunhos e contratos com status finais irreversíveis)
+    const activeContracts = await Contract.find({
+      status: { $in: ["enviado", "gerado"] },
+    }).lean();
+
+    if (!activeContracts || activeContracts.length === 0) {
+      console.log("[statusSyncScheduler] Nenhum contrato pendente de atualização de status encontrado.");
+      return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "no_active_contracts" };
+    }
+
+    console.log(`[statusSyncScheduler] ${activeContracts.length} contratos ativos identificados para checagem.`);
+
+    let updatedCount = 0;
+    let downloadedCount = 0;
+
+    try {
+      // 4. Consultar listagem geral de acordos na DocuSign via Playwright
+      const daysBack = options.daysBack || 30;
+      const queryResult = await browserrobot.executeWithBrowser("query_agreements", {
+        credentials: config.credentials,
+        daysBack,
+        headless: true,
+      });
+
+      const envelopes = queryResult?.envelopes || [];
+      console.log(`[statusSyncScheduler] ${envelopes.length} envelopes obtidos da DocuSign.`);
+
+      // 5. Cruzar cada contrato ativo com os envelopes retornados
+      for (const contract of activeContracts) {
+        const contractId = contract._id ? contract._id.toString() : contract.id;
+        const repEmail = normalizeString(contract.client?.representante?.email || contract.client?.admin?.email);
+        const repName = normalizeString(contract.client?.representante?.nome || contract.client?.admin?.nome);
+        const storedEnvelopeId = contract.envelopeId || contract.docusign_envelope_id;
+
+        // Localiza o envelope correspondente por ID exato ou por e-mail/nome do destinatário
+        const matchedEnvelope = envelopes.find((env) => {
+          if (storedEnvelopeId && env.envelopeId && env.envelopeId === storedEnvelopeId) {
+            return true;
+          }
+          const envRecipient = normalizeString(env.recipient);
+          if (repEmail && envRecipient.includes(repEmail)) return true;
+          if (repName && envRecipient.includes(repName)) return true;
+          return false;
+        });
+
+        if (!matchedEnvelope) {
+          continue;
+        }
+
+        const targetStatus = mapEnvelopeStatusToContractStatus(matchedEnvelope.status);
+        if (!targetStatus) {
+          console.warn(
+            `[statusSyncScheduler] Status de envelope não reconhecido ou rascunho ('${matchedEnvelope.status}') para o contrato ${contractId}. Nenhuma alteração de status realizada.`
+          );
+          if (matchedEnvelope.envelopeId && !storedEnvelopeId) {
+            await Contract.findByIdAndUpdate(contractId, { envelopeId: matchedEnvelope.envelopeId });
+          }
+          continue;
+        }
+
+        const isStatusChanged = targetStatus !== contract.status;
+
+        if (isStatusChanged || (matchedEnvelope.envelopeId && !storedEnvelopeId)) {
+          console.log(
+            `[statusSyncScheduler] Atualizando contrato ${contractId}: status '${contract.status}' -> '${targetStatus}' (Envelope: ${matchedEnvelope.envelopeId || "N/A"})`
+          );
+
+          // Atualiza diretamente no banco MongoDB Contract
+          const updatePayload = { status: targetStatus };
+          if (matchedEnvelope.envelopeId) {
+            updatePayload.envelopeId = matchedEnvelope.envelopeId;
+          }
+
+          await Contract.findByIdAndUpdate(contractId, updatePayload);
+          await syncContractStatus(contractId, targetStatus, { envelopeId: matchedEnvelope.envelopeId });
+          updatedCount++;
+
+          // 6. Se o contrato foi assinado/concluído e o download automático está ativo, baixa o PDF
+          if (targetStatus === "assinado" && matchedEnvelope.envelopeId && config.operations?.download !== false) {
+            try {
+              console.log(`[statusSyncScheduler] Baixando PDF assinado para o contrato ${contractId}...`);
+              const paths = buildDownloadPath(contract, matchedEnvelope.envelopeId);
+              await browserrobot.executeWithBrowser("download", {
+                envelopeId: matchedEnvelope.envelopeId,
+                downloadDir: paths.downloadDir,
+                fileName: paths.fileName,
+                credentials: config.credentials,
+              });
+              downloadedCount++;
+              console.log(`[statusSyncScheduler] PDF assinado salvo com sucesso em: ${paths.relativePath}`);
+            } catch (dlErr) {
+              console.error(`[statusSyncScheduler] Erro ao baixar PDF assinado do contrato ${contractId}:`, dlErr.message);
+            }
+          }
+
+          // 7. Notifica frontend em tempo real via evento de progresso SSE
+          robotEvents.emit("job:progress", {
+            jobId: contractId,
+            contractId,
+            status: targetStatus,
+            action: "status",
+            message: `Status do contrato atualizado para: ${targetStatus.toUpperCase()}`,
+            envelopeId: matchedEnvelope.envelopeId,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
+      console.log(`[statusSyncScheduler] Varredura concluída: ${updatedCount} atualizados, ${downloadedCount} baixados.`);
+      return {
+        success: true,
+        checked: activeContracts.length,
+        updated: updatedCount,
+        downloaded: downloadedCount,
+      };
+    } catch (error) {
+      console.error("[statusSyncScheduler] Falha durante a consulta geral de status:", error);
+      return {
+        success: false,
+        checked: activeContracts.length,
+        updated: updatedCount,
+        downloaded: downloadedCount,
+        error: error.message,
+      };
+    }
+  } finally {
+    isRunning = false;
   }
 }
 
@@ -257,6 +298,8 @@ export function stop() {
 
 export default {
   syncAllContractsStatus,
+  mapEnvelopeStatusToContractStatus,
   start,
   stop,
+  isStatusSyncRunning,
 };

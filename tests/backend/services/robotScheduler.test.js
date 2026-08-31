@@ -9,6 +9,9 @@ import SystemConfig from "../../../backend/src/models/SystemConfig.js";
 describe("Robot DocuSign - Unit Tests: robotScheduler", () => {
   beforeEach(() => {
     mock.restoreAll();
+    mock.method(SystemConfig, "findOne", () => ({
+      lean: async () => null,
+    }));
   });
 
   afterEach(() => {
@@ -18,7 +21,7 @@ describe("Robot DocuSign - Unit Tests: robotScheduler", () => {
   it("deve pulamento se o robô estiver desabilitado", async () => {
     mock.method(robotOrchestrator, "getRobotConfig", async () => ({
       enabled: false,
-      mode: "robot",
+      mode: "api",
     }));
 
     const result = await robotScheduler.processPendingJobs();

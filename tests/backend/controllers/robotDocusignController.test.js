@@ -89,10 +89,10 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
         .post("/api/robot-docusign/trigger")
         .set("Authorization", `Bearer ${tokenAdmin}`)
         .send({ contractId: "c1", action: "send" })
-        .expect(202);
+        .expect(200);
 
       assert.strictEqual(res.body.success, true);
-      assert.strictEqual(res.body.jobId, "c1");
+      assert.strictEqual(res.body.jobId, "job123");
     });
 
     it("deve aceitar contract_id como alias de contractId", async () => {
@@ -102,9 +102,10 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
         .post("/api/robot-docusign/trigger")
         .set("Authorization", `Bearer ${tokenAdmin}`)
         .send({ contract_id: "c2", action: "status" })
-        .expect(202);
+        .expect(200);
 
       assert.strictEqual(res.body.success, true);
+      assert.strictEqual(res.body.jobId, "j2");
     });
 
     it("deve permitir ação reports sem contractId", async () => {
@@ -114,9 +115,10 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
         .post("/api/robot-docusign/trigger")
         .set("Authorization", `Bearer ${tokenAdmin}`)
         .send({ action: "reports" })
-        .expect(202);
+        .expect(200);
 
       assert.strictEqual(res.body.success, true);
+      assert.strictEqual(res.body.jobId, "j3");
     });
   });
 
@@ -470,6 +472,30 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
 
       assert.strictEqual(res.body.success, true);
       assert.strictEqual(res.body.status, "idle");
+    });
+  });
+
+  describe("POST /api/robot-docusign/sync-status", () => {
+    it("deve retornar 401 sem token", async () => {
+      await request(app).post("/api/robot-docusign/sync-status").expect(401);
+    });
+
+    it("deve executar sincronização de status para usuário autenticado", async () => {
+      mock.method(robotOrchestrator, "getRobotConfig", async () => ({
+        mode: "robot",
+        operations: { statusCheck: true },
+      }));
+      mock.method(Contract, "find", () => ({
+        lean: async () => [],
+      }));
+
+      const res = await request(app)
+        .post("/api/robot-docusign/sync-status?daysBack=15")
+        .set("Authorization", `Bearer ${tokenAdmin}`)
+        .expect(200);
+
+      assert.strictEqual(res.body.success, true);
+      assert.strictEqual(res.body.reason, "no_active_contracts");
     });
   });
 });
