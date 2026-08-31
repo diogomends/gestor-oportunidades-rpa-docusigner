@@ -68,7 +68,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │               ├── models/            # RobotJob.js, RobotSession.js, RobotInstance.js
 │               ├── selectors/         # Selectors CSS para automação do DocuSign
 │               ├── routes/            # robotInstanceRoutes.js
-│               ├── browserrobot/      # Submódulo Playwright (index.js, robotSession.js, agreementsService.js, robotSelectors.js, steps/)
+│               ├── browserrobot/      # Submódulo Playwright (index.js barrel, browserRobot.js [send+executeWithBrowser], robotSession.js, agreementsService.js, robotSelectors.js, steps/)
 │               ├── seletorApiRobot/   # Submódulo de Seleção & Orquestração (index.js, orchestratorConfig.js, orchestratorEvents.js, apiActionService.js, contractSyncService.js, robotScheduler.js)
 │               └── services/          # Barrels de retrocompatibilidade direta
 ├── robot/

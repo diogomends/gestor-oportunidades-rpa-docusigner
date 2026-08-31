@@ -177,7 +177,7 @@ backend/
 │           ├── models/            # RobotJob.js, RobotSession.js, RobotInstance.js
 │           ├── selectors/         # Selectors CSS para automação do DocuSign
 │           ├── routes/            # robotInstanceRoutes.js
-│           ├── browserrobot/      # Submódulo Playwright (index.js, robotSession.js, robotSelectors.js, loginUrl.js, agreementsService.js, steps/)
+│           ├── browserrobot/      # Submódulo Playwright (index.js barrel, browserRobot.js [send+executeWithBrowser], robotSession.js, robotSelectors.js, loginUrl.js, agreementsService.js, steps/)
 │           ├── seletorApiRobot/   # Submódulo de Seleção & Orquestração (index.js, orchestratorConfig.js, orchestratorEvents.js, apiActionService.js, contractSyncService.js, robotScheduler.js)
 │           └── services/          # Barrels de retrocompatibilidade direta (re-exporta browserrobot/seletorApiRobot)
 ├── tests/             # Testes nativos (raiz do projeto)
