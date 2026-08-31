@@ -85,6 +85,16 @@ export async function processPendingJobs(options = {}) {
     .lean();
 
   if (!job) {
+    if (config.operations?.send === false) {
+      console.log("[robotScheduler] Envio de documentos desabilitado nas operações do robô. Pulando busca de contratos gerados.");
+      return {
+        success: true,
+        processed: 0,
+        status: "idle",
+        reason: "send_operation_disabled",
+      };
+    }
+
     let contract = null;
 
     // Tenta obter contrato pendente via Gestor API Client (desacoplado)

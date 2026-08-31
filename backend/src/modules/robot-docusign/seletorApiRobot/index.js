@@ -66,7 +66,7 @@ export async function executeJob(contractOrId, action = "send", options = {}) {
     options = { downloadDir: paths.downloadDir, fileName: paths.fileName, ...options };
   }
 
-  const useRobot = await shouldUseRobot(contractObj || contractId, options);
+  const useRobot = await shouldUseRobot(contractObj || contractId, { action, ...options });
   const modeUsed = useRobot ? "robot" : "api";
   const config = await getRobotConfig();
   const maxAttempts = options.maxAttempts || config.retry?.maxAttempts || 3;

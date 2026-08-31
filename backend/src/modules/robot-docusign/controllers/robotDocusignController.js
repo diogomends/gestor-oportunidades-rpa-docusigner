@@ -32,6 +32,24 @@ const triggerBatchSchema = z.object({
 const updateConfigSchema = z.object({
   enabled: z.boolean().optional(),
   mode: z.enum(["robot", "api"]).optional(),
+  operations: z
+    .object({
+      send: z.boolean().optional(),
+      statusCheck: z.boolean().optional(),
+      download: z.boolean().optional(),
+      reports: z.boolean().optional(),
+      resend: z.boolean().optional(),
+    })
+    .optional(),
+  schedule: z
+    .object({
+      enabled: z.boolean().optional(),
+      intervalMinutes: z.number().int().optional(),
+      interval_minutes: z.number().int().optional(),
+      startHour: z.string().optional(),
+      endHour: z.string().optional(),
+    })
+    .optional(),
   limits: z
     .object({
       max_concurrent: z.number().int().min(1).optional(),
@@ -433,6 +451,14 @@ export const updateConfig = async (req, res) => {
     const newConfigData = {
       ...currentConfig,
       ...parseResult.data,
+      operations: {
+        ...currentConfig.operations,
+        ...(parseResult.data.operations || {}),
+      },
+      schedule: {
+        ...currentConfig.schedule,
+        ...(parseResult.data.schedule || {}),
+      },
       limits: {
         ...currentConfig.limits,
         ...(parseResult.data.limits || {}),
