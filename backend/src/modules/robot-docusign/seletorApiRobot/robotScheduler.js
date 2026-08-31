@@ -7,9 +7,6 @@ import RobotJob from "../models/RobotJob.js";
 import SystemConfig from "../../../models/SystemConfig.js";
 import robotOrchestrator from "./index.js";
 import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
-import Contract from "../../../models/Contract.js";
-import gestorApiClient from "../../../services/gestorApiClient.js";
-import { GERADO_ELIGIBLE_FILTER, isEligibleForSend } from "../utils/contractEligibility.js";
 
 /**
  * Processa até 1 contrato pendente na fila do Robô DocuSign.
@@ -85,71 +82,7 @@ export async function processPendingJobs(options = {}) {
     .lean();
 
   if (!job) {
-    if (config.operations?.send === false) {
-      console.log("[robotScheduler] Envio de documentos desabilitado nas operações do robô. Pulando busca de contratos gerados.");
-      return {
-        success: true,
-        processed: 0,
-        status: "idle",
-        reason: "send_operation_disabled",
-      };
-    }
-
-    let contract = null;
-
-    // Tenta obter contrato pendente via Gestor API Client (desacoplado)
-    if (process.env.ROBOT_API_KEY) {
-      try {
-        const contracts = await gestorApiClient.fetchPendingContracts({ status: "gerado", limit: 1 });
-        if (Array.isArray(contracts) && contracts.length > 0) {
-          const candidate = contracts[0];
-          // ponytail: API não filtra PDF/e-mail, valida em memória antes de criar job
-          if (isEligibleForSend(candidate)) {
-            contract = candidate;
-          } else {
-            console.warn(`[robotScheduler] Contrato ${candidate._id || candidate.id} da API ignorado (sem PDF ou e-mail). Fallback para Mongoose.`);
-          }
-        }
-      } catch (apiErr) {
-        console.warn("[robotScheduler] Falha ao consultar contratos via GestorApiClient, usando fallback Mongoose:", apiErr.message);
-      }
-    }
-
-    // Fallback: Busca 1 contrato com status 'gerado' e PDF anexado no banco compartilhado
-    if (!contract) {
-      contract = await Contract.findOne(GERADO_ELIGIBLE_FILTER)
-        .sort({ createdAt: 1 })
-        .lean();
-    }
-
-    if (contract) {
-      const contractId = contract._id || contract.id;
-      console.log(`[robotScheduler] Encontrado contrato com status 'gerado' (${contractId}). Disparando executeJob...`);
-      try {
-        const result = await robotOrchestrator.executeJob(contract, "send", {
-          ...options,
-          scheduledRun: true,
-        });
-
-        return {
-          success: true,
-          processed: 1,
-          contractId,
-          jobId: result.jobId,
-          result,
-        };
-      } catch (error) {
-        console.error(`[robotScheduler] Erro ao executar job para contrato gerado (${contractId}):`, error);
-        return {
-          success: false,
-          processed: 1,
-          contractId,
-          error: error.message,
-        };
-      }
-    }
-
-    console.log("[robotScheduler] Nenhum job pendente e nenhum contrato gerado para processar.");
+    console.log("[robotScheduler] Nenhum job pendente ou em retentativa na fila.");
     return {
       success: true,
       processed: 0,

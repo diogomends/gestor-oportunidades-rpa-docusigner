@@ -5,6 +5,7 @@ import SystemConfig from "../../../models/SystemConfig.js";
 import robotOrchestrator, { robotEvents } from "../seletorApiRobot/index.js";
 import robotSession from "../browserrobot/robotSession.js";
 import robotScheduler from "../seletorApiRobot/robotScheduler.js";
+import { syncAllContractsStatus } from "../seletorApiRobot/statusSyncScheduler.js";
 import { encryptText } from "../../../utils/crypto.js";
 
 /**
@@ -99,7 +100,7 @@ const testLoginSchema = z
   .optional();
 
 /**
- * Dispara uma ação (send, status, download, resend, reports) no Robô DocuSign.
+ * Dispara uma ação (send, status, download, resend, reports) no Robô DocuSign de forma síncrona.
  *
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
@@ -129,17 +130,25 @@ export const triggerJob = async (req, res) => {
       userId: req.user?._id || req.user?.id,
     };
 
-    setImmediate(() => {
-      robotOrchestrator.trigger(targetContractId, action, mergedOptions).catch((err) => {
-        console.error("[robotDocusignController] Erro no processamento em background do job:", err);
-      });
-    });
+    const result = await robotOrchestrator.trigger(targetContractId, action, mergedOptions);
 
-    return res.status(202).json({
-      success: true,
-      message: "Job agendado com sucesso",
-      jobId: targetContractId,
-      status: "pending",
+    if (result && result.success) {
+      return res.status(200).json({
+        success: true,
+        message: "Job executado com sucesso",
+        jobId: result.jobId || targetContractId,
+        envelopeId: result.result?.envelopeId || result.envelopeId || (typeof result.result === "string" ? result.result : null),
+        status: "completed",
+        result,
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      error: result?.error || "Falha na execução do job",
+      jobId: result?.jobId || targetContractId,
+      status: "failed",
+      result,
     });
   } catch (error) {
     console.error("[robotDocusignController] Erro ao disparar job:", error);
@@ -638,6 +647,27 @@ export const processPending = async (req, res) => {
 };
 
 /**
+ * Executa sob demanda uma rodada de sincronização de status geral com o DocuSign.
+ *
+ * @param {import("express").Request} req - Objeto de requisição Express.
+ * @param {import("express").Response} res - Objeto de resposta Express.
+ * @returns {Promise<void>}
+ */
+export const syncAllStatuses = async (req, res) => {
+  try {
+    const daysBack = req.query.daysBack ? parseInt(req.query.daysBack, 10) : 30;
+    const result = await syncAllContractsStatus({ daysBack });
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("[robotDocusignController] Erro ao sincronizar status dos contratos:", error);
+    return res.status(500).json({
+      error: "Erro interno ao sincronizar status dos contratos",
+      message: error.message,
+    });
+  }
+};
+
+/**
  * Transmite o progresso de um job em tempo real via Server-Sent Events (SSE).
  *
  * @param {import("express").Request} req - Objeto de requisição Express.
@@ -724,7 +754,7 @@ export const streamJobProgress = async (req, res) => {
 
 /**
  * Exportação padrão dos handlers do controller DocuSign.
- * @type {{triggerJob: function, triggerBatch: function, getJobStatus: function, listJobs: function, getMetrics: function, getJobLogs: function, getConfig: function, updateConfig: function, testLogin: function, getQueue: function, processPending: function, streamJobProgress: function}}
+ * @type {{triggerJob: function, triggerBatch: function, getJobStatus: function, listJobs: function, getMetrics: function, getJobLogs: function, getConfig: function, updateConfig: function, testLogin: function, getQueue: function, processPending: function, syncAllStatuses: function, streamJobProgress: function}}
  */
 export default {
   triggerJob,
@@ -738,5 +768,6 @@ export default {
   testLogin,
   getQueue,
   processPending,
+  syncAllStatuses,
   streamJobProgress,
 };
