@@ -145,4 +145,21 @@ graph TD
 - **Gate**: `node --env-file=.env.dev --test tests/robot/browser/selectors.test.js`
 - **Commit**: `fix(robot): target tbody rows to ignore header row in agreements list`
 
+---
+
+### T08: Correção do Fallback de Coluna de Destinatário e Sanitização de Prefixos
+
+- **Req**: REQ-AGR-02
+- **Status**: [x] completed
+- **Esforço**: 20m | Paralelável: Sim
+- **Depende de**: T03, T06
+- **O quê**: Corrigir o fallback do elemento de destinatário (`fromEl`) em `agreementsService.js` e `agreements.js` de `td:nth-child(3)` para `td:nth-child(2) [data-qa$='-mobile-from']` e `td:nth-child(2)`, aplicando remoção de prefixos `"Para:"` e `"To:"` (`replace(/^(para|to):\s*/i, "").trim()`).
+- **Onde**:
+  - `backend/src/modules/robot-docusign/browserrobot/agreementsService.js`
+  - `robot/src/browser/agreements.js`
+  - `tests/robot/browser/docusign.test.js`
+- **Tests**: `tests/robot/browser/docusign.test.js`
+- **Gate**: `node --env-file=.env.dev --test tests/robot/browser/docusign.test.js`
+- **Commit**: `fix(robot): correct recipient column fallback and sanitize Para/To prefix`
+
 

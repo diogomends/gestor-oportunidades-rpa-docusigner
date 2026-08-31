@@ -94,8 +94,12 @@ export async function extractEnvelopesFromCurrentPage(page, repName = "") {
   const unknownStatuses = [];
 
   for (const row of rows) {
-    const fromEl = (await row.$("[data-qa$='-mobile-from']").catch(() => null)) || (await row.$("td:nth-child(3)").catch(() => null));
-    const rawFrom = fromEl && typeof fromEl.innerText === "function" ? (await fromEl.innerText()).trim() : "";
+    const fromEl =
+      (await row.$("[data-qa$='-mobile-from']").catch(() => null)) ||
+      (await row.$("td:nth-child(2) [data-qa$='-mobile-from']").catch(() => null)) ||
+      (await row.$("td:nth-child(2)").catch(() => null));
+    const rawFromText = fromEl && typeof fromEl.innerText === "function" ? (await fromEl.innerText()).trim() : "";
+    const rawFrom = rawFromText.replace(/^(para|to):\s*/i, "").trim();
     const normalizedFrom = normalizeText(rawFrom);
 
     if (normalizedTargetRep && !normalizedFrom.includes(normalizedTargetRep)) {
