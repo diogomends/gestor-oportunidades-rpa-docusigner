@@ -193,14 +193,22 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-038
+- **Decision**: Filtro centralizado de elegibilidade de contratos para envio DocuSign via helper `backend/src/modules/robot-docusign/utils/contractEligibility.js` (`GERADO_ELIGIBLE_FILTER` + `hasPdf`/`hasRecipientEmail`/`isEligibleForSend` com `trim()`), aplicado em 3 camadas: `robotInstanceController.getNextJob` (findOneAndUpdate + pós-validação com revert `em_processamento_robot`→`gerado`), `seletorApiRobot/robotScheduler` (fallback Mongoose + pós-filtro `gestorApiClient` em memória) e `robot/src/job-runner.js` (validação `pdfUrl`+`recipientEmail` antes de `chromium.launch`).
+- **Reason**: Evitar jobs falhos, lock ocioso e abertura de Playwright para contratos legados sem `documents.originalUrl` ou sem e-mail do destinatário; manter contrato em `gerado` para retry quando PDF/e-mail forem anexados, economizando ~2s + 300 MB por job inválido.
+- **Trade-off**: Filtro Mongo `$ne:""` não cobre whitespace — coberto por `hasValue(trim)` em memória; índice parcial `{status:1,"documents.originalUrl":1}` pendente para alto volume.
+- **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `robot/src/job-runner.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: refactor/browserrobot-consolidation
-- **Phase / Task**: Consolidação concluída — `sendStep.js` e `executeWithBrowserStep.js` removidos, `browserRobot.js` como fonte única de `send`/`executeWithBrowser`, `index.js` barrel puro
-- **Completed**: AD-037 registrado, `browserRobot.js` validado como orquestrador único, deleções pendentes de commit
+- **Feature**: fix/eligibility-filter
+- **Phase / Task**: Filtro de elegibilidade (PDF + e-mail) em 3 camadas concluído — helper centralizado, controller com revert, scheduler com pós-filtro API, job-runner pré-browser
+- **Completed**: AD-038 registrado, 177 testes passando, `node --check` OK nos 4 arquivos, docs atualizados
 - **In-progress**: Aguardando commit/PR
 - **Next step**: Commit, PR e merge em `main`
 - **Blockers**: none
-- **Branch**: refactor/browserrobot-consolidation
+- **Branch**: main
 
 

@@ -11,6 +11,7 @@ import RobotInstance from "../models/RobotInstance.js";
 import robotOrchestrator from "../services/robotOrchestrator.js";
 import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
 import { getAclDb } from "../../../config/database.js";
+import { GERADO_ELIGIBLE_FILTER, isEligibleForSend, hasPdf } from "../utils/contractEligibility.js";
 
 /**
  * Zod Schema para autenticação da instância do robô via email/senha.
@@ -345,10 +346,10 @@ export const getNextJob = async (req, res) => {
       { new: true, sort: { createdAt: 1 } }
     );
 
-    // 5. Se não houver job na fila, verificar se há Contrato com status 'gerado'
+    // 5. Se não houver job na fila, verificar se há Contrato com status 'gerado' e documento PDF anexado
     if (!job) {
       const contract = await Contract.findOneAndUpdate(
-        { status: "gerado" },
+        GERADO_ELIGIBLE_FILTER,
         { $set: { status: "em_processamento_robot" } },
         { sort: { createdAt: 1 } }
       );
@@ -383,6 +384,37 @@ export const getNextJob = async (req, res) => {
     const contractId = job.contract_id || job.contractId;
     const contract = await Contract.findById(contractId).lean();
 
+    // Extrair caminho do primeiro documento disponível (usa helper hasPdf)
+    let pdfUrl = null;
+    if (hasPdf(contract)) {
+      pdfUrl = `/api/robot-docusign/instance/contracts/${contractId}/pdf`;
+    }
+
+    // Se a ação for 'send' e não houver documento PDF ou e-mail válido, cancela o lock e pula o job
+    // Reverte contrato de em_processamento_robot -> gerado para permitir retry quando PDF/e-mail forem anexados
+    if (job.action === "send" && !isEligibleForSend(contract)) {
+      await RobotJob.findByIdAndUpdate(job._id, {
+        status: "failed",
+        error: "Contrato sem documento PDF anexado ou sem e-mail do destinatário.",
+        completedAt: now,
+        locked_by: null,
+        lock_expires_at: null,
+      });
+
+      // ponytail: reverte contrato legado preso em em_processamento_robot para gerado
+      if (contractId) {
+        await Contract.findByIdAndUpdate(contractId, { status: "gerado" }).catch(() => {});
+      }
+
+      console.warn(`[robotInstanceController] Job ${job._id} ignorado por falta de PDF ou e-mail (contrato ${contractId}).`);
+
+      return res.status(200).json({
+        hasJob: false,
+        reason: "contract_missing_pdf_or_email",
+        message: `Job ${job._id} ignorado por falta de PDF ou e-mail de destinatário no contrato.`,
+      });
+    }
+
     const recipientName =
       contract?.client?.representante?.nome ||
       contract?.signer?.name ||
@@ -396,15 +428,6 @@ export const getNextJob = async (req, res) => {
       contract?.email ||
       contract?.clientEmail ||
       "";
-
-    // Extrair caminho do primeiro documento disponível
-    let pdfUrl = null;
-    if (contract?.documents && contract.documents.length > 0) {
-      const doc = contract.documents.find((d) => d.originalUrl) || contract.documents[0];
-      if (doc?.originalUrl) {
-        pdfUrl = `/api/robot-docusign/instance/contracts/${contractId}/pdf`;
-      }
-    }
 
     const payload = {
       hasJob: true,

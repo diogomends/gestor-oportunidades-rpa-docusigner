@@ -9,6 +9,7 @@ import robotOrchestrator from "./index.js";
 import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
 import Contract from "../../../models/Contract.js";
 import gestorApiClient from "../../../services/gestorApiClient.js";
+import { GERADO_ELIGIBLE_FILTER, isEligibleForSend } from "../utils/contractEligibility.js";
 
 /**
  * Processa até 1 contrato pendente na fila do Robô DocuSign.
@@ -91,16 +92,22 @@ export async function processPendingJobs(options = {}) {
       try {
         const contracts = await gestorApiClient.fetchPendingContracts({ status: "gerado", limit: 1 });
         if (Array.isArray(contracts) && contracts.length > 0) {
-          contract = contracts[0];
+          const candidate = contracts[0];
+          // ponytail: API não filtra PDF/e-mail, valida em memória antes de criar job
+          if (isEligibleForSend(candidate)) {
+            contract = candidate;
+          } else {
+            console.warn(`[robotScheduler] Contrato ${candidate._id || candidate.id} da API ignorado (sem PDF ou e-mail). Fallback para Mongoose.`);
+          }
         }
       } catch (apiErr) {
         console.warn("[robotScheduler] Falha ao consultar contratos via GestorApiClient, usando fallback Mongoose:", apiErr.message);
       }
     }
 
-    // Fallback: Busca 1 contrato com status 'gerado' no banco compartilhado
+    // Fallback: Busca 1 contrato com status 'gerado' e PDF anexado no banco compartilhado
     if (!contract) {
-      contract = await Contract.findOne({ status: "gerado" })
+      contract = await Contract.findOne(GERADO_ELIGIBLE_FILTER)
         .sort({ createdAt: 1 })
         .lean();
     }
