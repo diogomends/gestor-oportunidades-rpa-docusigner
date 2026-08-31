@@ -5,15 +5,24 @@
  */
 
 // Atomic Imports
-import { sendEnvelope as send } from "./steps/sendStep.js";
+import { send, executeWithBrowser } from "./browserRobot.js";
 import { checkStatus as status } from "./steps/statusStep.js";
 import { downloadDocument as download } from "./steps/downloadStep.js";
 import { resendEnvelope as resend } from "./steps/resendStep.js";
 import { extractReports as reports } from "./steps/reportsStep.js";
 import { fetchAgreementsByRepresentative as queryAgreements } from "./agreementsService.js";
-import { executeWithBrowser } from "./steps/executeWithBrowserStep.js";
 import { withRetry } from "./steps/retryStep.js";
 
+export {
+  send,
+  status,
+  download,
+  resend,
+  reports,
+  queryAgreements,
+  executeWithBrowser,
+  withRetry,
+};
 
 export default {
   send,

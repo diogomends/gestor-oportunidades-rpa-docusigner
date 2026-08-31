@@ -176,20 +176,21 @@
 > AD-001/002/003/004/005/006/007/012 eram órfãos do CRM `gestor-oportunidades` (soft delete, KPI cards, Phosphor, FilterBar, manual) — removidos deste repo. Histórico preservado em `CHANGELOG.md` + `git log` + `features/*/validation.md`. Visão/Diagrama/Fluxo movidos para `README.md` e `SPEC.md:8-60`.
 
 ### AD-036
-- **Decision**: Refatoração de `backend/src/modules/robot-docusign/browserrobot/index.js` para barrel puro seguindo o padrão de imports atômicos do `main_robot.py`. Extração dos orquestradores `send` e `executeWithBrowser` para `steps/sendStep.js` e `steps/executeWithBrowserStep.js` respectivamente. O `index.js` passa a conter apenas imports atômicos com aliases e um único `export default { ... }`.
-- **Reason**: Aplicação do padrão de pipeline modular (PonyTail + SRP): nenhuma lógica de negócio vive no orquestrador principal — apenas chamadas de função em ordem, com cada step responsável por sua única responsabilidade.
-- **Trade-off**: Dois novos arquivos em `steps/`; retrocompatibilidade total preservada via aliases de import.
-- **Scope**: `backend/src/modules/robot-docusign/browserrobot/index.js`, `backend/src/modules/robot-docusign/browserrobot/steps/sendStep.js`, `backend/src/modules/robot-docusign/browserrobot/steps/executeWithBrowserStep.js`
+- **Decision**: Refatoração de `backend/src/modules/robot-docusign/browserrobot/index.js` para barrel puro seguindo o padrão de imports atômicos do `main_robot.py`. Centralização das atividades do navegador e orquestração do pipeline de envio (`send` e `executeWithBrowser`) em `backend/src/modules/robot-docusign/browserrobot/browserRobot.js`. O `index.js` atua exclusivamente como fachada e barrel puro re-exportando as operações.
+- **Reason**: Aplicação estrita do padrão de pipeline modular (PonyTail + SRP): nenhuma lógica procedural de ciclo de vida do navegador vive no `index.js`, centralizando a orquestração do browser em `browserRobot.js` e mantendo `index.js` limpo com 100% de compatibilidade.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/browserrobot/index.js`, `backend/src/modules/robot-docusign/browserrobot/browserRobot.js`
 - **Date**: 2026-08-31
 - **Status**: active
 
 ## Handoff
 
 - **Feature**: refactor/browserrobot-index-barrel
-- **Phase / Task**: Execução concluída — barrel puro, steps sendStep.js e executeWithBrowserStep.js criados
-- **Completed**: `browserrobot/index.js` refatorado como barrel puro; `steps/sendStep.js` e `steps/executeWithBrowserStep.js` criados com pipeline sequencial
-- **In-progress**: Aguardando commit, PR e merge
+- **Phase / Task**: Execução concluída — `browserRobot.js` criado e `index.js` refatorado como barrel puro
+- **Completed**: Criação de `browserRobot.js` (orquestração de `send` e `executeWithBrowser`), refatoração de `index.js` como barrel de imports atômicos e re-exportação
+- **In-progress**: Finalizado
 - **Next step**: Commit, PR e merge
 - **Blockers**: none
 - **Branch**: refactor/browserrobot-index-barrel
+
 
