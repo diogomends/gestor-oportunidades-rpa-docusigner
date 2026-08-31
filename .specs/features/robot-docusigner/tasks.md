@@ -55,6 +55,8 @@ node --env-file=.env.dev --test test/robot/**/*.test.js        # Apenas robô
 | REQ-MFA-IMAP-07 | T25 | ✅ job-runner.js / docusign.js | ✅ Persistência storageState | — |
 | REQ-MFA-IMAP-08 | T26 | ✅ docusign.test.js | ✅ Hardening & Resiliência storageState | — |
 | REQ-SCHED-01 | T27 | ✅ statusSyncScheduler.test.js | ✅ statusSyncScheduler (isRunning) | — |
+| REQ-SCHED-02 | T28 | ✅ statusSyncScheduler.test.js | ✅ Anti-Phantom Success (null mapping) | — |
+| REQ-REGR-01 | T29 | ✅ 195 testes em 13 arquivos | ✅ npm test / make test (100% pass) | — |
 
 ---
 
@@ -1092,6 +1094,58 @@ O `syncAllContractsStatus` em `statusSyncScheduler.js` não possuía trava de co
 - [x] Flag `isRunning` bloqueia chamadas concorrentes com status `busy` e reason `already_running`.
 - [x] Bloco `try...finally` garante liberação da trava em sucessos, falhas ou early returns.
 - [x] Testes de regressão cobrindo concorrência, erros e bypass passando 100%.
+
+---
+
+### T28: Eliminação de Sucesso Fantasma (Anti-Phantom Success) no Mapeamento de Status de Envelope
+
+- **Req**: REQ-SCHED-02
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 0.5h | Paralelável: Sim
+- **Depende de**: AD-041, AD-046
+
+**Contexto**:
+A cláusula `default:` de `mapEnvelopeStatusToContractStatus` em `statusSyncScheduler.js` retornava `"enviado"`, convertendo arbitrariamente qualquer status não catalogado, rascunho (`draft`) ou vazio vindo da DocuSign em contrato `"enviado"` no MongoDB.
+
+**O quê**:
+1. Atualizar `mapEnvelopeStatusToContractStatus` para retornar `null` em status não catalogados, vazios ou rascunhos.
+2. No loop de sincronização `syncAllContractsStatus`, verificar se `targetStatus === null`; se for, registrar log de aviso (`console.warn`), registrar o `envelopeId` se recém-descoberto e pular (`continue`) sem alterar o status do contrato no banco.
+3. Testes unitários e de regressão em `tests/backend/services/statusSyncScheduler.test.js` cobrindo status válidos, inválidos e contratos com status preservados no banco.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`
+- `tests/backend/services/statusSyncScheduler.test.js`
+
+**Feito quando**:
+- [x] `mapEnvelopeStatusToContractStatus` retorna `null` para status desconhecidos, rascunhos ou vazios.
+- [x] `syncAllContractsStatus` não modifica o status do contrato no banco para valores inválidos/desconhecidos da DocuSign.
+---
+
+### T29: Isolamento de Timers Assíncronos e Validação Completa de Regressão
+
+- **Req**: REQ-REGR-01
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 0.5h | Paralelável: Sim
+- **Depende de**: AD-047
+
+**Contexto**:
+Ao executar toda a suíte de testes (`npm test`), timeouts de inicialização órfãos (`setTimeout` de boot em `robotScheduler.js` e `statusSyncScheduler.js`) permaneciam ativos mesmo após o encerramento das suítes de teste, causando vazamento de chamadas assíncronas ao Mongoose e timeouts de buffer em testes concorrentes.
+
+**O quê**:
+1. Rastrear `initialTimeoutId` e cancelá-lo explicitamente na rotina `stop()` de `statusSyncScheduler.js` e `robotScheduler.js`.
+2. Configurar o ambiente local de testes com `.env.dev` e injeção controlada de `process.env.ROBOT_API_KEY` na suíte de testes de `statusSyncScheduler.test.js`.
+3. Executar e validar 100% dos 195 testes em 13 arquivos de teste nativos do Node.js.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`
+- `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`
+- `tests/backend/services/statusSyncScheduler.test.js`
+- `.env.dev`
+
+**Feito quando**:
+- [x] `stop()` em ambos os schedulers limpa `initialTimeoutId` e timers periódicos.
+- [x] Teste de sincronização de status desacoplado com `ROBOT_API_KEY` isolada.
+- [x] Suíte completa de 195 testes passando com 0 falhas via `npm test`.
 
 ---
 

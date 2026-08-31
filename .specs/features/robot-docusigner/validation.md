@@ -236,5 +236,31 @@
 - [x] **Bypass e Early Exits**: Garantido reset de `isRunning` em todos os retornos antecipados (`mode !== "robot"`, `statusCheck === false`, `outside_working_hours`, `no_active_contracts`).
 - [x] **Regressão e Cobertura**: 100% de aprovação na suíte de testes unitários e de integração dedicada (`tests/backend/services/statusSyncScheduler.test.js`) e rotas HTTP (`POST /api/robot-docusign/sync-status`).
 
+---
 
+## 14. Critérios de Validação — Anti-Phantom Success no Mapeamento de Status Padrão (AD-046)
 
+- **Data**: 2026-08-31
+- **Status**: ✅ Concluído e Validado (139/139 testes de backend passando)
+- **Escopo**: Eliminação de transições de status arbitrárias para `"enviado"` quando a DocuSign retornar status desconhecido, rascunho (`draft`) ou vazio em `statusSyncScheduler.js`.
+
+### Cenários de Validação Executados (AD-046)
+- [x] **Retorno `null` para Status Desconhecidos/Rascunho**: `mapEnvelopeStatusToContractStatus("draft")`, `mapEnvelopeStatusToContractStatus("rascunho")`, `mapEnvelopeStatusToContractStatus("unknown")`, `mapEnvelopeStatusToContractStatus("")` retornam estritamente `null`.
+- [x] **Mapeamento Preciso de Status Canônicos**: `completed`/`assinado`/`concluido` -> `assinado`; `declined`/`voided`/`expired`/`cancelado` -> `cancelado`; `sent`/`delivered`/`processing`/`enviado`/`entregue` -> `enviado`.
+- [x] **Proteção de Integridade do Contrato no MongoDB**: Quando a DocuSign retorna status não reconhecido ou rascunho, o `statusSyncScheduler` não modifica o `status` do contrato no banco nem invoca sincronizações com o Gestor, mantendo o estado `gerado` intacto.
+
+---
+
+## 15. Critérios de Validação — Execução Consolidada de Testes de Regressão (AD-047)
+
+- **Data**: 2026-08-31
+- **Status**: ✅ Concluído e Validado (195/195 testes passando — 100% de sucesso)
+- **Escopo**: Execução ponta a ponta de toda a suíte de testes de regressão do microsserviço RPA DocuSigner (`npm test` e `make test`), abrangendo robô standalone e backend.
+
+### Cenários de Validação Executados (AD-047)
+- [x] **Robô Standalone Playwright**: 56 testes passando em `tests/robot/browser/` (`docusign.test.js`, `imapClient.test.js`, `roundcube.test.js`, `selectors.test.js`), validando extração de MFA/IMAP socket direto, re-autenticação, paginação OneDS e proteção contra redirect duplo.
+- [x] **Backend Controllers & Rotas HTTP**: 36 testes passando em `tests/backend/controllers/robotDocusignController.test.js` cobrindo todas as rotas da API REST (`/trigger`, `/trigger-batch`, `/status`, `/jobs`, `/metrics`, `/logs`, `/config`, `/test-login`, `/queue`, `/process-pending`, `/sync-status`).
+- [x] **Backend Models**: 27 testes passando em `tests/backend/models/` (`RobotJob.test.js`, `RobotSession.test.js`).
+- [x] **Backend Services & Schedulers**: 76 testes passando em `tests/backend/services/` (`gestorApiClient.test.js`, `imapClient.test.js`, `robotBrowser.test.js`, `robotSession.test.js`, `robotScheduler.test.js`, `statusSyncScheduler.test.js`).
+- [x] **Isolamento de Timers Assíncronos**: Limpeza garantida de timeouts de inicialização (`initialTimeoutId`) nas rotinas `stop()` de `robotScheduler.js` e `statusSyncScheduler.js`, prevenindo vazamento de timers em background.
+- [x] **Isolamento de Variáveis de Ambiente**: Configuração do ambiente de teste via `.env.dev` e injeção controlada de `process.env.ROBOT_API_KEY` para mock decoupling completo.
