@@ -76,7 +76,13 @@ export class Scheduler {
     const jobResponse = await this.api.getNextJob();
 
     if (!jobResponse.hasJob) {
-      // Nenhum job na fila
+      if (jobResponse.reason === "contract_missing_pdf_or_email") {
+        logger.warn("Scheduler", `Contrato ignorado: ${jobResponse.message || "Falta PDF ou e-mail de destinatário"}`);
+      } else if (jobResponse.reason && jobResponse.reason !== "no_pending_jobs") {
+        logger.step("Scheduler", `Sem jobs a processar. Motivo: ${jobResponse.reason}${jobResponse.message ? ` (${jobResponse.message})` : ""}`);
+      } else {
+        logger.step("Scheduler", `Sem jobs pendentes (Motivo: ${jobResponse.reason || "no_pending_jobs"}).`);
+      }
       return;
     }
 

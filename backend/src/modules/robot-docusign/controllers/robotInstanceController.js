@@ -317,21 +317,27 @@ export const getNextJob = async (req, res) => {
     // 4. Buscar e travar atomicamente um job pendente existente
     let job = await RobotJob.findOneAndUpdate(
       {
-        $or: [
-          { status: "pending" },
+        $and: [
           {
-            status: "retrying",
             $or: [
-              { next_retry_at: { $lte: now } },
-              { next_retry_at: { $exists: false } },
-              { next_retry_at: null },
+              { status: "pending" },
+              {
+                status: "retrying",
+                $or: [
+                  { next_retry_at: { $lte: now } },
+                  { next_retry_at: { $exists: false } },
+                  { next_retry_at: null },
+                ],
+              },
             ],
           },
-        ],
-        $or: [
-          { locked_by: null },
-          { lock_expires_at: null },
-          { lock_expires_at: { $lt: now } },
+          {
+            $or: [
+              { locked_by: null },
+              { lock_expires_at: null },
+              { lock_expires_at: { $lt: now } },
+            ],
+          },
         ],
       },
       {

@@ -201,14 +201,24 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+
+### AD-039
+- **Decision**: Correção do bug de sobrescrita da chave `$or` em `RobotJob.findOneAndUpdate` no endpoint `GET /api/robot-docusign/instance/next-job` (`robotInstanceController.js`) agrupando os filtros de status e lock dentro de `$and: [ { $or: ... }, { $or: ... } ]`, e adição de logs explicativos de polling no robô desktop (`robot/src/scheduler.js`).
+- **Reason**: No JavaScript, duas chaves `$or` no mesmo objeto faziam a segunda sobrescrever a primeira, ignorando o filtro de status `pending`/`retrying` e puxando jobs legados já concluídos, bloqueando a fila de processamento local.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `robot/src/scheduler.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: fix/eligibility-filter
-- **Phase / Task**: Filtro de elegibilidade (PDF + e-mail) em 3 camadas concluído — helper centralizado, controller com revert, scheduler com pós-filtro API, job-runner pré-browser
-- **Completed**: AD-038 registrado, 177 testes passando, `node --check` OK nos 4 arquivos, docs atualizados
-- **In-progress**: Aguardando commit/PR
-- **Next step**: Commit, PR e merge em `main`
+- **Feature**: fix/next-job-query-and-polling-logs
+- **Phase / Task**: Correção da query `$and` em `getNextJob` e logs descritivos de polling no scheduler do robô local
+- **Completed**: AD-039 registrado, `node --check` validado sem erros nos arquivos alterados
+- **In-progress**: Finalização de commit e PR
+- **Next step**: Executar fluxo de commit, PR e merge
 - **Blockers**: none
 - **Branch**: main
+
 
 
