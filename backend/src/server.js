@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config();
@@ -20,7 +21,18 @@ import "./modules/robot-docusign/models/RobotJob.js";
 import "./modules/robot-docusign/models/RobotSession.js";
 import "./modules/robot-docusign/models/RobotInstance.js";
 
+/** 
+ * Porta do servidor HTTP.
+ * @constant 
+ * @type {number|string} 
+ */
 const PORT = process.env.PORT || 3111;
+
+/** 
+ * Instância do servidor HTTP.
+ * @type {import('http').Server|null} 
+ */
+let httpServer = null;
 
 /**
  * Bootstraps the backend server:
@@ -29,6 +41,7 @@ const PORT = process.env.PORT || 3111;
  * - Starts the RPA background scheduler and status sync scheduler
  * - Binds HTTP server on configured PORT
  * @returns {Promise<void>}
+ * @async
  */
 const startServer = async () => {
   await connectDB();
@@ -55,13 +68,33 @@ const startServer = async () => {
   await statusSyncScheduler.start();
   console.log("[RPA DocuSigner] Agendador de consulta periódica de status ativado com sucesso");
 
-  app.listen(PORT, () => {
+  httpServer = app.listen(PORT, () => {
     console.log(`[RPA DocuSigner] Servidor rodando na porta ${PORT}`);
   });
 };
 
-process.on("SIGTERM", () => process.exit(0));
-process.on("SIGINT", () => process.exit(0));
+/**
+ * Finaliza as conexões e schedulers de forma graciosa.
+ * @param {string} signal - O sinal recebido (SIGTERM, SIGINT).
+ * @returns {Promise<void>}
+ * @async
+ */
+const shutdownServer = async (signal) => {
+  console.log(`\n[RPA DocuSigner] Recebido sinal ${signal}, iniciando Graceful Shutdown...`);
+  statusSyncScheduler.stop();
+  robotScheduler.stop();
+  if (httpServer) {
+    httpServer.close(() => {
+      console.log("[RPA DocuSigner] Servidor HTTP fechado.");
+    });
+  }
+  await mongoose.disconnect();
+  console.log("[RPA DocuSigner] MongoDB desconectado.");
+  process.exit(0);
+};
+
+process.on("SIGTERM", () => shutdownServer("SIGTERM"));
+process.on("SIGINT", () => shutdownServer("SIGINT"));
 
 startServer();
 

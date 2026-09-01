@@ -536,6 +536,13 @@ Nenhum índice explícito além de `_id`.
 | ----- | ---- | ----------- | ------- | ---- |
 | `status` | `String` | ❌ | `"rascunho"` | rascunho, gerado, enviado, assinado, cancelado |
 
+### Campos — DocuSign Envelope
+
+| Campo | Tipo | Obrigatório | Default | Descrição |
+| ----- | ---- | ----------- | ------- | --------- |
+| `envelopeId` | `String` | ❌ | `null` | Identificador do envelope DocuSign ativo |
+| `docusign_envelope_id` | `String` | ❌ | `null` | Alias/identificador legado do envelope DocuSign |
+
 ### Índices
 
 Nenhum índice explícito além de `_id`.

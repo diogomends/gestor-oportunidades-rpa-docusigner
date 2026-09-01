@@ -3,6 +3,8 @@
  * Varre contratos ativos (não-rascunho), consulta o painel da DocuSign, atualiza o banco e baixa PDFs assinados.
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import Contract from "../../../models/Contract.js";
 import SystemConfig from "../../../models/SystemConfig.js";
 import browserrobot from "../browserrobot/index.js";
@@ -184,29 +186,33 @@ export async function syncAllContractsStatus(options = {}) {
             `[statusSyncScheduler] Atualizando contrato ${contractId}: status '${contract.status}' -> '${targetStatus}' (Envelope: ${matchedEnvelope.envelopeId || "N/A"})`
           );
 
-          // Atualiza diretamente no banco MongoDB Contract
-          const updatePayload = { status: targetStatus };
-          if (matchedEnvelope.envelopeId) {
-            updatePayload.envelopeId = matchedEnvelope.envelopeId;
-          }
-
-          await Contract.findByIdAndUpdate(contractId, updatePayload);
           await syncContractStatus(contractId, targetStatus, { envelopeId: matchedEnvelope.envelopeId });
           updatedCount++;
 
           // 6. Se o contrato foi assinado/concluído e o download automático está ativo, baixa o PDF
           if (targetStatus === "assinado" && matchedEnvelope.envelopeId && config.operations?.download !== false) {
             try {
-              console.log(`[statusSyncScheduler] Baixando PDF assinado para o contrato ${contractId}...`);
               const paths = buildDownloadPath(contract, matchedEnvelope.envelopeId);
+              const fullFilePath = path.join(paths.downloadDir, paths.fileName);
+              
+              if (fs.existsSync(fullFilePath) && fs.statSync(fullFilePath).size > 0) {
+                console.log(`[statusSyncScheduler] PDF já existe e está salvo em: ${paths.relativePath}`);
+                downloadedCount++;
+                continue;
+              }
+
+              console.log(`[statusSyncScheduler] Baixando PDF assinado para o contrato ${contractId}...`);
               await browserrobot.executeWithBrowser("download", {
                 envelopeId: matchedEnvelope.envelopeId,
                 downloadDir: paths.downloadDir,
                 fileName: paths.fileName,
                 credentials: config.credentials,
               });
-              downloadedCount++;
-              console.log(`[statusSyncScheduler] PDF assinado salvo com sucesso em: ${paths.relativePath}`);
+
+              if (fs.existsSync(fullFilePath) && fs.statSync(fullFilePath).size > 0) {
+                downloadedCount++;
+                console.log(`[statusSyncScheduler] PDF assinado salvo com sucesso em: ${paths.relativePath}`);
+              }
             } catch (dlErr) {
               console.error(`[statusSyncScheduler] Erro ao baixar PDF assinado do contrato ${contractId}:`, dlErr.message);
             }
@@ -248,7 +254,7 @@ export async function syncAllContractsStatus(options = {}) {
 }
 
 /** Timer do timeout inicial de boot. @type {NodeJS.Timeout|null} */
-let initialTimeoutId = null;
+let bootTimerId = null;
 
 /** Timer do loop periódico de status. @type {NodeJS.Timeout|null} */
 let statusTimerId = null;
@@ -258,6 +264,7 @@ let statusTimerId = null;
  *
  * @param {number} [intervalMs] - Intervalo opcional em milissegundos para sobrescrever configuração.
  * @returns {Promise<NodeJS.Timeout|null>} A instância do timer criado ou null se desabilitado.
+ * @async
  */
 export async function start(intervalMs) {
   if (statusTimerId) {
@@ -276,8 +283,8 @@ export async function start(intervalMs) {
   console.log(`[statusSyncScheduler] Iniciando loop de consulta periódica de status (intervalo: ${intervalMinutes} min / ${intervalMs}ms)...`);
 
   // Executa uma checagem inicial após 5 segundos do boot
-  initialTimeoutId = setTimeout(() => {
-    initialTimeoutId = null;
+  bootTimerId = setTimeout(() => {
+    bootTimerId = null;
     syncAllContractsStatus().catch((err) => {
       console.error("[statusSyncScheduler] Erro na consulta de status inicial:", err);
     });
@@ -294,11 +301,13 @@ export async function start(intervalMs) {
 
 /**
  * Para o loop periódico do scheduler de consulta de status.
+ *
+ * @returns {void}
  */
 export function stop() {
-  if (initialTimeoutId) {
-    clearTimeout(initialTimeoutId);
-    initialTimeoutId = null;
+  if (bootTimerId) {
+    clearTimeout(bootTimerId);
+    bootTimerId = null;
   }
   if (statusTimerId) {
     clearInterval(statusTimerId);
@@ -306,6 +315,12 @@ export function stop() {
     console.log("[statusSyncScheduler] Scheduler de consulta de status parado com sucesso.");
   }
 }
+
+/**
+ * Exportação padrão do scheduler de sincronização de status.
+ * @constant
+ * @type {Object}
+ */
 
 export default {
   syncAllContractsStatus,

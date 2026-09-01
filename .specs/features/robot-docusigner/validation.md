@@ -264,3 +264,19 @@
 - [x] **Backend Services & Schedulers**: 76 testes passando em `tests/backend/services/` (`gestorApiClient.test.js`, `imapClient.test.js`, `robotBrowser.test.js`, `robotSession.test.js`, `robotScheduler.test.js`, `statusSyncScheduler.test.js`).
 - [x] **Isolamento de Timers Assíncronos**: Limpeza garantida de timeouts de inicialização (`initialTimeoutId`) nas rotinas `stop()` de `robotScheduler.js` e `statusSyncScheduler.js`, prevenindo vazamento de timers em background.
 - [x] **Isolamento de Variáveis de Ambiente**: Configuração do ambiente de teste via `.env.dev` e injeção controlada de `process.env.ROBOT_API_KEY` para mock decoupling completo.
+
+---
+
+## 16. Critérios de Validação — Declaração de envelopeId e docusign_envelope_id no Schema de Contract (AD-048 / T30)
+
+- **Data**: 2026-08-31
+- **Status**: ✅ Concluído e Validado (143/143 testes de backend passando — 100% de sucesso)
+- **Escopo**: Declaração explícita dos campos `envelopeId` e `docusign_envelope_id` com tipo `String` e default `null` no schema Mongoose de `Contract` (`backend/src/models/Contract.js`), evitando descarte pelo modo `strict: true` em operações de persistência (`findByIdAndUpdate`, `save`).
+
+### Cenários de Validação Executados (AD-048)
+- [x] **Presença dos Caminhos no Schema**: `Contract.schema.paths.envelopeId` e `Contract.schema.paths.docusign_envelope_id` existem e possuem tipo `String`.
+- [x] **Valores Default Null**: Instanciação de novo documento sem envelopeId atribui `envelopeId: null` e `docusign_envelope_id: null` sem falhas de validação.
+- [x] **Retenção e Serialização sem Descarte**: Atribuição de identificadores de envelope persiste no documento e é serializada corretamente via `doc.toObject()`.
+- [x] **Preservação de Enums e Regras Legadas**: O enum de `status` (`rascunho`, `gerado`, `enviado`, `assinado`, `cancelado`) e todos os subdocumentos existentes (`client`, `negotiation`, `documents`, `tokenInfo`) permanecem totalmente preservados e funcionais.
+- [x] **Regressão de Backend**: Suíte `tests/backend/models/Contract.test.js` criada (4 testes passando) e total de 143 testes de backend passando sem falhas.
+
