@@ -256,73 +256,99 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
       }
 
       // Etapa opcional de MFA/2FA: se a tela de código aparecer, tenta obter via IMAP
-      // ou consome otpCode pré-fornecido, usando timeout estendido (MFA_TIMEOUT).
+      // ou consome otpCode pré-fornecido, usando loop de retry com descarte de códigos rejeitados.
       const mfaSelector = selectors.mfa?.input || selectors.mfa || DEFAULT_MFA_SELECTOR;
       const mfaRequired = await detectMfaScreen(page, mfaSelector);
 
       if (mfaRequired) {
-        let otpCode = (credentials?.otpCode || "").trim();
+        const mailCreds = credentials?.token_notification_email || credentials;
+        const maxAttempts = 3;
+        const testedCodes = [];
+        let mfaTriggerTime = Date.now();
 
-        if (!otpCode) {
-          const mailCreds = credentials?.token_notification_email || credentials;
-          if (mailCreds?.email && mailCreds?.password) {
-            console.log("[robotSession] Tela de MFA DocuSign detectada. Consultando código de segurança via IMAP...");
-            otpCode = await fetchMfaCodeViaImap(mailCreds, {
-              maxWaitMs: MFA_TIMEOUT,
-              mfaMaxAgeMs: credentials?.mfa?.maxAgeMs,
-              mfaTriggerTime: Date.now(),
-            });
+        const preProvidedOtp = (credentials?.otpCode || "").trim();
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          let otpCode = preProvidedOtp && attempt === 1 ? preProvidedOtp : "";
+
+          if (!otpCode) {
+            if (mailCreds?.email && mailCreds?.password) {
+              console.log(`[robotSession] Tentativa de resolução MFA ${attempt}/${maxAttempts} via IMAP (excluindo: [${testedCodes.join(", ")}])...`);
+              otpCode = await fetchMfaCodeViaImap(mailCreds, {
+                maxWaitMs: MFA_TIMEOUT,
+                mfaMaxAgeMs: credentials?.mfa?.maxAgeMs,
+                mfaTriggerTime,
+                excludedCodes: testedCodes,
+              });
+            }
           }
-        }
 
-        if (!otpCode) {
-          await captureDebugScreenshot(page, "login-mfa-required");
-          throw createAuthError(
-            "MFA_REQUIRED",
-            "Login DocuSign exige código de segurança (MFA). Não foi possível extrair o código de segurança do e-mail."
-          );
-        }
-
-        if (typeof page.fill === "function") {
-          await page.fill(mfaSelector, otpCode);
-          if (typeof page.click === "function") {
-            const mfaVerifySelector =
-              selectors.mfa?.verify_button ||
-              selectors.verify_button ||
-              'button[data-qa="verify-code"], button:has-text("Verify"), button[data-testid="mfa-submit"], button[type="submit"]';
-            await page.click(mfaVerifySelector).catch(async () => {
-              await page.click(submitSelector);
-            });
+          if (!otpCode) {
+            await captureDebugScreenshot(page, "login-mfa-required");
+            throw createAuthError(
+              "MFA_REQUIRED",
+              `Login DocuSign exige código de segurança (MFA). Não foi possível extrair o código de segurança do e-mail na tentativa ${attempt}.`
+            );
           }
-        }
-      }
 
-      if (typeof page.waitForURL === "function") {
-        await page.waitForURL(
-          (url) => !url.includes("account.docusign.com") && !url.includes("apps.docusign.com"),
-          { timeout: mfaRequired ? MFA_TIMEOUT : 30000 }
-        ).catch(() => {});
-      }
+          testedCodes.push(otpCode);
 
-      // Código informado mas login não progrediu e o input MFA continua visível
-      // → código inválido ou expirado.
-      if (mfaRequired) {
-        const finalUrlCheck =
-          typeof page.url === "function" ? String(page.url()) : "";
-        if (isLoginUrl(finalUrlCheck)) {
+          if (typeof page.fill === "function") {
+            await page.fill(mfaSelector, "").catch(() => {});
+            await page.fill(mfaSelector, otpCode);
+            if (typeof page.click === "function") {
+              const mfaVerifySelector =
+                selectors.mfa?.verify_button ||
+                selectors.verify_button ||
+                'button[data-qa="verify-code"], button:has-text("Verify"), button[data-testid="mfa-submit"], button[type="submit"]';
+              await page.click(mfaVerifySelector).catch(async () => {
+                if (typeof page.keyboard?.press === "function") {
+                  await page.keyboard.press("Enter").catch(() => {});
+                } else {
+                  await page.click(submitSelector).catch(() => {});
+                }
+              });
+            }
+          }
+
+          if (typeof page.waitForURL === "function") {
+            await page.waitForURL(
+              (url) => !url.includes("account.docusign.com") && !url.includes("apps.docusign.com"),
+              { timeout: 15000 }
+            ).catch(() => {});
+          }
+
+          const currentUrlCheck = typeof page.url === "function" ? String(page.url()) : "";
+          const isStillLogin = isLoginUrl(currentUrlCheck);
+
+          if (!isStillLogin) {
+            break;
+          }
+
+          // Código informado mas login não progrediu e o input MFA continua visível
           const mfaStillVisible =
             typeof page.waitForSelector === "function"
               ? await page
-                  .waitForSelector(mfaSelector, { timeout: 2000 })
+                  .waitForSelector(mfaSelector, { timeout: 3000 })
                   .then((el) => Boolean(el))
                   .catch(() => false)
               : false;
+
           if (mfaStillVisible) {
-            await captureDebugScreenshot(page, "login-otp-invalid");
-            throw createAuthError(
-              "OTP_INVALID",
-              "Código temporário inválido ou expirado. Gere um novo código."
-            );
+            console.warn(`[robotSession] DocuSign rejeitou código ${otpCode} na tentativa ${attempt}/${maxAttempts}.`);
+            if (attempt < maxAttempts) {
+              mfaTriggerTime = Date.now();
+              await new Promise((resolve) => setTimeout(resolve, 3000));
+              continue;
+            } else {
+              await captureDebugScreenshot(page, "login-otp-invalid");
+              throw createAuthError(
+                "OTP_INVALID",
+                "Código temporário inválido ou expirado. Gere um novo código."
+              );
+            }
+          } else {
+            break;
           }
         }
       }

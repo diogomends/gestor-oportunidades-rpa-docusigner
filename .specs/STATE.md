@@ -352,14 +352,23 @@
 - **Date**: 2026-09-01
 - **Status**: active
 
+### AD-059
+- **Decision**: Hardening da resolução de MFA via IMAP no backend (`backend/.../utils/imapClient.js` e `backend/.../browserrobot/robotSession.js`): (1) Adição de `parseEmailMetadata` com extração e validação de `INTERNALDATE` e cabeçalho `Date` contra o timestamp de disparo do login (`mfaTriggerTime`) com margem de tolerância de 60s para clock drift; (2) Suporte a descarte de códigos em `fetchLatestMfaCode` via `excludedCodes` e marcação de mensagem processada com sucesso como lida (`STORE ${id} +FLAGS (\\Seen)`); (3) Loop de retry inteligente em `robotSession.js` (`MAX_MFA_ATTEMPTS = 3`) que, ao detectar rejeição do código pela DocuSign ou permanência na tela de desafio, exclui o código anterior, aguarda o envio do novo e-mail e consulta novamente a caixa IMAP.
+- **Reason**: Evitar consumo precoce de códigos de segurança de e-mails antigos gerados em tentativas anteriores na mesma caixa compartilhada (eliminando o erro `OTP_INVALID` / `400 Bad Request`) e permitir recuperação autônoma caso a DocuSign envie um código subsequente.
+- **Trade-off**: N/A. Preserva contratos de API e retrocompatibilidade com opções customizadas de MFA.
+- **Scope**: `backend/src/modules/robot-docusign/utils/imapClient.js`, `backend/src/modules/robot-docusign/browserrobot/robotSession.js`, `.specs/STATE.md`
+- **Date**: 2026-09-01
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Resolução Automática de MFA DocuSign via IMAP no Backend (AD-058)
+- **Feature**: Hardening do Fluxo de MFA IMAP com Validação de Timestamp e Retry (AD-059)
 - **Phase / Task**: Execução concluída com sucesso
-- **Completed**: Criação de `imapClient.js` no backend e integração em `robotSession.js`, `seletorApiRobot/index.js` e `statusSyncScheduler.js` para captura autônoma de códigos de segurança de 6 dígitos.
+- **Completed**: Implementação da validação estrita de timestamp com tolerância de clock drift e suporte a retry com exclusão de códigos em `imapClient.js` e `robotSession.js`.
 - **In-progress**: nenhum
-- **Next step**: Pronto para commit, PR e merge
+- **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
 - **Branch**: main
+
 
 
