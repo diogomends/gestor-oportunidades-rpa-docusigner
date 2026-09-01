@@ -1,23 +1,25 @@
 # Tasks: Standalone Executável Protegido & Multi-Instância Distribuída
 
-- [x] **T-SMI-01**: Model `RobotJob` estendido com campos de lock (`locked_by`, `lock_expires_at`, `instance_metadata`).
-- [x] **T-SMI-02**: Model `RobotInstance` criado e registrado no `server.js` para persistência de heartbeat e saúde da instância.
-- [x] **T-SMI-03**: Controller `robotInstanceController.js` implementando lock atômico, JWT auth, heartbeat e PDF stream.
-- [x] **T-SMI-04**: Rotas `robotInstanceRoutes.js` montadas em `/api/robot-docusign/instance/*`.
-- [x] **T-SMI-05**: Projeto autônomo `robot-standalone/` estruturado com `ApiClient`, `Scheduler`, `JobRunner` e `docusign.js`.
-- [x] **T-SMI-06**: Pipeline de build protegido `build/build.js` com `esbuild`, `javascript-obfuscator`, `bytenode` e `@yao-pkg/pkg`.
-- [x] **T-SMI-07**: Script de setup do ambiente do cliente `setup.bat` e documentação de distribuição.
-- [x] **T-SMI-08**: Injeção de credenciais sequenciais e URI_PROD em tempo de build com esbuild define, eliminando arquivos JSON expostos no cliente.
-- [x] **T-SMI-09**: Adicionar cópia do `node_modules/playwright` e `node_modules/playwright-core` para `dist/<bundleBase>/node_modules/` e `setup.bat` para `dist/<bundleBase>/` no `build.js` (`buildForOneKey()`).
-- [x] **T-SMI-10**: Validar que o executável gerado inicializa o runtime do Playwright sem erro `Cannot find module 'playwright'`.
-- [x] **T-SMI-11**: Inclusão de geração automática de `README.txt` com quadro explicativo de arquivos e guia de instalação em cada pasta gerada no build.
-- [x] **T-SMI-12**: Refatorar `robot/scripts/setup.bat` para remover completamente referências a `config.json` e adicionar cabeçalho com UTF-8 (`chcp 65001`).
-- [x] **T-SMI-13**: Implementar detecção inteligente prévia em `setup.bat` para verificar se o Chromium já existe em `%LOCALAPPDATA%\ms-playwright\chromium-*`. Se existir, informar imediatamente sem acionar download de rede.
-- [x] **T-SMI-14**: Implementar fallback de download via `npx playwright install chromium` apenas se não encontrado, com captura de `%ERRORLEVEL%`, verificação de conexão e log em `setup.log`.
-- [x] **T-SMI-15**: Atualizar o pipeline de build e validar a execução do `setup.bat` nos diretórios gerados em `dist/`.
-- [x] **T-SMI-16**: Saneamento de resíduos legados (remoção de `pkg.config.json` e `config.json.example`, e restrição de fallback do `config.js` exclusivamente ao `NODE_ENV=development`).
-- [x] **T-SMI-17**: Patch no `coreBundle.js` da distribuição `node_modules/playwright-core` no pipeline `robot/build/build.js` para aplicar shim seguro do `node:inspector` evitando `ERR_INSPECTOR_NOT_AVAILABLE` no runtime empacotado.
-- [x] **T-SMI-18**: Inclusão de registro automático de inicialização com o Windows (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`) no script `robot/scripts/setup.bat` e atualização do template de documentação `README.txt`.
-- [x] **T-SMI-19**: Correção de sintaxe e validação prévia de existência do diretório `%LOCALAPPDATA%\ms-playwright` no `setup.bat` antes do loop `for /d` com curinga, prevenindo erro de token inesperado (`. was unexpected at this time`) em máquinas clientes limpas.
-- [x] **T-SMI-20**: Implementação de módulo de logger com cores ANSI (verde para sucesso, azul para etapas, vermelho para erros) e logs detalhados para rastreabilidade de conexão/envio/recebimento via IMAP e identificação explícita da tela de verificação MFA na DocuSign.
-
+- [x] **T-SMI-01**: Model `RobotJob` estendido com campos de lock (`locked_by`, `lock_expires_at`, `instance_metadata`, `originalStatus`).
+- [x] **T-SMI-02**: Model `RobotInstance` criado e registrado no `server.js` (`role: enum[query,update,all], default all, index`).
+- [x] **T-SMI-03**: Controller `robotInstanceController.js` com lock atômico (`$and` com dois `$or`), JWT 30d `isRobot:true`, heartbeat, PDF stream, filtro por `role` e reconciliação batch `query_agreements`.
+- [x] **T-SMI-04**: Rotas `robotInstanceRoutes.js` em `/api/robot-docusign/instance/*` + `RobotJob.action=query_agreements` condicional + índice `{status,action,lock_expires_at,createdAt}`.
+- [x] **T-SMI-05**: Projeto autônomo `robot/` com `ApiClient`, `Scheduler`, `JobRunner` (guard `allowedActions` antes de `chromium.launch`) e `browser/` modular.
+- [x] **T-SMI-06**: Pipeline `build/build.js` com `esbuild` + `javascript-obfuscator` + `@yao-pkg/pkg` (3 etapas, sem `bytenode/.jsc`; `import bytenode` removido).
+- [x] **T-SMI-07**: Script `setup.bat` e documentação de distribuição.
+- [x] **T-SMI-08**: Injeção de `ROBOT_KEY`/`ROBOT_ROLE`/`HEADLESS`/`API_URL` via `esbuild --define` + entrypoints `main-query.js`/`main-update.js` (wrappers 3L), sem JSON exposto.
+- [x] **T-SMI-09**: Cópia `node_modules/playwright` e `playwright-core` para `dist/robot-query-N/node_modules/` e `dist/robot-update-N/node_modules/` + `setup.bat` por `dist/<bundleBase>/` em `buildForOneKey()`.
+- [x] **T-SMI-10**: Validado runtime Playwright sem `Cannot find module 'playwright'` (via `--external` + cópia física).
+- [x] **T-SMI-11**: Geração `README.txt` por pasta `robot-<role>-N` com quadro e guia.
+- [x] **T-SMI-12**: `setup.bat` sem `config.json`, header `chcp 65001`.
+- [x] **T-SMI-13**: Detecção inteligente `chromium-*` em `%LOCALAPPDATA%\ms-playwright` antes de download.
+- [x] **T-SMI-14**: Fallback `npx playwright install chromium` com `%ERRORLEVEL%`, ping e `setup.log`.
+- [x] **T-SMI-15**: Pipeline atualizado e `setup.bat` validado em `dist/`.
+- [x] **T-SMI-16**: Remoção `pkg.config.json`/`config.json.example`; fallback `config.js` só `NODE_ENV=development`.
+- [x] **T-SMI-17**: Patch `coreBundle.js` `node:inspector` shim para `@yao-pkg/pkg`.
+- [x] **T-SMI-18**: Registro `HKCU\...\Run DocuSignerRobot → run.bat` em `setup.bat`.
+- [x] **T-SMI-19**: Pré-checagem `if exist "%LOCALAPPDATA%\ms-playwright"` antes de `for /d` com curinga.
+- [x] **T-SMI-20**: Logger ANSI + logs IMAP/MFA.
+- [x] **T-SMI-21**: Matriz dual-robot `ROBOT_API_KEY_N × role` em `build.js` (`parseArgs --role`, `buildRoles`, `bundleBase robot-<role>-<tag>`, alias `robot-docusigner-N` quando `all`, `entryFile main-query/update.js`, `define ROBOT_ROLE`, `run.bat` título `Consulta/Atualização #N`, loop `N×R`, `Makefile ROLE=` + `robot/package.json build:robot:query|update|all`).
+- [x] **T-SMI-22**: Sessões isoladas `session-query.json`/`session-update.json`/`session-docusign.json` (`config.js sessionByRole`), `ApiClient` com `role` (`auth`/`next-job`/`heartbeat`), `JobRunner ROLE_ACTIONS` + guard, wrappers `main-query.js`/`main-update.js`.
+- [x] **T-SMI-23**: Remoção `import bytenode` morto do pipeline (reintroduzir `bytenode.compile` apenas se AD-013 voltar a exigir `.jsc`).
