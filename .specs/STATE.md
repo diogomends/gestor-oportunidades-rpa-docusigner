@@ -287,12 +287,21 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-050
+- **Decision**: Ampliação do filtro de elegibilidade de contratos para envio DocuSign (`GERADO_ELIGIBLE_FILTER` em `backend/src/modules/robot-docusign/utils/contractEligibility.js`) de `status: "gerado"` para todos os status diferentes de `"rascunho"` (`status: { $ne: "rascunho" }`), exportando aliases `CONTRACT_ELIGIBLE_FILTER` e `ELIGIBLE_CONTRACTS_FILTER`, mantendo obrigatórias as validações de PDF anexado (`documents.originalUrl`) e e-mail de destinatário em 3 camadas.
+- **Reason**: Permitir que contratos em múltiplos status operacionais do funil (cards) sejam processados e enviados automaticamente pelo robô assim que possuírem documentação e e-mail válidos, sem restringir exclusivamente ao status literal `"gerado"`.
+- **Trade-off**: N/A. Contratos em `"rascunho"` continuam 100% excluídos e contratos sem PDF/e-mail são ignorados sem travar a fila.
+- **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `tools/check-pending-jobs.js`, `.specs/features/eligible-contracts-non-draft/*`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: fix/review-items-8-14
-- **Phase / Task**: Correções 8 a 14 da revisão de código (Hardening, RBAC, Graceful Shutdown, Anti-Phantom Success e JSDoc)
-- **Completed**: AD-049 documentada, endpoints protegidos com `authorize("admin")`, download validado por tamanho, escritas duplicadas eliminadas, shutdown limpo e JSDoc 100% completo.
-- **In-progress**: Finalização de commit, PR e merge
-- **Next step**: Executar comandos PowerShell para commit, PR e merge
+- **Feature**: feat/eligible-contracts-non-draft
+- **Phase / Task**: Implementação, Integração e Validação de Contratos Elegíveis Não-Rascunho (AD-050 / T01-T03)
+- **Completed**: `GERADO_ELIGIBLE_FILTER` atualizado com `status: { $ne: "rascunho" }`, aliases `CONTRACT_ELIGIBLE_FILTER` e `ELIGIBLE_CONTRACTS_FILTER` exportados, `getNextJob` alinhado com revert seguro de status, diagnóstico `tools/check-pending-jobs.js` atualizado com exibição de status, suíte de regressão implementada em `tests/backend/regression/eligibleContractsRegression.test.js`, documentação sincronizada (`AGENTS.md`, `README.md`, `tasks.md`, `spec.md`, `validation.md`, `STATE.md`).
+- **In-progress**: Finalizado e pronto para commit/PR/merge.
+- **Next step**: Executar comandos de commit, PR e merge.
 - **Blockers**: none
 - **Branch**: main
+

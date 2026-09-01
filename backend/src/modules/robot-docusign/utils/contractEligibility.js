@@ -47,13 +47,13 @@ export function isEligibleForSend(contract) {
 }
 
 /**
- * Filtro Mongo para buscar apenas contratos `gerado` elegíveis.
+ * Filtro Mongo para buscar contratos elegíveis para envio (todos exceto rascunho com PDF e e-mail).
  * Reutilizado em `getNextJob` e `robotScheduler`.
  * @constant
  * @type {Object}
  */
 export const GERADO_ELIGIBLE_FILTER = {
-  status: "gerado",
+  status: { $ne: "rascunho" },
   "documents.originalUrl": { $exists: true, $ne: null, $ne: "" },
   $or: [
     { "client.representante.email": { $exists: true, $ne: null, $ne: "" } },
@@ -64,8 +64,30 @@ export const GERADO_ELIGIBLE_FILTER = {
 };
 
 /**
+ * Alias semântico para o filtro Mongo de contratos elegíveis para envio.
+ * @constant
+ * @type {Object}
+ */
+export const CONTRACT_ELIGIBLE_FILTER = GERADO_ELIGIBLE_FILTER;
+
+/**
+ * Alias semântico plural para o filtro Mongo de contratos elegíveis para envio.
+ * @constant
+ * @type {Object}
+ */
+export const ELIGIBLE_CONTRACTS_FILTER = GERADO_ELIGIBLE_FILTER;
+
+/**
  * Exportação padrão do helper de elegibilidade de contratos.
  * @constant
  * @type {Object}
  */
-export default { hasPdf, hasRecipientEmail, isEligibleForSend, GERADO_ELIGIBLE_FILTER };
+export default {
+  hasPdf,
+  hasRecipientEmail,
+  isEligibleForSend,
+  GERADO_ELIGIBLE_FILTER,
+  CONTRACT_ELIGIBLE_FILTER,
+  ELIGIBLE_CONTRACTS_FILTER,
+};
+

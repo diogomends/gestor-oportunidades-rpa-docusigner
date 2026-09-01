@@ -359,7 +359,7 @@ export const getNextJob = async (req, res) => {
       { new: true, sort: { createdAt: 1 } }
     );
 
-    // 5. Se não houver job na fila, verificar se há Contrato com status 'gerado' e documento PDF anexado (se envio permitido)
+    // 5. Se não houver job na fila, verificar se há Contrato elegível (não-rascunho) e documento PDF anexado (se envio permitido)
     if (!job && config.operations?.send !== false) {
       const contract = await Contract.findOneAndUpdate(
         GERADO_ELIGIBLE_FILTER,
@@ -404,7 +404,7 @@ export const getNextJob = async (req, res) => {
     }
 
     // Se a ação for 'send' e não houver documento PDF ou e-mail válido, cancela o lock e pula o job
-    // Reverte contrato de em_processamento_robot -> gerado para permitir retry quando PDF/e-mail forem anexados
+    // Reverte contrato de em_processamento_robot para seu status original ou 'gerado' para permitir retry
     if (job.action === "send" && !isEligibleForSend(contract)) {
       await RobotJob.findByIdAndUpdate(job._id, {
         status: "failed",
@@ -414,9 +414,10 @@ export const getNextJob = async (req, res) => {
         lock_expires_at: null,
       });
 
-      // ponytail: reverte contrato legado preso em em_processamento_robot para gerado
+      // ponytail: reverte contrato preso em em_processamento_robot para status original ou 'gerado'
       if (contractId) {
-        await Contract.findByIdAndUpdate(contractId, { status: "gerado" }).catch(() => {});
+        const revertStatus = (contract?.status && contract.status !== "em_processamento_robot") ? contract.status : "gerado";
+        await Contract.findByIdAndUpdate(contractId, { status: revertStatus }).catch(() => {});
       }
 
       console.warn(`[robotInstanceController] Job ${job._id} ignorado por falta de PDF ou e-mail (contrato ${contractId}).`);
