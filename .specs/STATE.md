@@ -323,10 +323,10 @@
 ## Handoff
 
 - **Feature**: robot/dois-robos-consulta-atualizacao
-- **Phase / Task**: T1-T10 concluídos, T11 Docs & Validation
-- **Completed**: Dual-robot implementado (role, filtragem, reconciliação batch, ROBOT_ROLE, JobRunner guard, entrypoints, build matrix, Makefile ROLE). Gate backend 152 pass, routes-inventory regenerado, AD-053 criado.
-- **In-progress**: T11 validação e docs finais
-- **Next step**: Finalizar validation.md e commit T11
+- **Phase / Task**: T1-T11 concluídos (Feature Completa)
+- **Completed**: Dual-robot implementado e validado (role, filtragem, reconciliação batch, ROBOT_ROLE, JobRunner guard, entrypoints, build matrix, Makefile ROLE, validation.md e routes-inventory). Gate backend 152 pass, robot 56 pass, AD-053 documentado.
+- **In-progress**: nenhum
+- **Next step**: Pronto para PR/merge da branch de feature/docs
 - **Blockers**: none
 - **Branch**: main
 

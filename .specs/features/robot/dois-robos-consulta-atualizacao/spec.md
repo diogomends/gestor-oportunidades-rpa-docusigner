@@ -57,12 +57,12 @@ So that workload is isolated and resource consumption is optimized per process.
 
 | Requirement ID | Description | Status |
 | :--- | :--- | :--- |
-| ROB2-01 | Modelagem do campo `role` em `RobotInstance` (`query|update|all`, default `all`, índice) + extensão de `action` em `RobotJob` para `query_agreements` e `contract_id` condicionalmente opcional (`required: function`) + índice `{status:1,action:1,lock_expires_at:1,createdAt:1}` | in tasks |
-| ROB2-02 | Filtro por `role` no endpoint `/instance/next-job` em `robotInstanceController.js` com mapeamento `query=[status,query_agreements,reports,download]` / `update=[send,resend]` e fallback `all`; `robotScheduler` ignora `query_agreements` | in tasks |
-| ROB2-03 | Suporte a `ROBOT_ROLE` / `--role` e caminhos de sessão dedicados em `config.js` + propagação de `role` em `api-client.js` (`auth`/`heartbeat`/`next-job`) | in tasks |
-| ROB2-04 | Entrypoints físicos `main-query.js` e `main-update.js` (wrappers 3L) com dispatch em `main.js` (`ROBOT_ROLE`/`--role`) | in tasks |
-| ROB2-05 | Segregação e desacoplamento de execução de rotinas em `job-runner.js` com `allowedActions` e guard antes de `chromium.launch` | in tasks |
-| ROB2-06 | Pipeline de compilação parametrizado por papel em `build.js` (matriz `ROBOT_API_KEY_N × role` → `dist/robot-<role>-<N>/`, `define ROBOT_ROLE`) | in tasks |
-| ROB2-07 | Scripts no `package.json` e `Makefile` para build individual e conjunto (`build:robot:query`, `build:robot:update`, `build:robot:all`, `ROLE=` ) | in tasks |
-| ROB2-08 | Enfileiramento idempotente de `query_agreements` no `statusSyncScheduler` (heartbeat 60s + fallback `executeWithBrowser`) e conciliação em lote em `updateJobStatus` | in tasks |
-| ROB2-09 | Agregação de métricas por `role` em `getAllInstances` e `getMetrics`, com schemas Zod atualizados em `robotDocusignController.js` + `400` para `role` inválido | in tasks |
+| ROB2-01 | Modelagem do campo `role` em `RobotInstance` (`query|update|all`, default `all`, índice) + extensão de `action` em `RobotJob` para `query_agreements` e `contract_id` condicionalmente opcional (`required: function`) + índice `{status:1,action:1,lock_expires_at:1,createdAt:1}` | Implemented |
+| ROB2-02 | Filtro por `role` no endpoint `/instance/next-job` em `robotInstanceController.js` com mapeamento `query=[status,query_agreements,reports,download]` / `update=[send,resend]` e fallback `all`; `robotScheduler` ignora `query_agreements` | Implemented |
+| ROB2-03 | Suporte a `ROBOT_ROLE` / `--role` e caminhos de sessão dedicados em `config.js` + propagação de `role` em `api-client.js` (`auth`/`heartbeat`/`next-job`) | Implemented |
+| ROB2-04 | Entrypoints físicos `main-query.js` e `main-update.js` (wrappers 3L) com dispatch em `main.js` (`ROBOT_ROLE`/`--role`) | Implemented |
+| ROB2-05 | Segregação e desacoplamento de execução de rotinas em `job-runner.js` com `allowedActions` e guard antes de `chromium.launch` | Implemented |
+| ROB2-06 | Pipeline de compilação parametrizado por papel em `build.js` (matriz `ROBOT_API_KEY_N × role` → `dist/robot-<role>-<N>/`, `define ROBOT_ROLE`) | Implemented |
+| ROB2-07 | Scripts no `package.json` e `Makefile` para build individual e conjunto (`build:robot:query`, `build:robot:update`, `build:robot:all`, `ROLE=` ) | Implemented |
+| ROB2-08 | Enfileiramento idempotente de `query_agreements` no `statusSyncScheduler` (heartbeat 60s + fallback `executeWithBrowser`) e conciliação em lote em `updateJobStatus` | Implemented |
+| ROB2-09 | Agregação de métricas por `role` em `getAllInstances` e `getMetrics`, com schemas Zod atualizados em `robotDocusignController.js` + `400` para `role` inválido | Implemented |
