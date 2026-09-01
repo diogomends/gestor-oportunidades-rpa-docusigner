@@ -195,17 +195,17 @@
 
 ### AD-038
 - **Decision**: Filtro centralizado de elegibilidade de contratos para envio DocuSign via helper `backend/src/modules/robot-docusign/utils/contractEligibility.js` (`GERADO_ELIGIBLE_FILTER` + `hasPdf`/`hasRecipientEmail`/`isEligibleForSend` com `trim()`), aplicado em `robotInstanceController.getNextJob` (pós-validação com revert `em_processamento_robot`→status original) e `robot/src/job-runner.js` (validação `pdfUrl`+`recipientEmail` antes de `chromium.launch`).
+- **Reason**: Evitar jobs falhos, lock ocioso e abertura de Playwright para contratos legados sem `documents.originalUrl` ou sem e-mail do destinatário; manter contrato em `gerado` para retry quando PDF/e-mail forem anexados, economizando ~2s + 300 MB por job inválido.
+- **Trade-off**: Filtro Mongo `$ne:""` não cobre whitespace — coberto por `hasValue(trim)` em memória; índice parcial `{status:1,"documents.originalUrl":1}` pendente para alto volume.
+- **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `robot/src/job-runner.js`
+- **Date**: 2026-08-31
+- **Status**: active
 
 ### AD-052
 - **Decision**: Envio 100% sob demanda — removido auto-enfileiramento de `Contract` em `robotInstanceController.getNextJob`; `getNextJob` e `robotScheduler` apenas consomem `RobotJob` existente (`pending`/`retrying`), criação exclusiva via `POST /trigger`.
 - **Reason**: Evitar disparo automático sem clique no botão Enviar; envio automático causava envio não autorizado.
 - **Scope**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`
 - **Date**: 2026-09-01
-- **Status**: active
-- **Reason**: Evitar jobs falhos, lock ocioso e abertura de Playwright para contratos legados sem `documents.originalUrl` ou sem e-mail do destinatário; manter contrato em `gerado` para retry quando PDF/e-mail forem anexados, economizando ~2s + 300 MB por job inválido.
-- **Trade-off**: Filtro Mongo `$ne:""` não cobre whitespace — coberto por `hasValue(trim)` em memória; índice parcial `{status:1,"documents.originalUrl":1}` pendente para alto volume.
-- **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `robot/src/job-runner.js`
-- **Date**: 2026-08-31
 - **Status**: active
 
 
