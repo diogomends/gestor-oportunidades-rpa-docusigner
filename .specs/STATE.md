@@ -336,19 +336,19 @@
 - **Date**: 2026-09-01
 - **Status**: active
 
-### AD-056
-- **Decision**: Criação de utilitário dedicado de limpeza de banco (`tools/clean-contracts-db.js`) e alvos correspondentes no Makefile (`clean-contracts`, `clean-contracts-prod`): limpa com segurança as coleções `contracts`, `docusign_envelopes` e `client_doc_accesses` no banco `crm_contracts`, exibindo contagem antes e depois da execução.
-- **Reason**: Permitir reset seguro dos dados de contratos e envelopes de teste/legados sem afetar histórico de jobs do robô (`robot_jobs`), instâncias ativas (`robot_instances`) ou credenciais/configurações do CRM (`db_crm_funil`).
-- **Trade-off**: N/A. Operação restrita ao escopo de contratos selecionado.
-- **Scope**: `tools/clean-contracts-db.js`, `Makefile`, `.specs/STATE.md`
+### AD-057
+- **Decision**: Padronização dos payloads de erro em `robotDocusignController.js` (`triggerJob`, `triggerBatch`) enviando simultaneamente as propriedades `error` e `message` com o mesmo texto explicativo em respostas HTTP 400 e 500.
+- **Reason**: Assegurar compatibilidade plena com diferentes clientes HTTP (ex: front-end `gestor-oportunidades` e serviços externos) que consom `errorData.message` ou `errorData.error`, eliminando diagnósticos cegos com status genérico HTTP `Bad Request`.
+- **Trade-off**: N/A. Preserva contratos existentes sem quebra de compatibilidade.
+- **Scope**: `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `.specs/STATE.md`
 - **Date**: 2026-09-01
 - **Status**: active
 
 ## Handoff
 
-- **Feature**: Limpeza de contratos em produção + utilitários Makefile
-- **Phase / Task**: Execução concluída com sucesso (AD-056)
-- **Completed**: Limpeza de 35 contratos, 47 envelopes e 50 logs de acesso no banco `crm_contracts` de produção; criação de `tools/clean-contracts-db.js` e adição dos comandos `clean-contracts` e `clean-contracts-prod` no `Makefile`.
+- **Feature**: Padronização de mensagens de erro na API do Robô DocuSign (AD-057)
+- **Phase / Task**: Execução concluída com sucesso
+- **Completed**: Inclusão de `message` e `error` padronizados nos retornos de erro de `triggerJob` e `triggerBatch` em `robotDocusignController.js`.
 - **In-progress**: nenhum
 - **Next step**: Pronto para commit, PR e merge
 - **Blockers**: none
