@@ -194,7 +194,14 @@
 - **Status**: active
 
 ### AD-038
-- **Decision**: Filtro centralizado de elegibilidade de contratos para envio DocuSign via helper `backend/src/modules/robot-docusign/utils/contractEligibility.js` (`GERADO_ELIGIBLE_FILTER` + `hasPdf`/`hasRecipientEmail`/`isEligibleForSend` com `trim()`), aplicado em 3 camadas: `robotInstanceController.getNextJob` (findOneAndUpdate + pós-validação com revert `em_processamento_robot`→`gerado`), `seletorApiRobot/robotScheduler` (fallback Mongoose + pós-filtro `gestorApiClient` em memória) e `robot/src/job-runner.js` (validação `pdfUrl`+`recipientEmail` antes de `chromium.launch`).
+- **Decision**: Filtro centralizado de elegibilidade de contratos para envio DocuSign via helper `backend/src/modules/robot-docusign/utils/contractEligibility.js` (`GERADO_ELIGIBLE_FILTER` + `hasPdf`/`hasRecipientEmail`/`isEligibleForSend` com `trim()`), aplicado em `robotInstanceController.getNextJob` (pós-validação com revert `em_processamento_robot`→status original) e `robot/src/job-runner.js` (validação `pdfUrl`+`recipientEmail` antes de `chromium.launch`).
+
+### AD-052
+- **Decision**: Envio 100% sob demanda — removido auto-enfileiramento de `Contract` em `robotInstanceController.getNextJob`; `getNextJob` e `robotScheduler` apenas consomem `RobotJob` existente (`pending`/`retrying`), criação exclusiva via `POST /trigger`.
+- **Reason**: Evitar disparo automático sem clique no botão Enviar; envio automático causava envio não autorizado.
+- **Scope**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`
+- **Date**: 2026-09-01
+- **Status**: active
 - **Reason**: Evitar jobs falhos, lock ocioso e abertura de Playwright para contratos legados sem `documents.originalUrl` ou sem e-mail do destinatário; manter contrato em `gerado` para retry quando PDF/e-mail forem anexados, economizando ~2s + 300 MB por job inválido.
 - **Trade-off**: Filtro Mongo `$ne:""` não cobre whitespace — coberto por `hasValue(trim)` em memória; índice parcial `{status:1,"documents.originalUrl":1}` pendente para alto volume.
 - **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `robot/src/job-runner.js`
@@ -292,14 +299,19 @@
 - **Reason**: Eliminar risco de loops de reprocessamento e reenvios indevidos no DocuSign para contratos finalizados (B1), garantir conformidade do schema Mongoose e evitar rebaixamento forçado para "gerado" em falhas (B2), eliminar duplicações de código (M2), garantir imutabilidade de referências (M3) e otimizar consumo de memória na CLI.
 - **Trade-off**: N/A.
 - **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/models/Contract.js`, `backend/src/modules/robot-docusign/models/RobotJob.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `tools/check-pending-jobs.js`, `tests/backend/regression/eligibleContractsRegression.test.js`, `.specs/features/eligible-contracts-non-draft/*`
+### AD-052
+- **Decision**: Padronização do valor inicial padrão do intervalo de agendamento de consulta geral de status (`schedule.intervalMinutes`) para 5 minutos em `orchestratorConfig.js` (`DEFAULT_ROBOT_DOCUSIGN_CONFIG`) e `statusSyncScheduler.js` (fallback interno `intervalMinutes || 5`), mantendo suporte total à sobrescrita dinâmica via `SystemConfig` (`key: "robot_docusign"`).
+- **Reason**: Prover sincronização mais frequente e responsiva de status dos contratos e download automático de PDFs assinados no boot e na operação contínua sem depender de configurações manuais prévias.
+- **Trade-off**: N/A. Total compatibilidade com a configuração customizada no painel administrativo.
+- **Scope**: `backend/src/modules/robot-docusign/seletorApiRobot/orchestratorConfig.js`, `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `.specs/STATE.md`, `.specs/features/robot-docusigner/*`
 - **Date**: 2026-09-01
 - **Status**: active
 
 ## Handoff
 
-- **Feature**: fix/eligible-contracts-hardening
-- **Phase / Task**: Correção de Bloqueadores e Hardening de Arquitetura (AD-051 / T04-T09)
-- **Completed**: Blocklist estrita de status implementada em `contractEligibility.js`, schema de `Contract.js` atualizado com `em_processamento_robot`, `originalStatus` capturado e restaurado fielmente em `robotInstanceController.js`, `tools/check-pending-jobs.js` refatorado com import oficial e projeção, testes de regressão atualizados e documentação sincronizada.
+- **Feature**: chore/status-sync-interval-default
+- **Phase / Task**: Alinhamento do intervalo padrão de consulta de status para 5 minutos (AD-052)
+- **Completed**: `DEFAULT_ROBOT_DOCUSIGN_CONFIG.schedule.intervalMinutes` ajustado para 5 minutos, fallback em `statusSyncScheduler.js` alinhado para 5 minutos, especificações técnicas e log de decisões sincronizados.
 - **In-progress**: Finalizado e pronto para commit/PR/merge.
 - **Next step**: Executar comandos de commit, PR e merge.
 - **Blockers**: none

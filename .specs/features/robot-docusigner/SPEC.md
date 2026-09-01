@@ -282,18 +282,18 @@ O projeto é dividido em **2 componentes independentes** no mesmo repositório:
 
 ### [REQ-011] Agendamento (Scheduler Interno)
 
-- **Implementação**: `backend/src/modules/robot-docusign/services/robotScheduler.js` (`start()`/`stop()` + `processPendingJobs()`) iniciado em `backend/src/server.js` via `robotScheduler.start()`. Rota manual `POST /api/robot-docusign/process-pending` exposta para trigger externo/cron. Elegibilidade via `utils/contractEligibility.js` (`GERADO_ELIGIBLE_FILTER`).
+- **Implementação**: `backend/src/modules/robot-docusign/services/robotScheduler.js` (`start()`/`stop()` + `processPendingJobs()`) iniciado em `backend/src/server.js` via `robotScheduler.start()`. Rota manual `POST /api/robot-docusign/process-pending` exposta para trigger externo/cron. Não consulta `Contract`; apenas consome `RobotJob` (`pending`/`retrying`).
 - **Fluxo**:
   1. Scheduler interno verifica config `robot_docusign.enabled` no SystemConfig
   2. Verifica horário e dia da semana (`isTimeAccessAllowed`) e concorrência (`max_concurrent`)
-  3. Se válido → busca próximo contrato com status `gerado` **e elegível** (`documents.originalUrl` + e-mail) ou próximo RobotJob pendente; contratos vindos de `gestorApiClient.fetchPendingContracts` são pós-filtrados em memória via `isEligibleForSend` antes de criar job (fallback Mongoose usa `GERADO_ELIGIBLE_FILTER`)
-  4. Processa um contrato via `robotOrchestrator`
+  3. Se válido → busca próximo `RobotJob` pendente/`retrying` FIFO; se nenhum, retorna idle
+  4. Processa 1 job via `robotOrchestrator.trigger(contractId, action, {jobId})`
   5. Retorna resultado (success/failure + jobId)
 - **Criterios de Aceite**:
-  1. WHEN cron aciona function THEN a function SHALL processar no máximo 1 contrato
-  2. WHEN nenhum contrato pendente THEN a function SHALL retornar `{ processed: 0 }`
+  1. WHEN cron aciona function THEN a function SHALL processar no máximo 1 `RobotJob`
+  2. WHEN nenhum job pendente THEN a function SHALL retornar `{ processed: 0 }`
   3. WHEN robot está desabilitado THEN a function SHALL retornar `{ disabled: true }`
-  4. WHEN contrato `gerado` não tem PDF ou e-mail THEN SHALL ser ignorado (sem criar job) e permanecer `gerado` para retry futuro; se veio da API, SHALL caer no fallback Mongoose
+  4. WHEN `RobotJob` aponta para contrato sem PDF ou e-mail THEN `getNextJob`/`job-runner` SHALL marcar `failed` (`contract_missing_pdf_or_email`) e reverter `em_processamento_robot`→status original
 
 ### [REQ-012] Download de PDFs Assinados
 
@@ -423,8 +423,8 @@ robot/
 - **Trigger de Contrato**: O endpoint `POST /api/robot-docusign/trigger` recebe `contractId` / `contract_id` no body da requisição.
 - **Trigger em Lote**: Adicionado `POST /api/robot-docusign/trigger-batch` (Zod `{ contractIds: z.array(z.string()).min(1) }`) que executa os disparos sequencialmente.
 - **Painel de Interface**: Tela/painel dedicada construída no frontend para acompanhamento de jobs, métricas e configurações do Robô DocuSign.
-- **Agendamento (Scheduler)**: Processamento via `POST /api/robot-docusign/process-pending`. Ao processar, se não houver `RobotJob` em fila, busca automaticamente o `Contract` mais antigo com `status: "gerado"` **e elegível** (`documents.originalUrl` + e-mail via `GERADO_ELIGIBLE_FILTER`; API `gestorApiClient` pós-filtrada por `isEligibleForSend`) e dispara o envio.
-- **Elegibilidade de Contratos**: Módulo `utils/contractEligibility.js` centraliza `GERADO_ELIGIBLE_FILTER` (Mongo), `hasPdf`, `hasRecipientEmail` e `isEligibleForSend` (com `trim()`); usado em `GET /instance/next-job` (criação + pós-validação com revert), `robotScheduler` (fallback + API) e `robot/job-runner.js` (pré-browser).
+- **Agendamento (Scheduler)**: Processamento via `POST /api/robot-docusign/process-pending` e `robotScheduler.start()` (30s) consome **apenas** `RobotJob` existente (`pending`/`retrying` FIFO). Criação de job é 100% sob demanda via `POST /trigger` (botão Enviar). Não há busca automática de `Contract`.
+- **Elegibilidade de Contratos**: Módulo `utils/contractEligibility.js` centraliza `GERADO_ELIGIBLE_FILTER` (Mongo), `hasPdf`, `hasRecipientEmail` e `isEligibleForSend` (com `trim()`); usado em `GET /instance/next-job` (pós-validação com revert `em_processamento_robot`→status original) e `robot/job-runner.js` (validação pré-browser). `robotScheduler` não consulta `Contract`.
 - **Criptografia de Credenciais**: Senhas de acesso à DocuSign são criptografadas com `encryptText` (AES-256-CBC) nos endpoints de gravação e decifradas na leitura com `decryptText`.
 - **Status do Contrato e Download do PDF**: No envio bem-sucedido, altera `Contract.status = "enviado"`; no download bem-sucedido, altera `Contract.status = "assinado"` e salva o arquivo em `uploads/{cnpj}_{razao}/contrato_assinado_{envelopeId}.pdf`, definindo `job.signedDocPath`.
 
