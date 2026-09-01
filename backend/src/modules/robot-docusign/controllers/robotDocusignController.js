@@ -10,6 +10,8 @@ import { encryptText } from "../../../utils/crypto.js";
 
 /**
  * Esquema de validação Zod para o disparo de jobs no Robô DocuSign.
+ * @constant
+ * @type {import("zod").ZodObject}
  */
 const triggerSchema = z.object({
   contractId: z.string().optional(),
@@ -20,6 +22,8 @@ const triggerSchema = z.object({
 
 /**
  * Esquema de validação Zod para disparo em lote (batch).
+ * @constant
+ * @type {import("zod").ZodObject}
  */
 const triggerBatchSchema = z.object({
   contractIds: z.array(z.string()).min(1, "contractIds deve ser um array com pelo menos 1 ID"),
@@ -29,6 +33,8 @@ const triggerBatchSchema = z.object({
 
 /**
  * Esquema de validação Zod para atualização de configuração do robô.
+ * @constant
+ * @type {import("zod").ZodObject}
  */
 const updateConfigSchema = z.object({
   enabled: z.boolean().optional(),
@@ -87,6 +93,8 @@ const updateConfigSchema = z.object({
 
 /**
  * Esquema de validação Zod para o teste de login.
+ * @constant
+ * @type {import("zod").ZodOptional}
  */
 const testLoginSchema = z
   .object({
@@ -102,6 +110,7 @@ const testLoginSchema = z
 /**
  * Dispara uma ação (send, status, download, resend, reports) no Robô DocuSign de forma síncrona.
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -162,6 +171,7 @@ export const triggerJob = async (req, res) => {
 /**
  * Dispara ações em lote (batch) para múltiplos contratos no Robô DocuSign.
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -210,6 +220,7 @@ export const triggerBatch = async (req, res) => {
 /**
  * Retorna o status detalhado de um job específico pelo seu ID.
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -223,11 +234,21 @@ export const getJobStatus = async (req, res) => {
 
     const query = [];
     if (mongoose.Types.ObjectId.isValid(jobId)) {
-      query.push({ _id: jobId });
+      query.push({ _id: jobId }, { contract_id: jobId }, { contractId: jobId });
+    } else {
+      query.push({ contract_id: jobId }, { contractId: jobId });
     }
-    query.push({ contract_id: jobId }, { contractId: jobId });
 
-    const job = await RobotJob.findOne({ $or: query }).sort({ createdAt: -1 }).lean();
+    let job;
+    try {
+      job = await RobotJob.findOne({ $or: query }).sort({ createdAt: -1 }).lean();
+    } catch (err) {
+      if (err.name === "CastError") {
+        return res.status(404).json({ error: "Job não encontrado" });
+      }
+      throw err;
+    }
+
     if (!job) {
       return res.status(404).json({ error: "Job não encontrado" });
     }
@@ -248,6 +269,7 @@ export const getJobStatus = async (req, res) => {
 /**
  * Lista os jobs executados pelo robô com suporte a filtros e paginação.
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -273,7 +295,15 @@ export const listJobs = async (req, res) => {
     if (mode) query.mode = mode;
     if (contractId || contract_id) {
       const cId = contractId || contract_id;
-      query.$or = [{ contractId: cId }, { contract_id: cId }];
+      if (mongoose.Types.ObjectId.isValid(cId)) {
+        query.$or = [{ contractId: cId }, { contract_id: cId }];
+      } else {
+        // According to instructions, we must treat gracefully and not cause CastError.
+        // If it's not a valid ObjectId and the fields are ObjectId, querying them throws CastError.
+        // We will query them as strings if possible, but to prevent CastError we can also just return empty.
+        // Let's just push it and rely on the try-catch for safety, or return empty if we strictly validate.
+        query.$or = [{ contractId: cId }, { contract_id: cId }];
+      }
     }
 
     if (startDate || endDate) {
@@ -286,10 +316,26 @@ export const listJobs = async (req, res) => {
     const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
     const skip = (pageNum - 1) * limitNum;
 
-    const [jobs, total] = await Promise.all([
-      RobotJob.find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
-      RobotJob.countDocuments(query),
-    ]);
+    let jobs = [];
+    let total = 0;
+    try {
+      [jobs, total] = await Promise.all([
+        RobotJob.find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
+        RobotJob.countDocuments(query),
+      ]);
+    } catch (err) {
+      if (err.name === "CastError") {
+        return res.status(200).json({
+          success: true,
+          jobs: [],
+          total: 0,
+          page: pageNum,
+          limit: limitNum,
+          pages: 1,
+        });
+      }
+      throw err;
+    }
 
     return res.status(200).json({
       success: true,
@@ -311,6 +357,7 @@ export const listJobs = async (req, res) => {
 /**
  * Retorna as métricas agregadas de execuções do Robô DocuSign.
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -372,6 +419,7 @@ export const getMetrics = async (req, res) => {
 /**
  * Retorna os logs detalhados (steps e histórico de erros) de um job específico.
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -383,11 +431,23 @@ export const getJobLogs = async (req, res) => {
       return res.status(400).json({ error: "Parâmetro jobId é obrigatório" });
     }
 
-    const job = await RobotJob.findById(jobId)
-      .select(
-        "steps error lastError status action mode contractId contract_id createdAt completedAt attempts max_attempts"
-      )
-      .lean();
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(404).json({ error: "Job não encontrado" });
+    }
+
+    let job;
+    try {
+      job = await RobotJob.findById(jobId)
+        .select(
+          "steps error lastError status action mode contractId contract_id createdAt completedAt attempts max_attempts"
+        )
+        .lean();
+    } catch (err) {
+      if (err.name === "CastError") {
+        return res.status(404).json({ error: "Job não encontrado" });
+      }
+      throw err;
+    }
 
     if (!job) {
       return res.status(404).json({ error: "Job não encontrado" });
@@ -418,6 +478,7 @@ export const getJobLogs = async (req, res) => {
 /**
  * Obtém as configurações atuais do Robô DocuSign.
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -441,6 +502,7 @@ export const getConfig = async (req, res) => {
 /**
  * Atualiza as configurações do Robô DocuSign (apenas Administradores).
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -525,6 +587,7 @@ export const updateConfig = async (req, res) => {
 /**
  * Testa o login no DocuSign via Playwright utilizando credenciais salvas ou fornecidas.
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -597,6 +660,7 @@ export const testLogin = async (req, res) => {
 /**
  * Retorna a fila de jobs pendentes ou em processamento no robô.
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -626,6 +690,7 @@ export const getQueue = async (req, res) => {
 /**
  * Executa o agendamento para processar até 1 contrato pendente na fila.
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -649,6 +714,7 @@ export const processPending = async (req, res) => {
 /**
  * Executa sob demanda uma rodada de sincronização de status geral com o DocuSign.
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -657,6 +723,9 @@ export const syncAllStatuses = async (req, res) => {
   try {
     const daysBack = req.query.daysBack ? parseInt(req.query.daysBack, 10) : 30;
     const result = await syncAllContractsStatus({ daysBack });
+    if (result.success === false) {
+      return res.status(500).json(result);
+    }
     return res.status(200).json(result);
   } catch (error) {
     console.error("[robotDocusignController] Erro ao sincronizar status dos contratos:", error);
@@ -670,6 +739,7 @@ export const syncAllStatuses = async (req, res) => {
 /**
  * Transmite o progresso de um job em tempo real via Server-Sent Events (SSE).
  *
+ * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
  * @param {import("express").Response} res - Objeto de resposta Express.
  * @returns {Promise<void>}
@@ -706,11 +776,19 @@ export const streamJobProgress = async (req, res) => {
   try {
     const query = [];
     if (mongoose.Types.ObjectId.isValid(jobId)) {
-      query.push({ _id: jobId });
+      query.push({ _id: jobId }, { contract_id: jobId }, { contractId: jobId });
+    } else {
+      query.push({ contract_id: jobId }, { contractId: jobId });
     }
-    query.push({ contract_id: jobId }, { contractId: jobId });
 
-    const job = await RobotJob.findOne({ $or: query }).sort({ createdAt: -1 }).lean();
+    let job;
+    try {
+      job = await RobotJob.findOne({ $or: query }).sort({ createdAt: -1 }).lean();
+    } catch (err) {
+      if (err.name !== "CastError") {
+        throw err;
+      }
+    }
 
     let targetJobId = jobId;
     if (job) {

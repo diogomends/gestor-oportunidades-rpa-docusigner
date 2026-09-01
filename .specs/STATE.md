@@ -279,12 +279,20 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-049
+- **Decision**: Aplicação das correções dos itens 8 ao 14 da revisão de código: (a) Remoção de escrita dupla em `statusSyncScheduler.js` centralizando atualização em `syncContractStatus`, (b) Verificação prévia de existência de PDF e Anti-Phantom Success (`stat.size > 0`) no download de arquivos, (c) Proteção de endpoints contra `CastError` no Mongoose em `robotDocusignController.js` validando `ObjectId.isValid`, (d) Retorno de `HTTP 500` em falhas operacionais em `POST /sync-status`, (e) Proteção RBAC via `authorize("admin")` em `POST /sync-status` e `POST /process-pending`, (f) Implementação de Graceful Shutdown em `server.js` (`SIGINT`/`SIGTERM`) encerrando schedulers, servidor HTTP e conexão com MongoDB, e (g) Aplicação estrita de JSDoc em todos os métodos e módulos modificados.
+- **Reason**: Garantir integridade dos dados e arquivos baixados, eliminar concorrência e race conditions, proteger endpoints administrativos sensíveis e evitar processos e sockets órfãos no desligamento/reinício do servidor.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `backend/src/modules/robot-docusign/routes.js`, `backend/src/server.js`, `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `.specs/routes-inventory.md`, `.specs/STATE.md`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: fix/contract-schema-envelope-id
-- **Phase / Task**: Declaração explícita de `envelopeId` e `docusign_envelope_id` no schema de Contract e testes de regressão (AD-048 / T30)
-- **Completed**: AD-048 documentada em `.specs/STATE.md` e `.specs/database/schema.md`, propriedades adicionadas a `backend/src/models/Contract.js`, suíte `tests/backend/models/Contract.test.js` criada e 100% dos testes aprovados (143/143 testes backend).
-- **In-progress**: Finalização de commit e PR
-- **Next step**: Executar fluxo de commit, PR e merge
+- **Feature**: fix/review-items-8-14
+- **Phase / Task**: Correções 8 a 14 da revisão de código (Hardening, RBAC, Graceful Shutdown, Anti-Phantom Success e JSDoc)
+- **Completed**: AD-049 documentada, endpoints protegidos com `authorize("admin")`, download validado por tamanho, escritas duplicadas eliminadas, shutdown limpo e JSDoc 100% completo.
+- **In-progress**: Finalização de commit, PR e merge
+- **Next step**: Executar comandos PowerShell para commit, PR e merge
 - **Blockers**: none
 - **Branch**: main

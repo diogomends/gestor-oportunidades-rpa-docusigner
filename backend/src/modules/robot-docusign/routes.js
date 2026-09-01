@@ -38,7 +38,7 @@ router.get("/instances", authorize("admin"), getAllInstances);
 router.post("/trigger", triggerJob);
 router.post("/trigger-batch", authorize("admin"), triggerBatch);
 router.get("/status/:jobId", getJobStatus);
-router.get("/jobs/:jobId/stream", protect, streamJobProgress);
+router.get("/jobs/:jobId/stream", streamJobProgress);
 router.get("/jobs", listJobs);
 router.get("/metrics", getMetrics);
 router.get("/logs/:jobId", getJobLogs);
@@ -46,8 +46,8 @@ router.get("/config", getConfig);
 router.put("/config", authorize("admin"), updateConfig);
 router.post("/test-login", authorize("admin"), testLogin);
 router.get("/queue", getQueue);
-router.post("/process-pending", processPending);
-router.post("/sync-status", syncAllStatuses);
+router.post("/process-pending", authorize("admin"), processPending);
+router.post("/sync-status", authorize("admin"), syncAllStatuses);
 
 export default router;
 

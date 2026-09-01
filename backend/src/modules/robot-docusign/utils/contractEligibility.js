@@ -5,8 +5,8 @@
 
 /**
  * Verifica se string tem conteúdo não-vazio (após trim).
- * @param {any} v
- * @returns {boolean}
+ * @param {any} v - Valor a ser verificado.
+ * @returns {boolean} True se for string válida e não vazia.
  */
 function hasValue(v) {
   return typeof v === "string" && v.trim().length > 0;
@@ -14,8 +14,8 @@ function hasValue(v) {
 
 /**
  * Verifica se contrato possui PDF anexado.
- * @param {Object} contract
- * @returns {boolean}
+ * @param {Object} contract - Objeto do contrato.
+ * @returns {boolean} True se o contrato possuir ao menos um documento válido.
  */
 export function hasPdf(contract) {
   if (!contract?.documents || !Array.isArray(contract.documents) || contract.documents.length === 0) return false;
@@ -24,8 +24,8 @@ export function hasPdf(contract) {
 
 /**
  * Verifica se contrato possui e-mail do destinatário.
- * @param {Object} contract
- * @returns {boolean}
+ * @param {Object} contract - Objeto do contrato.
+ * @returns {boolean} True se o contrato possuir e-mail de destinatário válido.
  */
 export function hasRecipientEmail(contract) {
   const email =
@@ -39,8 +39,8 @@ export function hasRecipientEmail(contract) {
 
 /**
  * Verifica se contrato está elegível para envio (PDF + e-mail).
- * @param {Object} contract
- * @returns {boolean}
+ * @param {Object} contract - Objeto do contrato.
+ * @returns {boolean} True se o contrato estiver elegível.
  */
 export function isEligibleForSend(contract) {
   return hasPdf(contract) && hasRecipientEmail(contract);
@@ -49,6 +49,7 @@ export function isEligibleForSend(contract) {
 /**
  * Filtro Mongo para buscar apenas contratos `gerado` elegíveis.
  * Reutilizado em `getNextJob` e `robotScheduler`.
+ * @constant
  * @type {Object}
  */
 export const GERADO_ELIGIBLE_FILTER = {
@@ -62,4 +63,9 @@ export const GERADO_ELIGIBLE_FILTER = {
   ],
 };
 
+/**
+ * Exportação padrão do helper de elegibilidade de contratos.
+ * @constant
+ * @type {Object}
+ */
 export default { hasPdf, hasRecipientEmail, isEligibleForSend, GERADO_ELIGIBLE_FILTER };

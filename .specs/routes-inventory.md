@@ -20,8 +20,8 @@
 | PUT | `/api/robot-docusign/config` | Atualizar config do robô | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:46` | body: enabled, mode, credentials, token_notification_email, limits, retry |
 | POST | `/api/robot-docusign/test-login` | Testa login no DocuSign | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:47` | body opcional: email, password, otpCode (6 dígitos) |
 | GET | `/api/robot-docusign/queue` | Fila de jobs pendentes/em processamento | protect | `backend/src/modules/robot-docusign/routes.js:48` | status in [pending, processing, running, retrying] |
-| POST | `/api/robot-docusign/process-pending` | Processa até 1 contrato pendente | protect | `backend/src/modules/robot-docusign/routes.js:49` | Scheduler manual, respeita enabled/horário |
-| POST | `/api/robot-docusign/sync-status` | — | protect | `backend/src/modules/robot-docusign/routes.js:50` | — |
+| POST | `/api/robot-docusign/process-pending` | Processa até 1 contrato pendente | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:49` | Scheduler manual, respeita enabled/horário |
+| POST | `/api/robot-docusign/sync-status` | Executa varredura geral de status sob demanda | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:50` | Sincroniza status ativos e baixa PDFs |
 | POST | `/api/robot-docusign/instance/auth` | Autenticação da instância | Público | `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js:22` | X-Robot-Key ou email/senha → JWT 30d + instance_id |
 | GET | `/api/robot-docusign/instance/instances` | Lista instâncias (via sub-router) | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js:27` | Duplicata de /instances |
 | GET | `/api/robot-docusign/instance/config` | Config da instância | protect | `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js:28` | Usado pelo robô .exe |

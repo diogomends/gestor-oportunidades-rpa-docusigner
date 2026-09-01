@@ -1175,7 +1175,38 @@ Em `statusSyncScheduler.js`, o código atualiza `envelopeId` via `Contract.findB
 **Feito quando**:
 - [x] `envelopeId` e `docusign_envelope_id` definidos com tipo `String` e default `null` no schema de `Contract.js`.
 - [x] Suíte `Contract.test.js` criada com 4 testes unitários e de regressão passando.
-- [x] Total de 143 testes de backend passando sem falhas.
+---
+
+### T42: Hardening das Rotinas e Robustez Operacional (Itens 8 ao 14 da Revisão de Código)
+
+- **Req**: REQ-HARDENING-01
+- **Status**: [x] Done (2026-08-31)
+- **Esforço**: 1h | Paralelável: Sim
+- **Depende de**: AD-049
+
+**Contexto**:
+A revisão de código identificou oportunidades de hardening: duplicação de escrita no MongoDB, download de PDFs sem validação de existência prévia e tamanho > 0 bytes, `CastError` no controller, respostas HTTP 200 em falhas de rotas de manutenção, ausência de RBAC `admin` em endpoints sensíveis, shutdown abrupto no `server.js` e inconformidades de JSDoc.
+
+**O quê**:
+1. **`statusSyncScheduler.js`**: Remoção de escrita redundante com `Contract.findByIdAndUpdate`, verificação prévia de existência de arquivo (`fs.existsSync`) e Anti-Phantom Success (`stat.size > 0`) no download de PDFs.
+2. **`robotDocusignController.js`**: Validação de `ObjectId.isValid` evitando `CastError` e resposta `HTTP 500` em falha de `/sync-status`.
+3. **`routes.js`**: Proteção RBAC via `authorize("admin")` em `/sync-status` e `/process-pending` e remoção de middleware `protect` redundante.
+4. **`server.js`**: Implementação de Graceful Shutdown (`shutdownServer`) com encerramento de schedulers, socket HTTP e conexão MongoDB em `SIGINT`/`SIGTERM`.
+5. **`contractEligibility.js`**: Documentação JSDoc estrita completa.
+
+**Onde**:
+- `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`
+- `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`
+- `backend/src/modules/robot-docusign/routes.js`
+- `backend/src/server.js`
+- `backend/src/modules/robot-docusign/utils/contractEligibility.js`
+
+**Feito quando**:
+- [x] Download de PDFs valida existência e tamanho > 0 bytes.
+- [x] Endpoints `/sync-status` e `/process-pending` protegidos por `authorize("admin")`.
+- [x] Handlers do controller protegidos contra `CastError` no Mongoose.
+- [x] Servidor encerra serviços e conexões de forma ordenada via Graceful Shutdown.
+- [x] 100% de JSDoc documentado.
 
 ---
 
