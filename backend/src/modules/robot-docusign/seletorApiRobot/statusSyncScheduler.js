@@ -167,7 +167,11 @@ export async function syncAllContractsStatus(options = {}) {
       // 4. Consultar listagem geral de acordos na DocuSign via Playwright
       const daysBack = options.daysBack || 30;
       const queryResult = await browserrobot.executeWithBrowser("query_agreements", {
-        credentials: config.credentials,
+        credentials: {
+          ...config.credentials,
+          token_notification_email: config.token_notification_email,
+          mfa: config.mfa,
+        },
         daysBack,
         headless: true,
       });
@@ -235,7 +239,11 @@ export async function syncAllContractsStatus(options = {}) {
                 envelopeId: matchedEnvelope.envelopeId,
                 downloadDir: paths.downloadDir,
                 fileName: paths.fileName,
-                credentials: config.credentials,
+                credentials: {
+                  ...config.credentials,
+                  token_notification_email: config.token_notification_email,
+                  mfa: config.mfa,
+                },
               });
 
               // ponytail: conta como baixado se browser retornou sucesso OU arquivo existe no disco (test mock não cria arquivo)
