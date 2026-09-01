@@ -329,8 +329,8 @@
 - **Status**: active
 
 ### AD-055
-- **Decision**: Correção de compatibilidade no pipeline de build do robô standalone (`robot/build/build.js`, `robot/src/main.js`, `robot/src/main-query.js`, `robot/src/main-update.js`): (1) Exportação de `bootstrap(roleOverride)` em `src/main.js` com execução condicional direta; (2) Invocação direta `bootstrap("query")` e `bootstrap("update")` nos launchers locais sem `await import()` dinâmico; (3) Apontamento de `entryFile` diretamente para `src/main.js` no `build.js` para compilação via `esbuild --format=cjs`.
-- **Reason**: `esbuild` com target CJS bloqueava a compilação por falta de suporte a *top-level await* em `await import("./main.js")` e gerava warning de colisão em `--define:process.env.ROBOT_ROLE` na atribuição estática.
+- **Decision**: Correção de compatibilidade no pipeline de build do robô standalone (`robot/build/build.js`, `robot/src/main.js`, `robot/src/main-query.js`, `robot/src/main-update.js`): (1) Execução incondicional de `bootstrap()` no final de `src/main.js` garantindo inicialização imediata no runtime `.exe` do `@yao-pkg/pkg`; (2) Invocação `bootstrap("query")` e `bootstrap("update")` nos launchers locais sem `await import()` dinâmico; (3) Apontamento de `entryFile` diretamente para `src/main.js` no `build.js` para compilação via `esbuild --format=cjs`.
+- **Reason**: `esbuild` com target CJS bloqueava a compilação por falta de suporte a *top-level await* em `await import("./main.js")`, e a verificação `process.argv[1].endsWith("main.js")` impedia a inicialização dentro dos executáveis empacotados.
 - **Trade-off**: N/A. Preserva a execução via CLI local e o empacotamento automatizado dos executáveis standalone.
 - **Scope**: `robot/src/main.js`, `robot/src/main-query.js`, `robot/src/main-update.js`, `robot/build/build.js`, `.specs/STATE.md`
 - **Date**: 2026-09-01
@@ -338,11 +338,11 @@
 
 ## Handoff
 
-- **Feature**: robot/dois-robos-consulta-atualizacao + Makefile runners
-- **Phase / Task**: T1-T11 + AD-054/AD-055 (Feature Completa + Makefile `execute-robot`)
-- **Completed**: Dual-robot (AD-053), hardening (AD-054), build fix (AD-055), adição de `make execute-robot`, `make execute-robot-query` e `make execute-robot-update` no `Makefile` e documentação no `AGENTS.md`.
+- **Feature**: robot/dois-robos-consulta-atualizacao + Makefile runners + build bootstrap fix
+- **Phase / Task**: T1-T11 + AD-054/AD-055 (Feature Completa + Makefile runners + Bootstrap Fix)
+- **Completed**: Dual-robot (AD-053), hardening (AD-054), build fix com bootstrap incondicional (AD-055), adição de `make execute-robot`, `make execute-robot-query` e `make execute-robot-update` no `Makefile` e documentação no `AGENTS.md`.
 - **In-progress**: nenhum
-- **Next step**: Pronto para commit, PR e merge
+- **Next step**: Pronto para commit, PR, merge e build
 - **Blockers**: none
 - **Branch**: main
 

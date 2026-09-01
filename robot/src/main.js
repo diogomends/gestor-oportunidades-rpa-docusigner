@@ -86,11 +86,7 @@ export async function bootstrap(roleOverride) {
   }
 }
 
-// Executa bootstrap automaticamente quando executado como script principal
-if (typeof process !== "undefined" && process.argv && process.argv[1] && process.argv[1].endsWith("main.js")) {
-  bootstrap();
-} else if (typeof process !== "undefined" && !process.argv) {
-  bootstrap();
-}
+bootstrap();
+
 
 
