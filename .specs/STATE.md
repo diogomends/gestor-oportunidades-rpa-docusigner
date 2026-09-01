@@ -3,12 +3,12 @@
 ## Decisions
 
 ### AD-013
-- **Decision**: Executáveis standalone com credenciais embutidas em bytecode V8 (esbuild → javascript-obfuscator → bytenode → @yao-pkg/pkg), sem `config.json` em texto plano.
+- **Decision**: Executáveis standalone com credenciais embutidas (esbuild → javascript-obfuscator → @yao-pkg/pkg, sem `config.json` em texto plano; `bytenode/.jsc` removido — pipeline 3 etapas `esbuild→obfuscator→pkg`, `import bytenode` morto).
 - **Reason**: Evitar exposição de `ROBOT_EMAIL`/`ROBOT_PASS`/`ROBOT_ID` em disco nas máquinas dos agentes.
-- **Trade-off**: Distribuição exige par inseparável `.exe` + `.jsc` na mesma pasta; debug mais difícil.
+- **Trade-off**: Distribuição é `.exe` self-contained + `node_modules/playwright` + `node_modules/playwright-core` ao lado + `setup.bat`/`run.bat`/`README.txt` por `dist/robot-<role>-N/` (sem par `.exe+.jsc`); debug mais difícil.
 - **Scope**: `robot/build/build.js`, `robot/src/*`, pipeline de distribuição
 - **Date**: 2026-08-17
-- **Status**: active
+- **Status**: active (atualizado pós AD-053 — removido bytenode/.jsc)
 
 ### AD-014
 - **Decision**: Autenticação dual da instância — `X-Robot-Key` (SHA-256 vs `crm_acl.robot_api_keys`) com fallback legado `email`/`senha`; JWT `isRobot:true` 30 dias.
@@ -32,7 +32,7 @@
 - **Trade-off**: Perde pinagem estática de `ROBOT_ID` no binário.
 - **Scope**: `robot/build/build.js`, `robot/src/config.js`, `robot/src/main.js`
 - **Date**: 2026-08-17
-- **Status**: active
+- **Status**: superseded by AD-053 (estendido para 4 params + --role, matriz N×R)
 
 ### AD-017
 - **Decision**: Build multi-chave — sem `--key`, varre `.env`/`.env.dev` por `ROBOT_API_KEY_\d+` e gera `robot-docusigner-N.exe` + `main-robot-docusigner-N.jsc` por chave.
@@ -40,7 +40,7 @@
 - **Trade-off**: Nomes sequenciais acoplados à ordem das envs.
 - **Scope**: `robot/build/build.js`, `make build-robot`
 - **Date**: 2026-08-17
-- **Status**: active
+- **Status**: superseded by AD-053 (matriz N×R: ROBOT_API_KEY_N × role → robot-query-N / robot-update-N, sem .jsc)
 
 ### AD-018
 - **Decision**: Extração headless de MFA via IMAP/TLS nativo (`node:tls`) com `token_notification_email` (`host`/`port`/`tls`/`email`/`password`), fallback Roundcube Webmail.
@@ -317,6 +317,14 @@
 - **Reason**: Isolar varredura paginada (`view=agreements`) de envio transacional, mitigar corrupção de `storageState` e starvation, permitir deploy dedicado por máquina/processo com monitoramento por frota.
 - **Trade-off**: Dobra artefatos de build (N×2) e disco; compatibilidade `all` mantida para migração gradual; `dist/robot-docusigner` legado como alias quando `role=all`.
 - **Scope**: `backend/src/modules/robot-docusign/models/*`, `backend/src/modules/robot-docusign/controllers/*`, `backend/src/modules/robot-docusign/seletorApiRobot/*`, `robot/src/*`, `robot/build/build.js`, `robot/package.json`, `Makefile`, `.specs/routes-inventory.md`
+- **Date**: 2026-09-01
+- **Status**: active
+
+### AD-054
+- **Decision**: Hardening pós-AD-053 — (1) `ROLE_ACTIONS` centralizado em `backend/.../utils/roleActions.js` (`ROLE_ENUM`, `ROLE_ACTIONS`, `getAllowedActions`, `isActionAllowedForRole`) e clone isolado `robot/src/utils/roleActions.js` (offline .exe) consumido por `robotInstanceController.getNextJob` e `JobRunner`; (2) `normalizeString` extraído para `backend/.../utils/normalizeString.js` (NFD/acento/caixa) reaproveitado em `seletorApiRobot/statusSyncScheduler.js` e `robotInstanceController` (reconciliação e-mail/nome) com re-export para compat; (3) `requireJwtSecret()` fail-hard: `JWT_SECRET` ausente em `NODE_ENV=production` aborta `jwt.sign` (`controller.js:148,222`), dev mantém `default_jwt_secret_dev`; (4) reconciliação `updateJobStatus` paritária AD-053: após `syncContractStatus` para `assinado` com `envelopeId` faz auto-download via `buildDownloadPath` + `browserrobot.executeWithBrowser("download")` com `exists+size>0` e `operations.download!==false` (parity com `statusSyncScheduler`); (5) fachadas `services/statusSyncScheduler.js` e `services/robotScheduler.js` documentadas como Facade DIP (canônico `seletorApiRobot/*`); (6) `JobRunner` guard `ROLE_MISMATCH` `code/nonRetriable` antes de `chromium.launch` com `failed [ROLE_MISMATCH]` sem retry; (7) `build.js` `bundleBase` legacy `robot-docusigner` vs `robot-{query|update}` documentado para migração `all→robot-all`.
+- **Reason**: SOLID DRY/SRP/OCP/DIP e anti-falha: single source para role/normalize, JWT não assina com default em prod, paridade download evita órfãos assinados, guard evita retentar mismatch, barrel esclarece fonte canônica.
+- **Trade-off**: Duplicação lógica `roleActions` entre backend/robot por isolamento runtime (sync manual).
+- **Scope**: `backend/src/modules/robot-docusign/utils/roleActions.js`, `backend/src/modules/robot-docusign/utils/normalizeString.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `backend/src/modules/robot-docusign/services/*.js`, `robot/src/utils/roleActions.js`, `robot/src/job-runner.js`, `robot/build/build.js`, `.specs/database/schema.md`, `.specs/routes-inventory.md`, `AGENTS.md`
 - **Date**: 2026-09-01
 - **Status**: active
 

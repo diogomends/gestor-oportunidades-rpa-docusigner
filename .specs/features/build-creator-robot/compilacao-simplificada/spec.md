@@ -2,22 +2,26 @@
 
 ## Problem Statement
 
-O build atual do robot standalone aceita 6 parâmetros (`ids`, `keys`, `emails`, `passwords`, `headless`, `api-url`), mas a maioria não é necessária. O `ROBOT_ID` é redundante (o server gera a partir do `key_prefix`), e `ROBOT_EMAIL`/`ROBOT_PASS` nunca são lidos pelo código do robô. Isso causa confusão e expõe credenciais desnecessárias.
+O build legado do robot aceitava 6 parâmetros (`ids`, `keys`, `emails`, `passwords`, `headless`, `api-url`), mas a maioria era redundante. `ROBOT_ID` é gerado pelo server a partir de `key_prefix`, e `ROBOT_EMAIL`/`ROBOT_PASS` nunca eram lidos. Com AD-053 a segregação dual-robot introduziu `ROBOT_ROLE` (`query|update|all`) com sessões isoladas (`session-query.json` / `session-update.json`) e pipeline matriz `N×R`.
 
 ## Goals
 
-- [x] Reduzir parâmetros do build de 6 para 3 (`--key`, `--api-url`, `--headless`)
+- [x] Reduzir parâmetros legados de 6 para 4 (`--key`, `--api-url`, `--headless`, `--role`)
 - [x] Eliminar `ROBOT_ID` do código do robô (server gera `instance_id` na auth)
 - [x] Eliminar `ROBOT_EMAIL` e `ROBOT_PASS` (nunca são lidos)
-- [x] Manter compatibilidade com o fluxo de autenticação existente
+- [x] Suportar segregação por papel `ROBOT_ROLE` com entrypoints dedicados (`main-query.js` / `main-update.js`) e `DOCUSIGN_SESSION_PATH` role-aware
+- [x] Pipeline matriz `ROBOT_API_KEY_N × role` → `dist/robot-query-N/` e `dist/robot-update-N/` (alias `robot-docusigner-N` quando `role=all`)
+- [x] Remover etapa `bytenode/.jsc` — distribuição é `.exe` self-contained + `node_modules/playwright` ao lado (AD-013 atualizado)
+- [x] Manter compatibilidade com fluxo de autenticação existente
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Mudanças no server (rpa-docusigner) | O server já suporta auth sem `instance_id` (linha 107 do controller) |
 | Mudanças no gestor-oportunidades | Fluxo de geração de chave já existe |
-| Modo multi-robot (1 .exe para N robôs) | Fora do escopo — cada .exe tem sua chave embutida |
+| Elegibilidade de contratos / MFA IMAP | Ver `robot/dois-robos-consulta-atualizacao` e AD-038/050 |
+
+> Multi-robot por chave (matriz `ROBOT_API_KEY_N × role`) é escopo desta spec — ver `robot/dois-robos-consulta-atualizacao` (AD-053) para roteamento backend.
 
 ---
 
@@ -25,9 +29,11 @@ O build atual do robot standalone aceita 6 parâmetros (`ids`, `keys`, `emails`,
 
 | Assumption / decision | Chosen default | Rationale | Confirmed? |
 |----------------------|---------------|-----------|------------|
-| `ROBOT_ID` pode ser eliminado | Server gera de `key_prefix` | Linha 107 do controller já faz fallback | y |
-| `HEADLESS` pode ser dinâmico | Remover `--define` do esbuild | `config.js` já lê de env var ou config.json | y |
-| Chave continua embutida no build | Opção A (1 .exe por robô) | Mais seguro, sem arquivo exposto | y |
+| `ROBOT_ID` pode ser eliminado | Server gera de `key_prefix` | Controller já faz fallback | y |
+| `HEADLESS` e `ROBOT_ROLE` embutidos via `--define` | `--define:process.env.HEADLESS` e `--define:process.env.ROBOT_ROLE` no esbuild | Segurança (chave+papel fixos no binário) + impede troca de papel em runtime; matriz gera artefato por papel | y |
+| Chave continua embutida no build | 1 `.exe` por `(chave, role)` — matriz `N×R` | Mais seguro, sem arquivo exposto; `N` chaves × 2 papéis = `2N` artefatos quando `ROLE=all` | y |
+| Pipeline sem `bytenode/.jsc` | `esbuild → javascript-obfuscator → @yao-pkg/pkg` (3 etapas) + `import bytenode` morto removido | `.jsc` exigia par inseparável `.exe+.jsc`; `.exe` self-contained simplifica distribuição | y |
+| Sessões isoladas por papel | `sessionByRole = {query: session-query.json, update: session-update.json, all: session-docusign.json}` | Evita corrupção de storageState quando ambos papéis rodam na mesma máquina | y |
 
 **Open questions:** none
 
@@ -35,21 +41,24 @@ O build atual do robot standalone aceita 6 parâmetros (`ids`, `keys`, `emails`,
 
 ## User Stories
 
-### P1: Build simplificado com apenas key e API_URL ⭐ MVP
+### P1: Build simplificado com key, API_URL, headless e role ⭐ MVP
 
-**User Story**: Como desenvolvedor, quero gerar o build do robô com apenas `--key` e `--api-url`, para que o processo seja simples e seguro.
+**User Story**: Como desenvolvedor, quero gerar o build com `--key`, `--api-url`, `--headless` e `--role`, para que o processo seja simples, seguro e gere artefatos por papel.
 
-**Why P1**: Reduz complexidade, elimina credenciais desnecessárias, mantém segurança.
+**Why P1**: Reduz complexidade, elimina credenciais desnecessárias, suporta deploy dedicado query/update.
 
 **Acceptance Criteria**:
 
-1. WHEN `node build/build.js --key "rf_xxxxx" --api-url "http://localhost:3111"` é executado THEN o build SHALL gerar .exe + .jsc em `dist/`
-2. WHEN o build é executado sem `--key` THEN o build SHALL retornar erro e abortar
-3. WHEN o build é executado sem `--api-url` THEN o build SHALL usar `http://localhost:3111` como padrão
-4. WHEN `--headless false` é passado THEN o build SHALL embutir `HEADLESS=false` no bytecode
-5. WHEN `--headless` não é passado THEN o build SHALL usar `true` como padrão
+1. WHEN `node build/build.js --key "rf_xxxxx" --api-url "http://localhost:3111" --role query` é executado THEN o build SHALL gerar `dist/robot-query-1/robot-query-1.exe` (sem `.jsc`) + `run.bat` + `README.txt` + `node_modules/` ao lado
+2. WHEN `--role all` (ou omitido) é usado THEN o build SHALL gerar matriz `2N` artefatos (`robot-query-N` + `robot-update-N`); alias legado `robot-docusigner-N` preservado quando `role=all`
+3. WHEN o build é executado sem `--key` e sem `ROBOT_API_KEY_N` no env THEN o build SHALL retornar erro e abortar
+4. WHEN o build é executado sem `--api-url` THEN o build SHALL usar `http://localhost:3111` como padrão (sanitiza trailing slash)
+5. WHEN `--headless false` é passado THEN o build SHALL embutir `HEADLESS=false` via `--define`
+6. WHEN `--headless` não é passado THEN o build SHALL usar `true` como padrão
+7. WHEN `--role` é `query|update|all` THEN o build SHALL usar `entryFile` correspondente (`main-query.js` / `main-update.js` / `main.js`), `define ROBOT_ROLE` e `run.bat` com título por papel (`[DocuSign RPA] - Consulta #N`)
+8. WHEN `--role` inválido é passado THEN o build SHALL fazer fallback para `all` (ou manter `ROBOT_ROLE` env) com warning
 
-**Independent Test**: Executar `node build/build.js --key "rf_test"` e verificar que gera `dist/robot-docusigner.exe` + `dist/main-robot-docusigner.jsc`
+**Independent Test**: `node build/build.js --key "rf_test" --role query` → `dist/robot-query-1/robot-query-1.exe` existe e `dist/robot-query-1/main-robot-*jsc` NÃO existe
 
 ---
 
@@ -61,34 +70,37 @@ O build atual do robot standalone aceita 6 parâmetros (`ids`, `keys`, `emails`,
 
 **Acceptance Criteria**:
 
-1. WHEN o robô envia `POST /instance/auth` com `X-Robot-Key` THEN o server SHALL retornar `{ token, instance_id }` na resposta
-2. WHEN o robô recebe a resposta da auth THEN ele SHALL gravar o `instance_id` retornado
-3. WHEN o robô faz chamadas subsequentes (next-job, heartbeat, job-status) THEN ele SHALL enviar o `instance_id` obtido na auth
+1. WHEN o robô envia `POST /instance/auth` com `X-Robot-Key` + `role` THEN o server SHALL retornar `{ token, instance_id }` e persistir `RobotInstance.role`
+2. WHEN o robô recebe a resposta da auth THEN ele SHALL gravar o `instance_id` retornado (`api-client.js: this.instanceId = data.instance_id`)
+3. WHEN o robô faz chamadas subsequentes (next-job `?role=`, heartbeat `body.role`, job-status) THEN ele SHALL enviar `instance_id` + `role`
 
-**Independent Test**: Verificar que `api-client.js` não requer `instanceId` no construtor e grava o ID da resposta auth
+**Independent Test**: Verificar que `api-client.js` construtor aceita `(baseUrl, instanceId, role)` e `authenticate()` grava `instance_id` da resposta
 
 ---
 
-### P3: Remover configurações obsoletas do config.js
+### P3: Config limpa e role-aware
 
-**User Story**: Como desenvolvedor, quero que o `config.js` não leia `ROBOT_ID`, `ROBOT_EMAIL` ou `ROBOT_PASS`, para que não haja referências a valores que não existem.
+**User Story**: Como desenvolvedor, quero que `config.js` exponha `ROBOT_ROLE` e `DOCUSIGN_SESSION_PATH` isolado por papel, sem chaves obsoletas.
 
-**Why P3**: Limpeza de código, evita confusão.
+**Why P3**: Limpeza + isolamento de sessão por papel.
 
 **Acceptance Criteria**:
 
-1. WHEN `config.js` é carregado THEN o objeto retornado NÃO SHALL conter chaves `ROBOT_ID`, `ROBOT_EMAIL`, `ROBOT_PASS`
-2. WHEN `config.json` é lido THEN valores `ROBOT_EMAIL` e `ROBOT_PASS` SHALL ser ignorados
+1. WHEN `config.js` é carregado THEN o objeto retornado NÃO SHALL conter `ROBOT_ID`, `ROBOT_EMAIL`, `ROBOT_PASS`
+2. WHEN `config.js` é carregado THEN o objeto SHALL conter `API_URL`, `ROBOT_KEY`, `ROBOT_ROLE` (`query|update|all`), `HEADLESS`, `POLL_INTERVAL_SECONDS`, `DOCUSIGN_SESSION_PATH` (role-aware: `session-query.json` / `session-update.json` / `session-docusign.json`)
+3. WHEN `config.json` / `config.json.example` é verificado THEN arquivos NÃO SHALL existir (removidos em AD-013/T-SMI-16); apenas `session-*.json` por papel
 
-**Independent Test**: Verificar que `loadConfig()` retorna objeto com `API_URL`, `ROBOT_KEY`, `HEADLESS`, `POLL_INTERVAL_SECONDS` — sem `ROBOT_ID`
+**Independent Test**: `loadConfig()` retorna `ROBOT_ROLE` + `DOCUSIGN_SESSION_PATH` e `Test-Path robot/config.json` é `False`
 
 ---
 
 ## Edge Cases
 
-- WHEN `--key` é vazio ou não informado THEN build SHALL abortar com mensagem de erro clara
-- WHEN `--api-url` termina com `/` THEN build SHALL remover trailing slash (como já faz)
-- WHEN `HEADLESS` não é definido THEN config.js SHALL usar `true` como padrão
+- WHEN `--key` é vazio ou não informado e nenhum `ROBOT_API_KEY_N` existe THEN build SHALL abortar com mensagem clara
+- WHEN `--api-url` termina com `/` THEN build SHALL remover trailing slash
+- WHEN `HEADLESS` não é definido THEN `true` como padrão
+- WHEN `--role` inválido THEN fallback `all` + warning
+- WHEN `ROBOT_API_KEY_N` múltiplas chaves + `ROLE=all` THEN `2N` builds (ex: 3 chaves → 6 pastas)
 
 ---
 
@@ -96,24 +108,30 @@ O build atual do robot standalone aceita 6 parâmetros (`ids`, `keys`, `emails`,
 
 | Requirement ID | Story | Phase | Status |
 |---------------|-------|-------|--------|
-| BUILD-01 | P1: Build simplificado | Phase 3 | Passed |
-| BUILD-02 | P1: Build simplificado | Phase 3 | Passed |
-| BUILD-03 | P1: Build simplificado | Phase 3 | Passed |
-| BUILD-04 | P1: Build simplificado | Phase 3 | Passed |
-| BUILD-05 | P1: Build simplificado | Phase 3 | Passed |
-| AUTH-01 | P2: instance_id do server | Phase 2 | Passed |
-| AUTH-02 | P2: instance_id do server | Phase 2 | Passed |
-| AUTH-03 | P2: instance_id do server | Phase 2 | Passed |
-| CFG-01 | P3: Config obsoleto | Phase 1 | Passed |
-| CFG-02 | P3: Config obsoleto | Phase 1 | Passed |
+| BUILD-01 | P1: .exe por papel sem .jsc | Phase 3 | Passed |
+| BUILD-02 | P1: aborta sem key | Phase 3 | Passed |
+| BUILD-03 | P1: default API_URL | Phase 3 | Passed |
+| BUILD-04 | P1: headless false embutido | Phase 3 | Passed |
+| BUILD-05 | P1: default HEADLESS true | Phase 3 | Passed |
+| BUILD-06 | P1: --role query/update/all + define + entryFile + run.bat | Phase 3 | Implemented |
+| BUILD-07 | P1: matriz N×R (2N quando all) | Phase 3 | Implemented |
+| AUTH-01 | P2: server retorna token+instance_id+role | Phase 2 | Passed |
+| AUTH-02 | P2: robô grava instance_id | Phase 2 | Passed |
+| AUTH-03 | P2: chamadas usam instance_id+role | Phase 2 | Passed |
+| CFG-01 | P3: sem ROBOT_ID/EMAIL/PASS, com ROBOT_ROLE+SESSION_PATH | Phase 1 | Passed |
+| CFG-02 | P3: config.json removido, session-*.json por papel | Phase 1 | Passed |
 
-**Coverage:** 10 total, 10 mapped to tasks, 0 unmapped ✅
+**Coverage:** 12 total, 12 mapped to tasks, 0 unmapped ✅
+
+> Fonte canônica do roteamento por papel: `features/robot/dois-robos-consulta-atualizacao/spec.md` (AD-053).
 
 ---
 
 ## Success Criteria
 
-- [x] Build gera .exe com apenas `--key` e `--api-url`
-- [x] Robô autentica sem enviar `instance_id` (server gera)
-- [x] `ROBOT_ID`, `ROBOT_EMAIL`, `ROBOT_PASS` não existem mais no código
-- [x] Build existente com múltiplos parâmetros continua funcionando (backward compat via Makefile)
+- [x] Build gera `.exe` por `(chave, role)` com `--key --api-url --headless --role` (sem `.jsc`)
+- [x] Matriz `ROBOT_API_KEY_N × role` → `dist/robot-query-N/` + `dist/robot-update-N/`
+- [x] `ROBOT_ROLE` embutido via `--define` + `entryFile` dedicado + `run.bat` com título por papel
+- [x] Robô autentica sem `instance_id` prévio (server gera) e propaga `role`
+- [x] `ROBOT_ID`, `ROBOT_EMAIL`, `ROBOT_PASS` removidos; `ROBOT_ROLE` + `DOCUSIGN_SESSION_PATH` role-aware presentes
+- [x] `config.json` removido; sessões `session-query.json` / `session-update.json` isoladas
