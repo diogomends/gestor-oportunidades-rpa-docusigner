@@ -15,6 +15,8 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | `npm run build:robot:query`                                                     | Gera executável exclusivo de consulta (`robot-query`)   |
 | `npm run build:robot:update`                                                    | Gera executável exclusivo de envio (`robot-update`)     |
 | `npm run build:robot:all`                                                       | Gera todos os executáveis para todas as chaves e papéis  |
+| `make execute-robot`                                                            | Executa os robôs de consulta e atualização (query-1 e update-1) |
+| `make execute-robot-query` / `make execute-robot-update`                        | Executa individualmente o robô de consulta ou atualização |
 | `npx playwright install chromium`                                               | Instala browser Chromium para o robô                  |
 | `make install` / `make install-backend` / `make install-robot`                  | Instalação de dependências (raiz/backend/robô)        |
 | `docker compose up --build` / `make up-dev`                                     | Sobe servidor em container Docker local               |

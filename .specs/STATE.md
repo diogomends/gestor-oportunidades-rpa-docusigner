@@ -338,9 +338,9 @@
 
 ## Handoff
 
-- **Feature**: robot/dois-robos-consulta-atualizacao + hardening AD-054/AD-055
-- **Phase / Task**: T1-T11 + AD-054/AD-055 (Feature Completa + Build Fix)
-- **Completed**: Dual-robot (AD-053), hardening (AD-054) e correção do pipeline esbuild CJS (AD-055: export bootstrap, remoção top-level await, entryFile direto no build).
+- **Feature**: robot/dois-robos-consulta-atualizacao + Makefile runners
+- **Phase / Task**: T1-T11 + AD-054/AD-055 (Feature Completa + Makefile `execute-robot`)
+- **Completed**: Dual-robot (AD-053), hardening (AD-054), build fix (AD-055), adição de `make execute-robot`, `make execute-robot-query` e `make execute-robot-update` no `Makefile` e documentação no `AGENTS.md`.
 - **In-progress**: nenhum
 - **Next step**: Pronto para commit, PR e merge
 - **Blockers**: none
