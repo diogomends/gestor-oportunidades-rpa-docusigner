@@ -102,7 +102,7 @@
 - **Decision**: Criação da especificação TLC Spec-Driven para a feature `docusign-agreements-query` cobrindo consulta paginada de acordos/documentos DocuSign via RPA, com filtro por representante (`Para:`), cálculo dinâmico de datas (5 dias atrás até hoje) e validação resiliente de status com alerta para status não mapeados.
 - **Reason**: Automatizar a coleta e conciliação do status de envelopes diretamente na interface Web da DocuSign para o Gestor de Oportunidades.
 - **Trade-off**: Depende da estabilidade dos seletores `data-qa="manage-envelopes-list.*"` da interface web do DocuSign.
-- **Scope**: `.specs/features/docusign-agreements-query/`, `robot/src/browser/selectors.js`, `robot/src/browser/docusign.js`, `robot/src/job-runner.js`
+- **Scope**: `.specs/features/servidor-robot/consulta-paginada-acordos/` + `.specs/features/servidor-robot/extracao-dados-oneds/` + `.specs/features/robot/consulta-acordos-navegador/`, `robot/src/browser/selectors.js`, `robot/src/browser/docusign.js`, `robot/src/job-runner.js`
 - **Date**: 2026-08-28
 - **Status**: active
 
@@ -298,12 +298,12 @@
 - **Decision**: Hardening do filtro de contratos elegíveis com blocklist estrita (`$nin: ["rascunho", "enviado", "assinado", "cancelado", "em_processamento_robot"]`), proteção contra status nulos/ausentes e `Object.freeze` em `contractEligibility.js`; adição de `"em_processamento_robot"` ao enum de `Contract.js`; persistência de `originalStatus` pré-lock em `RobotJob` e restauração fiel no fallback de `robotInstanceController.js` (`getNextJob` e `updateJobStatus`); centralização do import de filtro em `tools/check-pending-jobs.js` com projeção de campos otimizada.
 - **Reason**: Eliminar risco de loops de reprocessamento e reenvios indevidos no DocuSign para contratos finalizados (B1), garantir conformidade do schema Mongoose e evitar rebaixamento forçado para "gerado" em falhas (B2), eliminar duplicações de código (M2), garantir imutabilidade de referências (M3) e otimizar consumo de memória na CLI.
 - **Trade-off**: N/A.
-- **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/models/Contract.js`, `backend/src/modules/robot-docusign/models/RobotJob.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `tools/check-pending-jobs.js`, `tests/backend/regression/eligibleContractsRegression.test.js`, `.specs/features/eligible-contracts-non-draft/*`
+- **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/models/Contract.js`, `backend/src/modules/robot-docusign/models/RobotJob.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `tools/check-pending-jobs.js`, `tests/backend/regression/eligibleContractsRegression.test.js`, `.specs/features/servidor-robot/contratos-elegiveis/*`
 ### AD-052
 - **Decision**: Padronização do valor inicial padrão do intervalo de agendamento de consulta geral de status (`schedule.intervalMinutes`) para 5 minutos em `orchestratorConfig.js` (`DEFAULT_ROBOT_DOCUSIGN_CONFIG`) e `statusSyncScheduler.js` (fallback interno `intervalMinutes || 5`), mantendo suporte total à sobrescrita dinâmica via `SystemConfig` (`key: "robot_docusign"`).
 - **Reason**: Prover sincronização mais frequente e responsiva de status dos contratos e download automático de PDFs assinados no boot e na operação contínua sem depender de configurações manuais prévias.
 - **Trade-off**: N/A. Total compatibilidade com a configuração customizada no painel administrativo.
-- **Scope**: `backend/src/modules/robot-docusign/seletorApiRobot/orchestratorConfig.js`, `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `.specs/STATE.md`, `.specs/features/robot-docusigner/*`
+- **Scope**: `backend/src/modules/robot-docusign/seletorApiRobot/orchestratorConfig.js`, `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `.specs/STATE.md`, `.specs/features/servidor-robot/trava-concorrencia-periodica/*`
 - **Date**: 2026-09-01
 - **Status**: active
 
