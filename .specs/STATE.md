@@ -330,11 +330,11 @@
 
 ## Handoff
 
-- **Feature**: robot/dois-robos-consulta-atualizacao
-- **Phase / Task**: T1-T11 concluídos (Feature Completa)
-- **Completed**: Dual-robot implementado e validado (role, filtragem, reconciliação batch, ROBOT_ROLE, JobRunner guard, entrypoints, build matrix, Makefile ROLE, validation.md e routes-inventory). Gate backend 152 pass, robot 56 pass, AD-053 documentado.
+- **Feature**: robot/dois-robos-consulta-atualizacao + hardening AD-054
+- **Phase / Task**: T1-T11 + AD-054 (Feature Completa + Docs sync)
+- **Completed**: Dual-robot (AD-053) + hardening (AD-054: roleActions DRY, normalizeString, JWT fail-hard prod, auto-download paritário, fachadas DIP, ROLE_MISMATCH, build migração) + docs: schema 14 modelos/3 DB, validation AC-01.7 gates atualizados, AGENTS árvore, routes-inventory 22 endpoints via `make routes-inventory` --check pass. Gate backend 152 + 9 RobotJob + 14 statusSyncScheduler + 36 controller = 208 pass, node --check 6 OK.
 - **In-progress**: nenhum
-- **Next step**: Pronto para PR/merge da branch de feature/docs
+- **Next step**: Pronto para PR/merge
 - **Blockers**: none
 - **Branch**: main
 

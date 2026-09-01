@@ -1,10 +1,11 @@
 # Database Schema Documentation
 
 > **Data**: 2026-07-20
-> **Atualizado em**: 2026-08-11
-> **Cobertura**: 11 modelos, 2 databases
+> **Atualizado em**: 2026-09-01
+> **Cobertura**: 14 modelos, 3 databases
 
-> **Nota de Arquitetura**: Este projeto possui **2 componentes** — o Servidor Central (`src/`) e o Robô Standalone (`robot-standalone/`). Os modelos abaixo pertencem ao **Servidor Central**. O Robô Standalone não possui models próprios — ele se comunica com o servidor via HTTP e opera sobre os mesmos dados através dos endpoints da API.
+> **Nota de Arquitetura**: Este projeto possui **2 componentes** — o Servidor Central (`backend/src/`) e o Robô Standalone (`robot/`). Os modelos abaixo pertencem ao **Servidor Central**. O Robô Standalone não possui models próprios — ele se comunica com o servidor via HTTP e opera sobre os mesmos dados através dos endpoints da API.
+> **Conexões**: `backend/src/config/database.js` — 3 conexões (`default` `db_crm_funil`, `crm_contracts` via `useDb("crm_contracts")`, `crm_acl` via `connectAclDB`/`getAclDb` para `robot_api_keys`).
 
 ---
 
@@ -12,10 +13,11 @@
 
 | Database                   | URI / Conexão                              | Coleções                                     |
 | -------------------------- | ------------------------------------------ | -------------------------------------------- |
-| `db_crm_funil` (padrão)    | `MONGO_URI` → `mongoose.connect()`         | users, teams, opportunities, goals, offers, perfis_import, auditlogs, watchlistconfigs |
-| `crm_contracts` (secundário)| `mongoose.connection.useDb("crm_contracts")` | contracts, docusign_envelopes                |
+| `db_crm_funil` (padrão)    | `MONGO_URI` → `mongoose.connect()`         | users, teams, opportunities, goals, offers, perfis_import, auditlogs, watchlistconfigs, systemconfigs |
+| `crm_contracts` (secundário)| `mongoose.connection.useDb("crm_contracts")` | contracts, docusign_envelopes, robot_jobs, robot_sessions, robot_instances |
+| `crm_acl` (ACL/API keys)   | `getAclDb()` → `connectAclDB()`            | robot_api_keys                               |
 
-**Config**: `src/config/database.js` — mesma instância MongoDB (porta 27017), databases separados.
+**Config**: `backend/src/config/database.js` — mesma instância MongoDB (porta 27017), databases separados por `useDb` + ACL isolado.
 
 ---
 
@@ -31,9 +33,12 @@
 | 6  | ImportProfile   | `perfis_import`        | `db_crm_funil`  | ↓      |
 | 7  | AuditLog        | `auditlogs`            | `db_crm_funil`  | ↓      |
 | 8  | WatchlistConfig | `watchlistconfigs`     | `db_crm_funil`  | ↓      |
-| 9  | Contract        | `contracts`            | `crm_contracts` | ↓      |
-| 10 | DocusignEnvelope| `docusign_envelopes`   | `crm_contracts` | ↓      |
-| 11 | RobotJob        | `robot_jobs`           | `crm_contracts` | ↓      |
+| 9  | SystemConfig    | `systemconfigs`        | `db_crm_funil`  | ↓      |
+| 10 | Contract        | `contracts`            | `crm_contracts` | ↓      |
+| 11 | DocusignEnvelope| `docusign_envelopes`   | `crm_contracts` | ↓      |
+| 12 | RobotJob        | `robot_jobs`           | `crm_contracts` | ↓      |
+| 13 | RobotSession    | `robot_sessions`       | `crm_contracts` | ↓      |
+| 14 | RobotInstance   | `robot_instances`      | `crm_contracts` | ↓      |
 
 ---
 
@@ -534,7 +539,7 @@ Nenhum índice explícito além de `_id`.
 
 | Campo | Tipo | Obrigatório | Default | Enum |
 | ----- | ---- | ----------- | ------- | ---- |
-| `status` | `String` | ❌ | `"rascunho"` | rascunho, gerado, enviado, assinado, cancelado |
+| `status` | `String` | ❌ | `"rascunho"` | rascunho, gerado, em_processamento_robot, enviado, assinado, cancelado |
 
 ### Campos — DocuSign Envelope
 
@@ -551,7 +556,7 @@ Nenhum índice explícito além de `_id`.
 
 | Campo | Valores |
 | ----- | ------- |
-| `status` | rascunho, gerado, enviado, assinado, cancelado |
+| `status` | rascunho, gerado, em_processamento_robot, enviado, assinado, cancelado |
 | `negotiation[].tipoLinha` | port-in, linha-nova |
 | `negotiation[].portabilityLines[].tipoCedente` | PF, PJ |
 | `documents[].type` | termo, proposta, permanencia |
@@ -582,15 +587,16 @@ Nenhum índice explícito além de `_id`.
 
 | Campo | Tipo | Obrigatório | Default | Descrição |
 | ----- | ---- | ----------- | ------- | --------- |
-| `contract_id` | `ObjectId` → `Contract` | ✅ | — | ID do contrato vinculado |
-| `contractId` | `ObjectId` → `Contract` | ❌ | — | Alias para contract_id (sincronizado via pre-save) |
+| `contract_id` | `ObjectId` → `Contract` | ❌* | — | ID do contrato vinculado; `required: function(){ return !["query_agreements","reports"].includes(this.action) }` + alias-aware (`!this.contractId`); opcional para `query_agreements`/`reports` (jobs globais) |
+| `contractId` | `ObjectId` → `Contract` | ❌* | — | Alias para contract_id (sincronizado via pre-save); mesma regra condicional |
 
 ### Campos — Ação e Status
 
 | Campo | Tipo | Obrigatório | Default | Descrição |
 | ----- | ---- | ----------- | ------- | --------- |
-| `action` | `String` | ✅ | — | `enum`: send, status, download, resend, reports |
+| `action` | `String` | ✅ | — | `enum`: send, status, download, resend, reports, **query_agreements** (AD-053) |
 | `status` | `String` | ❌ | `"pending"` | `enum`: pending, processing, running, completed, success, failed, retrying |
+| `originalStatus` | `String` | ❌ | `null` | Status do contrato antes do lock `em_processamento_robot` (AD-051) |
 
 ### Campos — Modo de Operação
 
@@ -638,7 +644,16 @@ Nenhum índice explícito além de `_id`.
 | ----- | ---- | ----------- | --------- |
 | `envelopeId` | `String` | ❌ | ID do envelope retornado pela DocuSign |
 | `signedDocPath` | `String` | ❌ | Caminho do arquivo PDF baixado |
-| `result` | `Mixed` | ❌ | Dados de retorno genéricos |
+| `result` | `Mixed` | ❌ | Dados de retorno genéricos (ex: `{envelopes:[]}` para `query_agreements`) |
+| `originalStatus` | `String` | ❌ | Status original do contrato pré-lock (AD-051) |
+
+### Campos — Controle de Concorrência e Lock Multi-Instância
+
+| Campo | Tipo | Obrigatório | Default | Descrição |
+| ----- | ---- | ----------- | ------- | --------- |
+| `locked_by` | `String` | ❌ | `null` | `instance_id` que detém o lock |
+| `lock_expires_at` | `Date` | ❌ | `null` | Expiração do lock (10 min) |
+| `instance_metadata` | `Mixed` | ❌ | `null` | Metadados da instância |
 
 ### Campo — Auditoria
 
@@ -653,14 +668,17 @@ Nenhum índice explícito além de `_id`.
 | Padrão | `contract_id` | Simples |
 | Padrão | `status` | Simples |
 | Padrão | `next_retry_at` | Simples |
+| Padrão | `locked_by` | Simples |
+| Padrão | `lock_expires_at` | Simples |
 | Composto | `{ contractId: 1, status: 1 }` | Composto |
 | Composto | `{ createdAt: -1 }` | Ordenação descendente |
+| Composto | `{ status: 1, action: 1, lock_expires_at: 1, createdAt: 1 }` | Dual-robot (AD-053) — cobre `findOneAndUpdate` filtrado por `action`+lock |
 
 ### Enums
 
 | Campo | Valores |
 | ----- | ------- |
-| `action` | send, status, download, resend, reports |
+| `action` | send, status, download, resend, reports, query_agreements |
 | `status` | pending, processing, running, completed, success, failed, retrying |
 | `mode` | robot, api |
 | `steps[].status` | pending, running, success, failed |
@@ -676,8 +694,56 @@ Nenhum índice explícito além de `_id`.
 
 | Campo | Ref | Tipo | Cardinalidade |
 | ----- | --- | ---- | ------------- |
-| `contract_id` | Contract | obrigatório | Muitos RobotJobs → 1 Contract |
+| `contract_id` | Contract | condicional* | Muitos RobotJobs → 1 Contract (opcional para `query_agreements`/`reports`) |
 | `created_by` | User | opcional | Muitos RobotJobs → 1 User |
+
+## 12. RobotSession (`robot_sessions`)
+
+**Database**: `crm_contracts` (conexão secundária via `getContractsConnection()`)
+**Arquivo**: `backend/src/modules/robot-docusign/models/RobotSession.js`
+
+| Campo | Tipo | Obrigatório | Default | Descrição |
+| ----- | ---- | ----------- | ------- | --------- |
+| `email` | `String` | ✅ | — | E-mail DocuSign (unique, index, lower/trim) |
+| `cookies` | `Mixed` | ✅ | — | Cookies Playwright |
+| `localStorage` | `Mixed` | ❌ | — | Storage |
+| `user_agent`/`userAgent` | `String` | ❌ | — | Alias UA |
+| `expires_at`/`expiresAt` | `Date` | ✅ | — | Expiração (alias sync via `pre("save")`) |
+| `last_used_at`/`lastUsedAt` | `Date` | ❌ | `Date.now` | Último uso (alias) |
+
+**Hooks**: `pre("save")` `syncSessionAliases` (snake↔camel).
+
+## 13. RobotInstance (`robot_instances`)
+
+**Database**: `crm_contracts` (conexão secundária via `getContractsConnection()`)
+**Arquivo**: `backend/src/modules/robot-docusign/models/RobotInstance.js`
+
+| Campo | Tipo | Obrigatório | Default | Descrição |
+| ----- | ---- | ----------- | ------- | --------- |
+| `instance_id` | `String` | ✅ | — | ID único (unique, index) ex: `robot-query-1` |
+| `role` | `String` | ❌ | `"all"` | `enum: query, update, all` (index, AD-053) |
+| `status` | `String` | ❌ | `"idle"` | `enum: active, idle, busy, offline` (index) |
+| `last_heartbeat` | `Date` | ❌ | `Date.now` | Heartbeat (index) |
+| `current_job_id` | `ObjectId` → `RobotJob` | ❌ | `null` | Job em processamento |
+| `jobs_processed_today` | `Number` | ❌ | `0` | Contador diário |
+| `machine_info` | `Object` | ❌ | — | hostname, platform, arch, app_version |
+
+## 14. SystemConfig (`systemconfigs`)
+
+**Database**: `db_crm_funil` (padrão)
+**Arquivo**: `backend/src/models/SystemConfig.js`
+
+| Campo | Tipo | Obrigatório | Default | Descrição |
+| ----- | ---- | ----------- | ------- | --------- |
+| `key` | `String` | ✅ | `"access_restriction"` | Chave única (unique) — ex: `robot_docusign`, `access_restriction` |
+| `value` | `Mixed` | ❌ | `{}` | Payload (`mode`, `operations`, `schedule`, `credentials`, `token_notification_email`, `mfa`, `limits`, `retry`) |
+| `updatedBy` | `ObjectId` → `User` | ❌ | — | Quem atualizou |
+
+---
+
+## 15. DocusignEnvelope (`docusign_envelopes`) — legado
+
+**Database**: `crm_contracts`
 
 ### Campos
 
@@ -732,8 +798,12 @@ Nenhum índice explícito além de `_id`.
 | Contract | `opportunityId` | Opportunity | opcional (M→1) | crm_contracts → db_crm_funil |
 | Contract | `createdBy` | User | opcional (M→1) | crm_contracts → db_crm_funil |
 | DocusignEnvelope | `contractId` | Contract | obrigatório (1→1) | crm_contracts |
-| RobotJob | `contract_id` | Contract | obrigatório (M→1) | crm_contracts |
+| RobotJob | `contract_id` | Contract | condicional (M→1) | crm_contracts |
 | RobotJob | `created_by` | User | opcional (M→1) | crm_contracts → db_crm_funil |
+| RobotSession | `email` | — | único | crm_contracts |
+| RobotInstance | `instance_id` | — | único | crm_contracts |
+| RobotInstance | `current_job_id` | RobotJob | opcional (M→1) | crm_contracts |
+| SystemConfig | `updatedBy` | User | opcional (M→1) | db_crm_funil |
 
 ---
 
@@ -757,8 +827,13 @@ Nenhum índice explícito além de `_id`.
 | **ImportProfile** | `equipe_venda` | SMB, ULTRA |
 | **AuditLog** | `entidade` | SalesCampaign, User |
 | **WatchlistConfig** | `sellerFilter` | all, active, inactive |
-| **Contract** | `status` | rascunho, gerado, enviado, assinado, cancelado |
+| **Contract** | `status` | rascunho, gerado, em_processamento_robot, enviado, assinado, cancelado |
+| **RobotJob** | `action` | send, status, download, resend, reports, query_agreements |
+| **RobotJob** | `status` | pending, processing, running, completed, success, failed, retrying |
+| **RobotInstance** | `role` | query, update, all |
+| **RobotInstance** | `status` | active, idle, busy, offline |
 | **DocusignEnvelope** | `status` | rascunho, created, sent, delivered, completed, declined, voided |
+| **SystemConfig** | `key` | robot_docusign, access_restriction (unique) |
 | **Contract** | `negotiation[].tipoLinha` | port-in, linha-nova |
 | **Contract** | `negotiation[].portabilityLines[].tipoCedente` | PF, PJ |
 | **Contract** | `documents[].type` | termo, proposta, permanencia |
