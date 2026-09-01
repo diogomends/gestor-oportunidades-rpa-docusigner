@@ -93,6 +93,48 @@ export function decodeMimeHeader(header) {
 }
 
 /**
+ * Extrai metadados (Subject, Date, body) de uma resposta de FETCH IMAP.
+ * Realiza unfolding de cabeçalhos RFC 5322 para suportar campos multi-linha.
+ *
+ * @param {string} raw - Resposta bruta do comando IMAP FETCH.
+ * @returns {{ subject: string, date: Date|null, body: string }} Objeto com metadados do e-mail.
+ */
+export function parseEmailMetadata(raw) {
+  if (!raw || typeof raw !== "string") {
+    return { subject: "", date: null, body: "" };
+  }
+
+  let date = null;
+  const internalDateMatch = raw.match(/INTERNALDATE\s+"([^"]+)"/i);
+  if (internalDateMatch && internalDateMatch[1]) {
+    const parsed = new Date(internalDateMatch[1]);
+    if (!isNaN(parsed.getTime())) {
+      date = parsed;
+    }
+  }
+
+  const unfoldedRaw = raw.replace(/\r?\n[ \t]+/g, " ");
+
+  let subject = "";
+  const subjectMatch = unfoldedRaw.match(/^Subject:\s*(.+)$/im);
+  if (subjectMatch && subjectMatch[1]) {
+    subject = decodeMimeHeader(subjectMatch[1]);
+  }
+
+  if (!date) {
+    const dateHeaderMatch = unfoldedRaw.match(/^Date:\s*(.+)$/im);
+    if (dateHeaderMatch && dateHeaderMatch[1]) {
+      const parsed = new Date(dateHeaderMatch[1].trim());
+      if (!isNaN(parsed.getTime())) {
+        date = parsed;
+      }
+    }
+  }
+
+  return { subject, date, body: raw };
+}
+
+/**
  * Extrai o código de 6 dígitos do corpo da mensagem DocuSign.
  *
  * @param {string} text - Texto bruto ou decodificado do e-mail.
@@ -135,14 +177,15 @@ export function extractMfaCodeFromText(text) {
 /**
  * Formata um objeto Date para o formato de data IMAP (DD-Mon-YYYY).
  *
- * @param {Date} date - Objeto Date a ser formatado.
+ * @param {Date} [date] - Objeto Date a ser formatado. Padrão: data atual.
  * @returns {string} Data formatada para IMAP.
  */
 export function formatImapDate(date) {
+  const d = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const day = String(date.getDate()).padStart(2, "0");
-  const mon = months[date.getMonth()];
-  const year = date.getFullYear();
+  const day = String(d.getDate()).padStart(2, "0");
+  const mon = months[d.getMonth()];
+  const year = d.getFullYear();
   return `${day}-${mon}-${year}`;
 }
 
@@ -204,96 +247,105 @@ export class ImapClient {
       };
 
       const onConnect = () => {
-        let initialBuffer = "";
-        const onData = (chunk) => {
-          initialBuffer += chunk.toString("utf8");
-          if (initialBuffer.includes("* OK") || initialBuffer.includes("* PREAUTH")) {
-            this.socket.removeListener("data", onData);
-            clearTimeout(timer);
-            if (!isSettled) {
-              isSettled = true;
-              resolve();
-            }
-          }
-        };
-        this.socket.on("data", onData);
+        // Conexão TCP/TLS estabelecida; aguarda o banner "* OK"
       };
 
-      try {
-        if (this.useTls) {
-          this.socket = tls.connect(connectOpts, onConnect);
-        } else {
-          this.socket = net.connect(connectOpts, onConnect);
-        }
-      } catch (err) {
-        clearTimeout(timer);
-        isSettled = true;
-        reject(err);
-        return;
-      }
-
-      this.socket.on("error", (err) => {
-        clearTimeout(timer);
+      const onError = (err) => {
         if (!isSettled) {
           isSettled = true;
-          this.close();
+          clearTimeout(timer);
           reject(err);
         }
-      });
+      };
+
+      if (this.useTls) {
+        this.socket = tls.connect(connectOpts, onConnect);
+      } else {
+        this.socket = net.connect(connectOpts, onConnect);
+      }
+
+      let buffer = "";
+      const onData = (data) => {
+        buffer += data.toString("utf8");
+        if (buffer.includes("* OK") || buffer.includes("* PREAUTH")) {
+          this.socket.removeListener("data", onData);
+          if (!isSettled) {
+            isSettled = true;
+            clearTimeout(timer);
+            resolve();
+          }
+        }
+      };
+
+      this.socket.on("data", onData);
+      this.socket.on("error", onError);
     });
   }
 
   /**
-   * Envia um comando IMAP com tag única e aguarda a resposta final (OK, NO ou BAD).
+   * Envia um comando IMAP com tag única e aguarda a linha de conclusão (OK, NO ou BAD).
    *
-   * @param {string} command - Comando IMAP a ser enviado.
-   * @returns {Promise<string>} Resposta textual completa do servidor.
+   * @param {string} command - Comando IMAP (sem tag).
+   * @returns {Promise<string>} Resposta bruta recebida do servidor.
    */
   async sendCommand(command) {
-    if (!this.socket || this.socket.destroyed) {
-      throw new Error("Socket IMAP não está conectado");
-    }
-
-    const tag = `A${++this.tagCounter}`;
-    const rawCommand = `${tag} ${command}\r\n`;
-
     return new Promise((resolve, reject) => {
-      let buffer = "";
-      let timer = null;
+      if (!this.socket || this.socket.destroyed) {
+        return reject(new Error("Socket IMAP não está conectado"));
+      }
+
+      this.tagCounter += 1;
+      const tag = `A${String(this.tagCounter).padStart(4, "0")}`;
+      const rawCommand = `${tag} ${command}\r\n`;
+
+      let responseBuffer = "";
+      let isSettled = false;
+
+      const timer = setTimeout(() => {
+        if (!isSettled) {
+          isSettled = true;
+          cleanup();
+          reject(new Error(`Timeout (${this.timeout}ms) aguardando resposta para o comando: ${command}`));
+        }
+      }, this.timeout);
 
       const cleanup = () => {
-        if (timer) clearTimeout(timer);
+        clearTimeout(timer);
         if (this.socket) {
           this.socket.removeListener("data", onData);
           this.socket.removeListener("error", onError);
         }
       };
 
-      timer = setTimeout(() => {
-        cleanup();
-        reject(new Error(`Timeout (${this.timeout}ms) aguardando resposta do comando IMAP: ${command}`));
-      }, this.timeout);
-
-      const onData = (chunk) => {
-        buffer += chunk.toString("utf8");
-        const lines = buffer.split("\r\n");
+      const onData = (data) => {
+        responseBuffer += data.toString("utf8");
+        const lines = responseBuffer.split("\r\n");
         for (const line of lines) {
           if (line.startsWith(`${tag} OK`)) {
-            cleanup();
-            resolve(buffer);
+            if (!isSettled) {
+              isSettled = true;
+              cleanup();
+              resolve(responseBuffer);
+            }
             return;
           }
           if (line.startsWith(`${tag} NO`) || line.startsWith(`${tag} BAD`)) {
-            cleanup();
-            reject(new Error(`Comando IMAP falhou (${line}): ${buffer}`));
+            if (!isSettled) {
+              isSettled = true;
+              cleanup();
+              reject(new Error(`Comando IMAP falhou (${line.trim()}): ${command}`));
+            }
             return;
           }
         }
       };
 
       const onError = (err) => {
-        cleanup();
-        reject(err);
+        if (!isSettled) {
+          isSettled = true;
+          cleanup();
+          reject(err);
+        }
       };
 
       this.socket.on("data", onData);
@@ -332,7 +384,7 @@ export class ImapClient {
    * @param {Object} [criteria={}] - Critérios de busca.
    * @param {string} [criteria.subject] - Filtro de assunto.
    * @param {Date} [criteria.since] - Data inicial de busca.
-   * @returns {Promise<number[]>} Array de UIDs ou Sequence Numbers.
+   * @returns {Promise<number[]>} Array de Sequence Numbers.
    */
   async search(criteria = {}) {
     let query = "SEARCH";
@@ -360,6 +412,11 @@ export class ImapClient {
    * @param {string} email - E-mail de autenticação.
    * @param {string} password - Senha de autenticação.
    * @param {Object} [options={}] - Parâmetros adicionais de filtro.
+   * @param {string[]} [options.excludedCodes] - Lista de códigos já testados e rejeitados.
+   * @param {number} [options.mfaTriggerTime] - Timestamp em ms do instante de disparo do login.
+   * @param {number} [options.mfaMaxAgeMs] - Janela máxima em ms para mensagens pré-existentes.
+   * @param {number} [options.clockDriftMarginMs=60000] - Margem de tolerância para clock drift em ms.
+   * @param {string} [options.subjectFilter] - Filtro opcional de assunto.
    * @returns {Promise<string|null>} Código de 6 dígitos encontrado ou null.
    */
   async fetchLatestMfaCode(email, password, options = {}) {
@@ -370,23 +427,61 @@ export class ImapClient {
       await this.selectInbox();
     }
 
-    const { excludedCodes = [], mfaTriggerTime = null, mfaMaxAgeMs = DEFAULT_MFA_MAX_AGE_MS } = options;
-    const sinceDate = mfaTriggerTime ? new Date(mfaTriggerTime - mfaMaxAgeMs) : new Date(Date.now() - mfaMaxAgeMs);
+    const {
+      excludedCodes = [],
+      mfaTriggerTime = null,
+      mfaMaxAgeMs = DEFAULT_MFA_MAX_AGE_MS,
+      clockDriftMarginMs = 60000,
+      subjectFilter = null,
+    } = options;
 
-    const ids = await this.search({ since: sinceDate });
+    const todayDate = new Date();
+    let ids = await this.search({ since: todayDate });
+    if (!ids || ids.length === 0) {
+      const fallbackSince = mfaTriggerTime
+        ? new Date(mfaTriggerTime - mfaMaxAgeMs)
+        : new Date(Date.now() - mfaMaxAgeMs);
+      ids = await this.search({ since: fallbackSince });
+    }
+    if (!ids || ids.length === 0) {
+      ids = await this.search();
+    }
+
     if (!ids || ids.length === 0) {
       return null;
     }
 
-    // Analisa dos mais recentes para os mais antigos (últimos 5)
-    const recentIds = ids.slice(-5).reverse();
+    // Analisa dos mais recentes para os mais antigos
+    const recentIds = ids.slice(-10).reverse();
 
     for (const id of recentIds) {
       try {
-        const fetchRes = await this.sendCommand(`FETCH ${id} (BODY.PEEK[])`);
-        const code = extractMfaCodeFromText(fetchRes);
+        const fetchRes = await this.sendCommand(`FETCH ${id} (INTERNALDATE BODY.PEEK[])`);
+        const metadata = parseEmailMetadata(fetchRes);
 
-        if (code && /^\d{6}$/.test(code) && !excludedCodes.includes(code)) {
+        // Validação de Assunto opcional
+        if (subjectFilter && metadata.subject) {
+          const matchesSubject = metadata.subject.toLowerCase().includes(subjectFilter.toLowerCase());
+          if (!matchesSubject) continue;
+        }
+
+        // Validação estrita de Timestamp contra o momento de disparo do login
+        if (mfaTriggerTime && metadata.date) {
+          const emailTime = metadata.date.getTime();
+          // Rejeita e-mails recebidos antes do disparo de login (com margem de clock drift)
+          if (emailTime < (mfaTriggerTime - clockDriftMarginMs)) {
+            continue;
+          }
+        }
+
+        const code = extractMfaCodeFromText(metadata.body);
+
+        if (code && /^\d{6}$/.test(code)) {
+          if (excludedCodes.includes(code)) {
+            continue;
+          }
+          // Marca a mensagem processada com sucesso como lida (\Seen)
+          await this.sendCommand(`STORE ${id} +FLAGS (\\Seen)`).catch(() => {});
           return code;
         }
       } catch (err) {
@@ -508,6 +603,7 @@ export default {
   decodeQuotedPrintable,
   decodeBase64,
   decodeMimeHeader,
+  parseEmailMetadata,
   extractMfaCodeFromText,
   formatImapDate,
   escapeImapString,
