@@ -24,14 +24,18 @@ import logger from "./utils/logger.js";
  * 2. Authenticates against the backend API via ROBOT_KEY
  * 3. Retrieves system configuration and registers initial heartbeat
  * 4. Starts the job runner and polling scheduler with graceful shutdown handlers
+ * @param {string} [roleOverride] - Optional role override ("query" | "update" | "all").
  * @returns {Promise<void>}
  */
-async function bootstrap() {
+export async function bootstrap(roleOverride) {
   console.log("==================================================");
   console.log("🤖 Robô RPA DocuSigner - Gestor de Oportunidades");
   console.log("==================================================");
 
   const config = loadConfig();
+  if (roleOverride) {
+    config.ROBOT_ROLE = roleOverride;
+  }
   logger.step("Main", `Conectando a: ${config.API_URL}`);
   logger.step("Main", `Papel (ROBOT_ROLE): ${config.ROBOT_ROLE} | Sessão: ${config.DOCUSIGN_SESSION_PATH}`);
   logger.step("Main", `Modo Navegador: ${config.HEADLESS ? "Headless (sem janela)" : "Headed (com janela)"}`);
@@ -82,5 +86,11 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+// Executa bootstrap automaticamente quando executado como script principal
+if (typeof process !== "undefined" && process.argv && process.argv[1] && process.argv[1].endsWith("main.js")) {
+  bootstrap();
+} else if (typeof process !== "undefined" && !process.argv) {
+  bootstrap();
+}
+
 

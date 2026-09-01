@@ -328,13 +328,22 @@
 - **Date**: 2026-09-01
 - **Status**: active
 
+### AD-055
+- **Decision**: Correção de compatibilidade no pipeline de build do robô standalone (`robot/build/build.js`, `robot/src/main.js`, `robot/src/main-query.js`, `robot/src/main-update.js`): (1) Exportação de `bootstrap(roleOverride)` em `src/main.js` com execução condicional direta; (2) Invocação direta `bootstrap("query")` e `bootstrap("update")` nos launchers locais sem `await import()` dinâmico; (3) Apontamento de `entryFile` diretamente para `src/main.js` no `build.js` para compilação via `esbuild --format=cjs`.
+- **Reason**: `esbuild` com target CJS bloqueava a compilação por falta de suporte a *top-level await* em `await import("./main.js")` e gerava warning de colisão em `--define:process.env.ROBOT_ROLE` na atribuição estática.
+- **Trade-off**: N/A. Preserva a execução via CLI local e o empacotamento automatizado dos executáveis standalone.
+- **Scope**: `robot/src/main.js`, `robot/src/main-query.js`, `robot/src/main-update.js`, `robot/build/build.js`, `.specs/STATE.md`
+- **Date**: 2026-09-01
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: robot/dois-robos-consulta-atualizacao + hardening AD-054
-- **Phase / Task**: T1-T11 + AD-054 (Feature Completa + Docs sync)
-- **Completed**: Dual-robot (AD-053) + hardening (AD-054: roleActions DRY, normalizeString, JWT fail-hard prod, auto-download paritário, fachadas DIP, ROLE_MISMATCH, build migração) + docs: schema 14 modelos/3 DB, validation AC-01.7 gates atualizados, AGENTS árvore, routes-inventory 22 endpoints via `make routes-inventory` --check pass. Gate backend 152 + 9 RobotJob + 14 statusSyncScheduler + 36 controller = 208 pass, node --check 6 OK.
+- **Feature**: robot/dois-robos-consulta-atualizacao + hardening AD-054/AD-055
+- **Phase / Task**: T1-T11 + AD-054/AD-055 (Feature Completa + Build Fix)
+- **Completed**: Dual-robot (AD-053), hardening (AD-054) e correção do pipeline esbuild CJS (AD-055: export bootstrap, remoção top-level await, entryFile direto no build).
 - **In-progress**: nenhum
-- **Next step**: Pronto para PR/merge
+- **Next step**: Pronto para commit, PR e merge
 - **Blockers**: none
 - **Branch**: main
+
 
