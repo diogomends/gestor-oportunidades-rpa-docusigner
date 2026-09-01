@@ -52,8 +52,12 @@ export function isEligibleForSend(contract) {
  * @constant
  * @type {Object}
  */
-export const GERADO_ELIGIBLE_FILTER = {
-  status: { $ne: "rascunho" },
+export const GERADO_ELIGIBLE_FILTER = Object.freeze({
+  status: {
+    $exists: true,
+    $ne: null,
+    $nin: ["rascunho", "enviado", "assinado", "cancelado", "em_processamento_robot"],
+  },
   "documents.originalUrl": { $exists: true, $ne: null, $ne: "" },
   $or: [
     { "client.representante.email": { $exists: true, $ne: null, $ne: "" } },
@@ -61,33 +65,33 @@ export const GERADO_ELIGIBLE_FILTER = {
     { email: { $exists: true, $ne: null, $ne: "" } },
     { clientEmail: { $exists: true, $ne: null, $ne: "" } },
   ],
-};
+});
 
 /**
  * Alias semântico para o filtro Mongo de contratos elegíveis para envio.
  * @constant
- * @type {Object}
+ * @type {Readonly<Object>}
  */
 export const CONTRACT_ELIGIBLE_FILTER = GERADO_ELIGIBLE_FILTER;
 
 /**
  * Alias semântico plural para o filtro Mongo de contratos elegíveis para envio.
  * @constant
- * @type {Object}
+ * @type {Readonly<Object>}
  */
 export const ELIGIBLE_CONTRACTS_FILTER = GERADO_ELIGIBLE_FILTER;
 
 /**
  * Exportação padrão do helper de elegibilidade de contratos.
  * @constant
- * @type {Object}
+ * @type {Readonly<Object>}
  */
-export default {
+export default Object.freeze({
   hasPdf,
   hasRecipientEmail,
   isEligibleForSend,
   GERADO_ELIGIBLE_FILTER,
   CONTRACT_ELIGIBLE_FILTER,
   ELIGIBLE_CONTRACTS_FILTER,
-};
+});
 

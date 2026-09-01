@@ -17,21 +17,7 @@ if (fs.existsSync(envDevPath)) {
   dotenv.config({ path: envPath });
 }
 
-/**
- * Filtro de contratos elegíveis para envio (não-rascunho com PDF e e-mail).
- * @constant
- * @type {object}
- */
-const GERADO_ELIGIBLE_FILTER = {
-  status: { $ne: "rascunho" },
-  "documents.originalUrl": { $exists: true, $ne: null, $ne: "" },
-  $or: [
-    { "client.representante.email": { $exists: true, $ne: null, $ne: "" } },
-    { "signer.email": { $exists: true, $ne: null, $ne: "" } },
-    { email: { $exists: true, $ne: null, $ne: "" } },
-    { clientEmail: { $exists: true, $ne: null, $ne: "" } },
-  ],
-};
+import { GERADO_ELIGIBLE_FILTER } from "../backend/src/modules/robot-docusign/utils/contractEligibility.js";
 
 
 /**
@@ -96,15 +82,27 @@ async function run() {
 
     // 3. Contratos Ativos (Status != 'rascunho') e Elegibilidade
     console.log(`\x1b[36m📄 3. CONTRATOS ATIVOS (STATUS != 'RASCUNHO') AGUARDANDO ENVIO (crm_contracts.contracts)\x1b[0m`);
+    const contractProjection = {
+      _id: 1,
+      name: 1,
+      clientName: 1,
+      status: 1,
+      documents: 1,
+      client: 1,
+      signer: 1,
+      email: 1,
+      clientEmail: 1,
+    };
+
     const allActiveContracts = await dbContracts
       .collection("contracts")
-      .find({ status: { $ne: "rascunho" } })
+      .find({ status: { $ne: "rascunho" } }, { projection: contractProjection })
       .sort({ createdAt: 1 })
       .toArray();
 
     const eligibleContracts = await dbContracts
       .collection("contracts")
-      .find(GERADO_ELIGIBLE_FILTER)
+      .find(GERADO_ELIGIBLE_FILTER, { projection: contractProjection })
       .sort({ createdAt: 1 })
       .toArray();
 

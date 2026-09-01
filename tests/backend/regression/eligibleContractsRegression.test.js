@@ -11,8 +11,19 @@ import contractEligibility, {
 
 describe("Regression Tests: Contract Eligibility (Non-Draft & Aliases)", () => {
   describe("Filtro MongoDB (GERADO_ELIGIBLE_FILTER e Aliases)", () => {
-    it("deve conter a regra de status diferente de rascunho", () => {
-      assert.deepStrictEqual(GERADO_ELIGIBLE_FILTER.status, { $ne: "rascunho" });
+    it("deve conter a regra de status com blocklist estrita e proteção contra nulo", () => {
+      assert.deepStrictEqual(GERADO_ELIGIBLE_FILTER.status, {
+        $exists: true,
+        $ne: null,
+        $nin: ["rascunho", "enviado", "assinado", "cancelado", "em_processamento_robot"],
+      });
+    });
+
+    it("deve garantir que os filtros exportados sejam imutáveis (Object.freeze)", () => {
+      assert.strictEqual(Object.isFrozen(GERADO_ELIGIBLE_FILTER), true);
+      assert.strictEqual(Object.isFrozen(CONTRACT_ELIGIBLE_FILTER), true);
+      assert.strictEqual(Object.isFrozen(ELIGIBLE_CONTRACTS_FILTER), true);
+      assert.strictEqual(Object.isFrozen(contractEligibility), true);
     });
 
     it("deve exigir documento originalUrl existente e não-vazio", () => {
@@ -66,24 +77,21 @@ describe("Regression Tests: Contract Eligibility (Non-Draft & Aliases)", () => {
       assert.strictEqual(hasRecipientEmail({ clientEmail: "client@exemplo.com" }), true);
     });
 
-    it("isEligibleForSend deve aprovar contratos não-rascunho com PDF e e-mail", () => {
-      const validContract = {
-        status: "pendente",
+    it("isEligibleForSend deve validar integridade de PDF e e-mail em memória independentemente do campo status", () => {
+      const validPayload = {
         documents: [{ originalUrl: "/uploads/contrato-123.pdf" }],
         client: { representante: { email: "cliente@empresa.com" } },
       };
 
-      assert.strictEqual(isEligibleForSend(validContract), true);
+      assert.strictEqual(isEligibleForSend(validPayload), true);
     });
 
     it("isEligibleForSend deve reprovar contratos sem PDF ou sem e-mail", () => {
       const missingPdf = {
-        status: "gerado",
         documents: [],
         email: "teste@empresa.com",
       };
       const missingEmail = {
-        status: "em_aprovacao",
         documents: [{ originalUrl: "/uploads/contrato-456.pdf" }],
       };
 

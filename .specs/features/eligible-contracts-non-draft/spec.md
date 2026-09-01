@@ -10,15 +10,15 @@ Esta especificação define a ampliação dos critérios de busca no banco compa
 
 ## Requisitos Funcionais
 
-### [REQ-ELIG-02] Filtro MongoDB para Contratos Não-Rascunho
-O helper centralizado `contractEligibility.js` DEVE fornecer uma query de filtro MongoDB que selecione documentos onde o campo `status` seja diferente de `"rascunho"`, `documents.originalUrl` exista e seja não-nulo e não-vazio, e contenha ao menos um e-mail válido entre os campos `client.representante.email`, `signer.email`, `email` ou `clientEmail`.
+### [REQ-ELIG-02] Filtro MongoDB para Contratos Elegíveis com Blocklist Estrita
+O helper centralizado `contractEligibility.js` DEVE fornecer uma query de filtro MongoDB que selecione documentos onde o campo `status` exista, seja não-nulo e não pertença à blocklist de status inelegíveis (`$nin: ["rascunho", "enviado", "assinado", "cancelado", "em_processamento_robot"]`), `documents.originalUrl` exista e seja não-nulo e não-vazio, e contenha ao menos um e-mail válido entre os campos `client.representante.email`, `signer.email`, `email` ou `clientEmail`.
 
-### [REQ-ELIG-03] Compatibilidade Referencial e Aliases
-Para evitar breaking changes com imports existentes no servidor backend, agendador e controllers, o módulo DEVE manter exportada a constante `GERADO_ELIGIBLE_FILTER` com a nova regra e expor aliases explícitos `CONTRACT_ELIGIBLE_FILTER` e `ELIGIBLE_CONTRACTS_FILTER`.
+### [REQ-ELIG-03] Compatibilidade Referencial, Aliases e Imutabilidade
+Para evitar breaking changes com imports existentes no servidor backend, agendador e controllers, o módulo DEVE manter exportada a constante `GERADO_ELIGIBLE_FILTER` com a regra hardened e expor aliases explícitos `CONTRACT_ELIGIBLE_FILTER` e `ELIGIBLE_CONTRACTS_FILTER`, garantindo imutabilidade com `Object.freeze`.
 
-### [REQ-ELIG-04] Preservação de Integridade em 3 Camadas
+### [REQ-ELIG-04] Preservação de Integridade em 3 Camadas e Revert Não-Destrutivo
 A validação de integridade DEVE ser mantida em todas as 3 camadas do sistema:
-1. **Banco / Lock**: `getNextJob` em `robotInstanceController.js` e fallback do `robotScheduler.js` consultam o MongoDB com a query filtrada.
+1. **Banco / Lock**: `getNextJob` em `robotInstanceController.js` consulta o MongoDB com a query filtrada, salva o `originalStatus` pré-lock e, em caso de erro/falha, restaura fielmente o status original sem rebaixar indevidamente para `"gerado"`.
 2. **Memória**: `isEligibleForSend` valida em memória a presença de PDF e e-mail após sanitização com `trim()`.
 3. **Pré-Execução do Robô**: `job-runner.js` valida `pdfUrl` e `recipientEmail` antes de disparar o navegador Playwright.
 
@@ -28,14 +28,14 @@ A validação de integridade DEVE ser mantida em todas as 3 camadas do sistema:
 
 ### US-014: Busca de Contratos Elegíveis com Status Não-Rascunho
 
-**User Story**: Como operador e sistema CRM, quero que o Robô DocuSigner busque e processe qualquer contrato/card que não esteja em `"rascunho"`, para que contratos em diferentes etapas do funil possam ser enviados automaticamente assim que tiverem PDF e e-mail preenchidos.
+**User Story**: Como operador e sistema CRM, quero que o Robô DocuSigner busque e processe qualquer contrato/card que não esteja em `"rascunho"`, `"enviado"`, `"assinado"`, `"cancelado"` ou em processamento, para que contratos em diferentes etapas do funil possam ser enviados automaticamente assim que tiverem PDF e e-mail preenchidos.
 
 #### Acceptance Criteria (EARS Notation)
-1. **[AC-01]** WHEN o robô busca o próximo job (`getNextJob`) ou o scheduler executa (`processPendingJobs`) THEN o sistema SHALL consultar contratos no MongoDB com a condição `{ status: { $ne: "rascunho" } }`.
-2. **[AC-02]** WHEN um contrato possui `status: "rascunho"` THEN o sistema SHALL ignorar o contrato na busca automática.
-3. **[AC-03]** WHEN um contrato possui status diferente de `"rascunho"` E possui `documents.originalUrl` preenchido E possui e-mail válido em `client.representante.email`, `signer.email`, `email` ou `clientEmail` THEN o sistema SHALL considerá-lo elegível para processamento.
-4. **[AC-04]** WHEN um contrato possui status diferente de `"rascunho"` mas NÃO possui PDF anexado ou e-mail válido THEN o sistema SHALL ignorá-lo sem travar a fila e sem alterar indevidamente seu status original.
-5. **[AC-05]** WHEN a ferramenta de diagnóstico `check-pending-jobs.js` for executada THEN ela SHALL contabilizar e exibir contratos não-rascunho elegíveis e incompletos.
+1. **[AC-01]** WHEN o robô busca o próximo job (`getNextJob`) THEN o sistema SHALL consultar contratos no MongoDB excluindo status terminais (`$nin: ["rascunho", "enviado", "assinado", "cancelado", "em_processamento_robot"]`) e exigindo campo status não-nulo.
+2. **[AC-02]** WHEN um contrato possui `status: "rascunho"`, `"enviado"`, `"assinado"` ou `"cancelado"` THEN o sistema SHALL ignorar o contrato na busca automática.
+3. **[AC-03]** WHEN um contrato possui status elegível E possui `documents.originalUrl` preenchido E possui e-mail válido em `client.representante.email`, `signer.email`, `email` ou `clientEmail` THEN o sistema SHALL considerá-lo elegível para processamento.
+4. **[AC-04]** WHEN um contrato possui status elegível mas NÃO possui PDF anexado ou e-mail válido THEN o sistema SHALL ignorá-lo sem travar a fila e restaurando seu `originalStatus` pré-lock.
+5. **[AC-05]** WHEN a ferramenta de diagnóstico `check-pending-jobs.js` for executada THEN ela SHALL importar o filtro compartilhado e exibir contratos elegíveis e incompletos.
 
 ---
 
@@ -43,7 +43,8 @@ A validação de integridade DEVE ser mantida em todas as 3 camadas do sistema:
 
 | Requisito | User Story | Componentes Afetados | Teste de Cobertura | Status |
 |---|---|---|---|---|
-| REQ-ELIG-02 | US-014 | `contractEligibility.js`, `robotScheduler.js` | `eligibleContractsRegression.test.js` | Implemented |
+| REQ-ELIG-02 | US-014 | `contractEligibility.js`, `tools/check-pending-jobs.js` | `eligibleContractsRegression.test.js` | Implemented |
 | REQ-ELIG-03 | US-014 | `contractEligibility.js` | `eligibleContractsRegression.test.js` | Implemented |
-| REQ-ELIG-04 | US-014 | `robotInstanceController.js`, `job-runner.js` | `eligibleContractsRegression.test.js` | Implemented |
+| REQ-ELIG-04 | US-014 | `robotInstanceController.js`, `Contract.js`, `RobotJob.js` | `eligibleContractsRegression.test.js` | Implemented |
+
 

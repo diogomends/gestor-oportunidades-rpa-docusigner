@@ -287,19 +287,19 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
-### AD-050
-- **Decision**: Ampliação do filtro de elegibilidade de contratos para envio DocuSign (`GERADO_ELIGIBLE_FILTER` em `backend/src/modules/robot-docusign/utils/contractEligibility.js`) de `status: "gerado"` para todos os status diferentes de `"rascunho"` (`status: { $ne: "rascunho" }`), exportando aliases `CONTRACT_ELIGIBLE_FILTER` e `ELIGIBLE_CONTRACTS_FILTER`, mantendo obrigatórias as validações de PDF anexado (`documents.originalUrl`) e e-mail de destinatário em 3 camadas.
-- **Reason**: Permitir que contratos em múltiplos status operacionais do funil (cards) sejam processados e enviados automaticamente pelo robô assim que possuírem documentação e e-mail válidos, sem restringir exclusivamente ao status literal `"gerado"`.
-- **Trade-off**: N/A. Contratos em `"rascunho"` continuam 100% excluídos e contratos sem PDF/e-mail são ignorados sem travar a fila.
-- **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `tools/check-pending-jobs.js`, `.specs/features/eligible-contracts-non-draft/*`
-- **Date**: 2026-08-31
+### AD-051
+- **Decision**: Hardening do filtro de contratos elegíveis com blocklist estrita (`$nin: ["rascunho", "enviado", "assinado", "cancelado", "em_processamento_robot"]`), proteção contra status nulos/ausentes e `Object.freeze` em `contractEligibility.js`; adição de `"em_processamento_robot"` ao enum de `Contract.js`; persistência de `originalStatus` pré-lock em `RobotJob` e restauração fiel no fallback de `robotInstanceController.js` (`getNextJob` e `updateJobStatus`); centralização do import de filtro em `tools/check-pending-jobs.js` com projeção de campos otimizada.
+- **Reason**: Eliminar risco de loops de reprocessamento e reenvios indevidos no DocuSign para contratos finalizados (B1), garantir conformidade do schema Mongoose e evitar rebaixamento forçado para "gerado" em falhas (B2), eliminar duplicações de código (M2), garantir imutabilidade de referências (M3) e otimizar consumo de memória na CLI.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/models/Contract.js`, `backend/src/modules/robot-docusign/models/RobotJob.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `tools/check-pending-jobs.js`, `tests/backend/regression/eligibleContractsRegression.test.js`, `.specs/features/eligible-contracts-non-draft/*`
+- **Date**: 2026-09-01
 - **Status**: active
 
 ## Handoff
 
-- **Feature**: feat/eligible-contracts-non-draft
-- **Phase / Task**: Implementação, Integração e Validação de Contratos Elegíveis Não-Rascunho (AD-050 / T01-T03)
-- **Completed**: `GERADO_ELIGIBLE_FILTER` atualizado com `status: { $ne: "rascunho" }`, aliases `CONTRACT_ELIGIBLE_FILTER` e `ELIGIBLE_CONTRACTS_FILTER` exportados, `getNextJob` alinhado com revert seguro de status, diagnóstico `tools/check-pending-jobs.js` atualizado com exibição de status, suíte de regressão implementada em `tests/backend/regression/eligibleContractsRegression.test.js`, documentação sincronizada (`AGENTS.md`, `README.md`, `tasks.md`, `spec.md`, `validation.md`, `STATE.md`).
+- **Feature**: fix/eligible-contracts-hardening
+- **Phase / Task**: Correção de Bloqueadores e Hardening de Arquitetura (AD-051 / T04-T09)
+- **Completed**: Blocklist estrita de status implementada em `contractEligibility.js`, schema de `Contract.js` atualizado com `em_processamento_robot`, `originalStatus` capturado e restaurado fielmente em `robotInstanceController.js`, `tools/check-pending-jobs.js` refatorado com import oficial e projeção, testes de regressão atualizados e documentação sincronizada.
 - **In-progress**: Finalizado e pronto para commit/PR/merge.
 - **Next step**: Executar comandos de commit, PR e merge.
 - **Blockers**: none
