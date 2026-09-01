@@ -201,19 +201,14 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
-### AD-052
-- **Decision**: Envio 100% sob demanda — removido auto-enfileiramento de `Contract` em `robotInstanceController.getNextJob`; `getNextJob` e `robotScheduler` apenas consomem `RobotJob` existente (`pending`/`retrying`), criação exclusiva via `POST /trigger`.
-- **Reason**: Evitar disparo automático sem clique no botão Enviar; envio automático causava envio não autorizado.
-- **Scope**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`
-- **Date**: 2026-09-01
-- **Status**: active
-
-
 ### AD-039
 - **Decision**: Correção do bug de sobrescrita da chave `$or` em `RobotJob.findOneAndUpdate` no endpoint `GET /api/robot-docusign/instance/next-job` (`robotInstanceController.js`) agrupando os filtros de status e lock dentro de `$and: [ { $or: ... }, { $or: ... } ]`, e adição de logs explicativos de polling no robô desktop (`robot/src/scheduler.js`).
 - **Reason**: No JavaScript, duas chaves `$or` no mesmo objeto faziam a segunda sobrescrever a primeira, ignorando o filtro de status `pending`/`retrying` e puxando jobs legados já concluídos, bloqueando a fila de processamento local.
 - **Trade-off**: N/A.
 - **Scope**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `robot/src/scheduler.js`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ### AD-040
 - **Decision**: Sincronização do modo do robô como única fonte da verdade (`enabled: robotConfig.mode === "robot"`) em `getInstanceConfig`, sincronização do `DEFAULT_ROBOT_DOCUSIGN_CONFIG` com `enabled: true, mode: "robot"`, inclusão de schemas Zod para `operations` e `schedule` em `updateConfigSchema`, e validação granular da flag `operations.send !== false` no orquestrador (`shouldUseRobot`), no scheduler periódico (`robotScheduler.js`), no lock de jobs (`getNextJob`) e no cliente frontend (`docusignService.js`).
 - **Reason**: Evitar falso-negativo no robô cliente em .exe quando registros legados no MongoDB continham `enabled: false` apesar de `mode: "robot"`, e garantir que administradores possam desabilitar individualmente operações de envio sem que o robô continue capturando contratos `gerado`.
@@ -294,11 +289,21 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-050
+- **Decision**: Envio 100% sob demanda — removido auto-enfileiramento de `Contract` em `robotInstanceController.getNextJob`; `getNextJob` e `robotScheduler` apenas consomem `RobotJob` existente (`pending`/`retrying`), criação exclusiva via `POST /trigger`.
+- **Reason**: Evitar disparo automático sem clique no botão Enviar; envio automático causava envio não autorizado.
+- **Scope**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`
+- **Date**: 2026-09-01
+- **Status**: active
+
 ### AD-051
 - **Decision**: Hardening do filtro de contratos elegíveis com blocklist estrita (`$nin: ["rascunho", "enviado", "assinado", "cancelado", "em_processamento_robot"]`), proteção contra status nulos/ausentes e `Object.freeze` em `contractEligibility.js`; adição de `"em_processamento_robot"` ao enum de `Contract.js`; persistência de `originalStatus` pré-lock em `RobotJob` e restauração fiel no fallback de `robotInstanceController.js` (`getNextJob` e `updateJobStatus`); centralização do import de filtro em `tools/check-pending-jobs.js` com projeção de campos otimizada.
 - **Reason**: Eliminar risco de loops de reprocessamento e reenvios indevidos no DocuSign para contratos finalizados (B1), garantir conformidade do schema Mongoose e evitar rebaixamento forçado para "gerado" em falhas (B2), eliminar duplicações de código (M2), garantir imutabilidade de referências (M3) e otimizar consumo de memória na CLI.
 - **Trade-off**: N/A.
 - **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/models/Contract.js`, `backend/src/modules/robot-docusign/models/RobotJob.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `tools/check-pending-jobs.js`, `tests/backend/regression/eligibleContractsRegression.test.js`, `.specs/features/servidor-robot/contratos-elegiveis/*`
+- **Date**: 2026-08-31
+- **Status**: active
+
 ### AD-052
 - **Decision**: Padronização do valor inicial padrão do intervalo de agendamento de consulta geral de status (`schedule.intervalMinutes`) para 5 minutos em `orchestratorConfig.js` (`DEFAULT_ROBOT_DOCUSIGN_CONFIG`) e `statusSyncScheduler.js` (fallback interno `intervalMinutes || 5`), mantendo suporte total à sobrescrita dinâmica via `SystemConfig` (`key: "robot_docusign"`).
 - **Reason**: Prover sincronização mais frequente e responsiva de status dos contratos e download automático de PDFs assinados no boot e na operação contínua sem depender de configurações manuais prévias.
@@ -307,13 +312,21 @@
 - **Date**: 2026-09-01
 - **Status**: active
 
+### AD-053
+- **Decision**: Segregação dual-robot query/update — `RobotInstance.role` (`query|update|all`, default `all`, index), `RobotJob.action` `query_agreements` com `contract_id` condicional (alias) e índice `{status:1,action:1,lock_expires_at:1,createdAt:1}`; `getNextJob` filtra por `role` (`query=[status,query_agreements,reports,download]`, `update=[send,resend]`, `all=*`); `auth`/`heartbeat` persistem `role` (400 se inválido) e expõem `instances_by_role`; `statusSyncScheduler` enfileira `query_agreements` idempotente quando query robot com `last_heartbeat>60s` senão fallback `executeWithBrowser`; `updateJobStatus` reconcilia batch `result.envelopes`; `robot/src` com `ROBOT_ROLE`/`--role`, sessões `session-query/update.json`, `JobRunner` guard por `allowedActions` antes de `chromium.launch`, entrypoints `main-query.js`/`main-update.js` wrappers 3L; pipeline `robot/build/build.js` matriz `ROBOT_API_KEY_N × role` → `dist/robot-query-N/` e `dist/robot-update-N/` com `define ROBOT_ROLE` e `run.bat` por papel; `Makefile` `ROLE=query|update|all` + `robot/package.json` `build:robot:query|update|all`. Uma chave por robô.
+- **Reason**: Isolar varredura paginada (`view=agreements`) de envio transacional, mitigar corrupção de `storageState` e starvation, permitir deploy dedicado por máquina/processo com monitoramento por frota.
+- **Trade-off**: Dobra artefatos de build (N×2) e disco; compatibilidade `all` mantida para migração gradual; `dist/robot-docusigner` legado como alias quando `role=all`.
+- **Scope**: `backend/src/modules/robot-docusign/models/*`, `backend/src/modules/robot-docusign/controllers/*`, `backend/src/modules/robot-docusign/seletorApiRobot/*`, `robot/src/*`, `robot/build/build.js`, `robot/package.json`, `Makefile`, `.specs/routes-inventory.md`
+- **Date**: 2026-09-01
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: chore/status-sync-interval-default
-- **Phase / Task**: Alinhamento do intervalo padrão de consulta de status para 5 minutos (AD-052)
-- **Completed**: `DEFAULT_ROBOT_DOCUSIGN_CONFIG.schedule.intervalMinutes` ajustado para 5 minutos, fallback em `statusSyncScheduler.js` alinhado para 5 minutos, especificações técnicas e log de decisões sincronizados.
-- **In-progress**: Finalizado e pronto para commit/PR/merge.
-- **Next step**: Executar comandos de commit, PR e merge.
+- **Feature**: robot/dois-robos-consulta-atualizacao
+- **Phase / Task**: T1-T10 concluídos, T11 Docs & Validation
+- **Completed**: Dual-robot implementado (role, filtragem, reconciliação batch, ROBOT_ROLE, JobRunner guard, entrypoints, build matrix, Makefile ROLE). Gate backend 152 pass, routes-inventory regenerado, AD-053 criado.
+- **In-progress**: T11 validação e docs finais
+- **Next step**: Finalizar validation.md e commit T11
 - **Blockers**: none
 - **Branch**: main
 
