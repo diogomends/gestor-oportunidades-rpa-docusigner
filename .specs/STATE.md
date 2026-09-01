@@ -336,13 +336,21 @@
 - **Date**: 2026-09-01
 - **Status**: active
 
+### AD-056
+- **Decision**: Criação de utilitário dedicado de limpeza de banco (`tools/clean-contracts-db.js`) e alvos correspondentes no Makefile (`clean-contracts`, `clean-contracts-prod`): limpa com segurança as coleções `contracts`, `docusign_envelopes` e `client_doc_accesses` no banco `crm_contracts`, exibindo contagem antes e depois da execução.
+- **Reason**: Permitir reset seguro dos dados de contratos e envelopes de teste/legados sem afetar histórico de jobs do robô (`robot_jobs`), instâncias ativas (`robot_instances`) ou credenciais/configurações do CRM (`db_crm_funil`).
+- **Trade-off**: N/A. Operação restrita ao escopo de contratos selecionado.
+- **Scope**: `tools/clean-contracts-db.js`, `Makefile`, `.specs/STATE.md`
+- **Date**: 2026-09-01
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: robot/dois-robos-consulta-atualizacao + Makefile runners + build bootstrap fix
-- **Phase / Task**: T1-T11 + AD-054/AD-055 (Feature Completa + Makefile runners + Bootstrap Fix)
-- **Completed**: Dual-robot (AD-053), hardening (AD-054), build fix com bootstrap incondicional (AD-055), adição de `make execute-robot`, `make execute-robot-query` e `make execute-robot-update` no `Makefile` e documentação no `AGENTS.md`.
+- **Feature**: Limpeza de contratos em produção + utilitários Makefile
+- **Phase / Task**: Execução concluída com sucesso (AD-056)
+- **Completed**: Limpeza de 35 contratos, 47 envelopes e 50 logs de acesso no banco `crm_contracts` de produção; criação de `tools/clean-contracts-db.js` e adição dos comandos `clean-contracts` e `clean-contracts-prod` no `Makefile`.
 - **In-progress**: nenhum
-- **Next step**: Pronto para commit, PR, merge e build
+- **Next step**: Pronto para commit, PR e merge
 - **Blockers**: none
 - **Branch**: main
 

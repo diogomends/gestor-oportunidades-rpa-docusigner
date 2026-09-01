@@ -18,12 +18,13 @@ HEADLESS ?= true
 
 ifeq ($(OS),Windows_NT)
     SHELL := cmd.exe
-    SCP_BIN := C:\Windows\Sysnative\OpenSSH\scp.exe
-    SSH_BIN := C:\Windows\Sysnative\OpenSSH\ssh.exe
+    SCP_BIN := scp.exe
+    SSH_BIN := ssh.exe
     SSH_OPTS = -i $(DEPLOY_KEY) -o StrictHostKeyChecking=no
     SSH_TUNNEL = powershell -Command "$(SSH_BIN) $(SSH_OPTS) -L 27018:127.0.0.1:27017 $(DEPLOY_HOST) -N"
     SSH_EXEC = powershell -Command "Get-Content tools/db-and-collection.js | $(SSH_BIN) $(SSH_OPTS) $(DEPLOY_HOST) 'docker exec -i app_docusigner node -'"
     SSH_EXEC_CHECK_JOBS = powershell -Command "Get-Content tools/check-pending-jobs.js | $(SSH_BIN) $(SSH_OPTS) $(DEPLOY_HOST) 'docker exec -i app_docusigner node -'"
+    SSH_EXEC_CLEAN_CONTRACTS = powershell -Command "Get-Content tools/clean-contracts-db.js | $(SSH_BIN) $(SSH_OPTS) $(DEPLOY_HOST) 'docker exec -i app_docusigner node -'"
 else
     SCP_BIN := scp
     SSH_BIN := ssh
@@ -31,9 +32,10 @@ else
     SSH_TUNNEL = ssh $(SSH_OPTS) -L 27018:127.0.0.1:27017 $(DEPLOY_HOST) -N
     SSH_EXEC = cat tools/db-and-collection.js | ssh $(SSH_OPTS) $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
     SSH_EXEC_CHECK_JOBS = cat tools/check-pending-jobs.js | ssh $(SSH_OPTS) $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
+    SSH_EXEC_CLEAN_CONTRACTS = cat tools/clean-contracts-db.js | ssh $(SSH_OPTS) $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
 endif
 
-.PHONY: help dev start test test-headed test-headed-ps build-robot execute-robot execute-robot-query execute-robot-update install install-backend install-robot clean clean-test clean-all up-dev up-prod down logs reset tunnel check-pending-jobs check-pending-jobs-prod db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod mongosh-jobs mongosh-jobs-prod mongosh-instances mongosh-instances-prod mongosh-config mongosh-config-prod fetch-robot-debug-images ssh-uploads-prod ls-uploads-prod routes-inventory routes-inventory-check opencode-switcher opencode-conta1 opencode-conta2
+.PHONY: help dev start test test-headed test-headed-ps build-robot execute-robot execute-robot-query execute-robot-update install install-backend install-robot clean clean-test clean-all clean-contracts clean-contracts-prod up-dev up-prod down logs reset tunnel check-pending-jobs check-pending-jobs-prod clean-contracts clean-contracts-prod db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod mongosh-jobs mongosh-jobs-prod mongosh-instances mongosh-instances-prod mongosh-config mongosh-config-prod fetch-robot-debug-images ssh-uploads-prod ls-uploads-prod routes-inventory routes-inventory-check opencode-switcher opencode-conta1 opencode-conta2
 
 help:
 	@echo "Makefile - Gestor de Oportunidades RPA DocuSigner"
@@ -175,6 +177,12 @@ db-and-collection:
 
 db-and-collection-prod:
 	$(SSH_EXEC)
+
+clean-contracts:
+	node tools/clean-contracts-db.js
+
+clean-contracts-prod:
+	$(SSH_EXEC_CLEAN_CONTRACTS)
 
 mongosh-contracts:
 	mongosh "mongodb://localhost:27017/crm_contracts" --eval "db.contracts.find().pretty()"

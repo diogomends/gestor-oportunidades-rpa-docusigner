@@ -26,6 +26,7 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | `make check-pending-jobs` / `make check-pending-jobs-prod`                      | Diagnóstico de jobs pendentes e contratos elegíveis   |
 | `make db-and-collection`                                                        | Exibe árvore de bancos e coleções MongoDB local       |
 | `make db-and-collection-prod`                                                   | Exibe árvore de bancos e coleções no container prod   |
+| `make clean-contracts` / `make clean-contracts-prod`                            | Limpa com segurança coleções de contratos e envelopes (local/remoto) |
 | `make mongosh-contracts` / `make mongosh-contracts-prod`                        | Conexão mongosh ao banco de contratos (local/remoto)  |
 | `make mongosh-jobs` / `make mongosh-jobs-prod`                                  | Consulta jobs do robô no MongoDB (local/remoto)       |
 | `make mongosh-instances` / `make mongosh-instances-prod`                        | Consulta instâncias do robô no MongoDB (local/remoto) |
