@@ -3,6 +3,7 @@ import fs from "node:fs";
 import RobotSession from "../models/RobotSession.js";
 import { getSelectors as _getMfaSelectors } from "./robotSelectors.js";
 import { isLoginUrl } from "./loginUrl.js";
+import { fetchMfaCodeViaImap } from "../utils/imapClient.js";
 
 /**
  * Timeout estendido (90s) para a etapa MFA/2FA — DocuSign demora mais para
@@ -254,18 +255,31 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
         await page.click(submitSelector);
       }
 
-      // Etapa opcional de MFA/2FA: se a tela de código aparecer, exige otpCode
-      // e usa timeout estendido (MFA_TIMEOUT) na detecção e navegação.
+      // Etapa opcional de MFA/2FA: se a tela de código aparecer, tenta obter via IMAP
+      // ou consome otpCode pré-fornecido, usando timeout estendido (MFA_TIMEOUT).
       const mfaSelector = selectors.mfa?.input || selectors.mfa || DEFAULT_MFA_SELECTOR;
       const mfaRequired = await detectMfaScreen(page, mfaSelector);
 
       if (mfaRequired) {
-        const otpCode = (credentials?.otpCode || "").trim();
+        let otpCode = (credentials?.otpCode || "").trim();
+
+        if (!otpCode) {
+          const mailCreds = credentials?.token_notification_email || credentials;
+          if (mailCreds?.email && mailCreds?.password) {
+            console.log("[robotSession] Tela de MFA DocuSign detectada. Consultando código de segurança via IMAP...");
+            otpCode = await fetchMfaCodeViaImap(mailCreds, {
+              maxWaitMs: MFA_TIMEOUT,
+              mfaMaxAgeMs: credentials?.mfa?.maxAgeMs,
+              mfaTriggerTime: Date.now(),
+            });
+          }
+        }
+
         if (!otpCode) {
           await captureDebugScreenshot(page, "login-mfa-required");
           throw createAuthError(
             "MFA_REQUIRED",
-            "Login DocuSign exige código de segurança (MFA). Informe o código temporário."
+            "Login DocuSign exige código de segurança (MFA). Não foi possível extrair o código de segurança do e-mail."
           );
         }
 

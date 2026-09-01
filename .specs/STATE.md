@@ -344,11 +344,19 @@
 - **Date**: 2026-09-01
 - **Status**: active
 
+### AD-058
+- **Decision**: Criação do módulo utilitário `backend/src/modules/robot-docusign/utils/imapClient.js` (sockets `node:tls` / `node:net` nativos, parser MIME RFC 2047, decode base64/QP e regex para código de segurança de 6 dígitos) e integração no fluxo de autenticação do backend (`robotSession.js:loginAndSaveSession`). Ao detectar o desafio de MFA/2FA da DocuSign sem `otpCode` fornecido manualmente, o backend extrai automaticamente o código da caixa postal configurada em `token_notification_email` (`SystemConfig`) e conclui o login.
+- **Reason**: Eliminar necessidade de intervenção humana em requisições de envio/sincronização disparadas no servidor que enfrentavam o bloqueio `MFA_REQUIRED`.
+- **Trade-off**: N/A. Preserva a possibilidade de passar `otpCode` manual quando fornecido.
+- **Scope**: `backend/src/modules/robot-docusign/utils/imapClient.js`, `backend/src/modules/robot-docusign/browserrobot/robotSession.js`, `backend/src/modules/robot-docusign/seletorApiRobot/index.js`, `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `.specs/STATE.md`
+- **Date**: 2026-09-01
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Padronização de mensagens de erro na API do Robô DocuSign (AD-057)
+- **Feature**: Resolução Automática de MFA DocuSign via IMAP no Backend (AD-058)
 - **Phase / Task**: Execução concluída com sucesso
-- **Completed**: Inclusão de `message` e `error` padronizados nos retornos de erro de `triggerJob` e `triggerBatch` em `robotDocusignController.js`.
+- **Completed**: Criação de `imapClient.js` no backend e integração em `robotSession.js`, `seletorApiRobot/index.js` e `statusSyncScheduler.js` para captura autônoma de códigos de segurança de 6 dígitos.
 - **In-progress**: nenhum
 - **Next step**: Pronto para commit, PR e merge
 - **Blockers**: none

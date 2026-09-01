@@ -115,7 +115,11 @@ export async function executeJob(contractOrId, action = "send", options = {}) {
         const attemptStart = Date.now();
         try {
           return await browserrobot.executeWithBrowser(action, {
-            credentials: config.credentials,
+            credentials: {
+              ...config.credentials,
+              token_notification_email: config.token_notification_email,
+              mfa: config.mfa,
+            },
             contract: contractObj,
             ...options,
           });
