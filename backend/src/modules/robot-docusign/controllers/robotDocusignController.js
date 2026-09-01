@@ -119,8 +119,10 @@ export const triggerJob = async (req, res) => {
   try {
     const parseResult = triggerSchema.safeParse(req.body);
     if (!parseResult.success) {
+      const errMsg = "Dados de requisição inválidos";
       return res.status(400).json({
-        error: "Dados de requisição inválidos",
+        error: errMsg,
+        message: errMsg,
         details: parseResult.error.errors,
       });
     }
@@ -129,8 +131,10 @@ export const triggerJob = async (req, res) => {
     const targetContractId = contractId || contract_id;
 
     if (!targetContractId && !["reports", "query_agreements"].includes(action)) {
+      const errMsg = "contractId ou contract_id é obrigatório para esta ação";
       return res.status(400).json({
-        error: "contractId ou contract_id é obrigatório para esta ação",
+        error: errMsg,
+        message: errMsg,
       });
     }
 
@@ -152,18 +156,21 @@ export const triggerJob = async (req, res) => {
       });
     }
 
+    const failureMsg = result?.error || "Falha na execução do job";
     return res.status(400).json({
       success: false,
-      error: result?.error || "Falha na execução do job",
+      error: failureMsg,
+      message: failureMsg,
       jobId: result?.jobId || targetContractId,
       status: "failed",
       result,
     });
   } catch (error) {
     console.error("[robotDocusignController] Erro ao disparar job:", error);
+    const errMsg = "Erro interno ao processar disparo do robô DocuSign";
     return res.status(500).json({
-      error: "Erro interno ao processar disparo do robô DocuSign",
-      message: error.message,
+      error: errMsg,
+      message: error.message || errMsg,
     });
   }
 };
@@ -180,8 +187,10 @@ export const triggerBatch = async (req, res) => {
   try {
     const parseResult = triggerBatchSchema.safeParse(req.body);
     if (!parseResult.success) {
+      const errMsg = "Dados de requisição inválidos";
       return res.status(400).json({
-        error: "Dados de requisição inválidos",
+        error: errMsg,
+        message: errMsg,
         details: parseResult.error.errors,
       });
     }
