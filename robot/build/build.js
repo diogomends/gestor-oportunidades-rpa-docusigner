@@ -45,7 +45,7 @@ function loadRootEnv() {
 
 /**
  * Parse CLI args suportando argumentos posicionais, --flag "val" e flags vazias.
- * @returns {{key: string, headless: boolean|null, apiUrl: string}} Argumentos parseados.
+ * @returns {{key: string, headless: boolean|null, apiUrl: string, role: string}} Argumentos parseados.
  */
 function parseArgs() {
   const rawArgs = process.argv.slice(2);
@@ -53,6 +53,7 @@ function parseArgs() {
     key: "",
     headless: null,
     apiUrl: "",
+    role: process.env.ROBOT_ROLE || "all",
   };
 
   const cleanArgs = [];
@@ -81,6 +82,9 @@ function parseArgs() {
       result.headless = !(low === "false" || low === "0" || low === "no" || low === "off");
     } else if ((arg === "--api-url" || arg === "--uri-prod") && nextVal) {
       result.apiUrl = nextVal;
+    } else if ((arg === "--role" || arg === "--ROBOT_ROLE") && nextVal) {
+      const r = nextVal.toLowerCase();
+      if (["query", "update", "all"].includes(r)) result.role = r;
     }
   }
   return result;
@@ -101,9 +105,10 @@ function resolveAllKeys(rootEnv) {
   return keys;
 }
 
-// ── Resolução de chaves ──
+// ── Resolução de chaves e papel ──
 const rootEnv = loadRootEnv();
-const { key: cliKey, headless: argHeadless, apiUrl } = parseArgs();
+const { key: cliKey, headless: argHeadless, apiUrl, role: cliRole } = parseArgs();
+const buildRoles = cliRole === "all" ? ["query", "update"] : [cliRole];
 
 const detectedKeys = [];
 if (cliKey) {
@@ -150,6 +155,7 @@ for (const dk of detectedKeys) {
   console.log(`   [${dk.index}] ${dk.key.substring(0, 10)}...`);
 }
 console.log(` Modo Headless:              ${isHeadless}`);
+console.log(` Papéis (roles):             ${buildRoles.join(", ")}`);
 console.log("==================================================");
 
 for (const dir of [DIST_DIR, BUNDLE_DIR, OBF_DIR, JSC_DIR]) {
@@ -167,12 +173,14 @@ for (const dir of [DIST_DIR, BUNDLE_DIR, OBF_DIR, JSC_DIR]) {
  * @param {number} params.total - Total de chaves no lote.
  * @returns {Promise<{exe: string}>} Caminho do executável gerado.
  */
-async function buildForOneKey({ buildKey, index, total }) {
+async function buildForOneKey({ buildKey, index, total, role = "all" }) {
   const tag = total > 1 ? `-${index}` : "";
-  const bundleBase = `robot-docusigner${tag}`;
+  const roleSuffix = role !== "all" ? `-${role}` : "";
+  // Dual-robot: dist/robot-query-N/ e dist/robot-update-N/ (alias legado mantido quando role=all)
+  const bundleBase = role !== "all" ? `robot-${role}${tag}` : `robot-docusigner${tag}`;
   const outDir = path.join(DIST_DIR, bundleBase);
   fs.mkdirSync(outDir, { recursive: true });
-  const entryFile = path.join(ROOT_DIR, "src", "main.js");
+  const entryFile = path.join(ROOT_DIR, "src", role === "query" ? "main-query.js" : role === "update" ? "main-update.js" : "main.js");
 
   console.log(`\n--- [${index}/${total}] Build para chave ${buildKey.substring(0, 10)}... ---`);
 
@@ -183,6 +191,7 @@ async function buildForOneKey({ buildKey, index, total }) {
   const defineArgs = [
     `--define:process.env.API_URL='"${targetApiUrl}"'`,
     `--define:process.env.ROBOT_KEY='"${buildKey}"'`,
+    `--define:process.env.ROBOT_ROLE='"${role}"'`,
     `--define:process.env.HEADLESS="${isHeadless}"`,
   ].join(" ");
 
@@ -243,7 +252,8 @@ async function buildForOneKey({ buildKey, index, total }) {
   }
 
   // Script auxiliar run.bat para facilitar execução com logs visíveis
-  const batContent = `@echo off\r\ntitle ${bundleBase}\r\necho ==================================================\r\necho Iniciando ${bundleBase}...\r\necho ==================================================\r\n"${bundleBase}.exe"\r\npause\r\n`;
+  const roleLabel = role === "query" ? "Consulta" : role === "update" ? "Atualização" : "All";
+  const batContent = `@echo off\r\ntitle [DocuSign RPA] - ${roleLabel} #${index} - ${bundleBase}\r\necho ==================================================\r\necho Iniciando ${bundleBase} (${roleLabel})...\r\necho ==================================================\r\n"${bundleBase}.exe"\r\npause\r\n`;
   fs.writeFileSync(path.join(outDir, "run.bat"), batContent, "utf-8");
 
   // Documentação README.txt com instruções e quadro explicativo
@@ -307,13 +317,15 @@ async function buildForOneKey({ buildKey, index, total }) {
 async function main() {
   const results = [];
 
-  for (const dk of detectedKeys) {
-    try {
-      const r = await buildForOneKey({ buildKey: dk.key, index: dk.index, total: detectedKeys.length });
-      results.push({ ...dk, ...r, ok: true });
-    } catch (error) {
-      console.error(`\n [ERRO] Build falhou para chave ${dk.index} (${dk.key.substring(0, 10)}...):`, error.message);
-      results.push({ ...dk, ok: false, error: error.message });
+  for (const role of buildRoles) {
+    for (const dk of detectedKeys) {
+      try {
+        const r = await buildForOneKey({ buildKey: dk.key, index: dk.index, total: detectedKeys.length, role });
+        results.push({ ...dk, ...r, role, ok: true });
+      } catch (error) {
+        console.error(`\n [ERRO] Build falhou para chave ${dk.index} role=${role} (${dk.key.substring(0, 10)}...):`, error.message);
+        results.push({ ...dk, role, ok: false, error: error.message });
+      }
     }
   }
 

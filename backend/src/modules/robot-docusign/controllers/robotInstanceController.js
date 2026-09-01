@@ -14,12 +14,30 @@ import { getAclDb } from "../../../config/database.js";
 import { isEligibleForSend, hasPdf } from "../utils/contractEligibility.js";
 
 /**
+ * Enum de papéis de instância do robô (dual-robot).
+ * @constant
+ */
+const ROLE_ENUM = ["query", "update", "all"];
+
+/**
+ * Valida role e retorna 400 se inválido.
+ * @param {string|undefined} role
+ * @returns {string|null} role normalizado ou null se ausente
+ */
+function parseRoleOr400(role) {
+  if (role === undefined || role === null || role === "") return null;
+  if (!ROLE_ENUM.includes(role)) return "__invalid__";
+  return role;
+}
+
+/**
  * Zod Schema para autenticação da instância do robô via email/senha.
  */
 const authSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
   instance_id: z.string().min(1),
+  role: z.enum(["query", "update", "all"]).optional().default("all"),
   machine_info: z
     .object({
       hostname: z.string().optional(),
@@ -35,6 +53,7 @@ const authSchema = z.object({
  */
 const nextJobSchema = z.object({
   instance_id: z.string().min(1),
+  role: z.enum(["query", "update", "all"]).optional(),
 });
 
 /**
@@ -63,6 +82,7 @@ const updateStatusSchema = z.object({
 const heartbeatSchema = z.object({
   instance_id: z.string().min(1),
   status: z.enum(["active", "idle", "busy", "offline"]).default("idle"),
+  role: z.enum(["query", "update", "all"]).optional(),
   current_job_id: z.string().optional().nullable(),
   jobs_processed_today: z.number().optional(),
   machine_info: z.record(z.any()).optional(),
@@ -105,6 +125,14 @@ export const authenticateInstance = async (req, res) => {
         return res.status(403).json({ error: "Usuário associado à chave está inativo." });
       }
 
+      // X-Robot-Key bypassa Zod — lê role direto de req.body.role
+      const rawRole = req.body?.role;
+      const parsedRole = parseRoleOr400(rawRole);
+      if (parsedRole === "__invalid__") {
+        return res.status(400).json({ error: "role inválido" });
+      }
+      const role = parsedRole || "all";
+
       const instance_id = req.body?.instance_id || `robot-${apiKeyDoc.key_prefix || "profile"}`;
       const machine_info = req.body?.machine_info || {};
 
@@ -130,6 +158,7 @@ export const authenticateInstance = async (req, res) => {
             status: "active",
             last_heartbeat: new Date(),
             machine_info,
+            role,
           },
         },
         { upsert: true, new: true }
@@ -150,6 +179,7 @@ export const authenticateInstance = async (req, res) => {
         success: true,
         token,
         instance_id,
+        role,
         isRobot: true,
         user: {
           id: user._id,
@@ -169,7 +199,8 @@ export const authenticateInstance = async (req, res) => {
       });
     }
 
-    const { email, password, instance_id, machine_info } = parse.data;
+    const { email, password, instance_id, machine_info, role: bodyRole } = parse.data;
+    const role = bodyRole || "all";
 
     let user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
@@ -200,6 +231,7 @@ export const authenticateInstance = async (req, res) => {
           status: "active",
           last_heartbeat: new Date(),
           machine_info: machine_info || {},
+          role,
         },
       },
       { upsert: true, new: true }
@@ -209,6 +241,7 @@ export const authenticateInstance = async (req, res) => {
       success: true,
       token,
       instance_id,
+      role,
       user: {
         id: user._id,
         nome: user.nome,
@@ -306,6 +339,22 @@ export const getNextJob = async (req, res) => {
       });
     }
 
+    // 2b. Resolver role da instância para filtragem
+    let instanceRole = req.query.role || req.body?.role || req.user?.role || null;
+    // Busca role persistido se não enviado
+    if (!instanceRole || !ROLE_ENUM.includes(instanceRole)) {
+      const instDoc = await RobotInstance.findOne({ instance_id }).lean();
+      instanceRole = instDoc?.role || "all";
+    }
+    if (instanceRole && !ROLE_ENUM.includes(instanceRole)) {
+      return res.status(400).json({ error: "role inválido" });
+    }
+    const ROLE_ACTIONS = {
+      query: ["query_agreements", "status", "reports", "download"],
+      update: ["send", "resend"],
+    };
+    const allowedActions = ROLE_ACTIONS[instanceRole] || null; // null = all
+
     // 3. Limpar/recuperar jobs com lock expirado para evitar deadlock
     await RobotJob.updateMany(
       {
@@ -321,32 +370,34 @@ export const getNextJob = async (req, res) => {
       }
     );
 
-    // 4. Buscar e travar atomicamente um job pendente existente
+    // 4. Buscar e travar atomicamente um job pendente existente (filtrado por role)
+    const statusLockFilter = {
+      $and: [
+        {
+          $or: [
+            { status: "pending" },
+            {
+              status: "retrying",
+              $or: [
+                { next_retry_at: { $lte: now } },
+                { next_retry_at: { $exists: false } },
+                { next_retry_at: null },
+              ],
+            },
+          ],
+        },
+        {
+          $or: [
+            { locked_by: null },
+            { lock_expires_at: null },
+            { lock_expires_at: { $lt: now } },
+          ],
+        },
+      ],
+    };
+    const actionFilter = allowedActions ? { action: { $in: allowedActions } } : {};
     let job = await RobotJob.findOneAndUpdate(
-      {
-        $and: [
-          {
-            $or: [
-              { status: "pending" },
-              {
-                status: "retrying",
-                $or: [
-                  { next_retry_at: { $lte: now } },
-                  { next_retry_at: { $exists: false } },
-                  { next_retry_at: null },
-                ],
-              },
-            ],
-          },
-          {
-            $or: [
-              { locked_by: null },
-              { lock_expires_at: null },
-              { lock_expires_at: { $lt: now } },
-            ],
-          },
-        ],
-      },
+      { ...statusLockFilter, ...actionFilter },
       {
         $set: {
           status: "processing",
@@ -371,13 +422,44 @@ export const getNextJob = async (req, res) => {
       });
     }
 
-    // 6. Carregar os dados completos do Contrato associado
-    const contractId = job.contract_id || job.contractId;
-    const contract = await Contract.findById(contractId).lean();
+    // 6. Carregar os dados completos do Contrato associado (null-safe para jobs globais)
+    const contractId = job.contract_id || job.contractId || null;
+    // Jobs globais (query_agreements/reports) não têm contrato — entrega payload de varredura sem Contract.findById(null)
+    if (!contractId && ["query_agreements", "reports"].includes(job.action)) {
+      const payloadGlobal = {
+        hasJob: true,
+        jobId: job._id.toString(),
+        contractId: null,
+        action: job.action,
+        envelopeId: job.envelopeId || null,
+        credentials: {
+          ...(config.credentials || {}),
+          token_notification_email: config.token_notification_email,
+          mfa: config.mfa,
+        },
+        token_notification_email: config.token_notification_email,
+        mfa: config.mfa || { maxWaitMs: 90000, maxAgeMs: 600000 },
+        daysBack: 5,
+      };
+      await RobotInstance.findOneAndUpdate(
+        { instance_id },
+        { $set: { status: "busy", current_job_id: job._id, last_heartbeat: now } }
+      );
+      return res.status(200).json(payloadGlobal);
+    }
+
+    let contract = null;
+    if (contractId) {
+      try {
+        contract = await Contract.findById(contractId).lean();
+      } catch (_) {
+        contract = null;
+      }
+    }
 
     // Extrair caminho do primeiro documento disponível (usa helper hasPdf)
     let pdfUrl = null;
-    if (hasPdf(contract)) {
+    if (hasPdf(contract) && contractId) {
       pdfUrl = `/api/robot-docusign/instance/contracts/${contractId}/pdf`;
     }
 
@@ -516,9 +598,49 @@ export const updateJobStatus = async (req, res) => {
       return res.status(404).json({ error: "Job não encontrado." });
     }
 
-    // Atualizar Contrato correspondente
+    // Atualizar Contrato correspondente (skip para jobs globais sem contractId)
     const contractId = updatedJob.contract_id || updatedJob.contractId;
-    if (contractId) {
+    // Reconciliação em lote para query_agreements (AC-01.7)
+    if (updatedJob.action === "query_agreements" && status === "completed" && result?.envelopes) {
+      try {
+        const envelopesSchema = z.array(z.object({ envelopeId: z.string().optional(), status: z.string().optional(), recipient: z.string().optional() }).passthrough());
+        const parsed = envelopesSchema.safeParse(result.envelopes);
+        if (parsed.success && parsed.data.length > 0) {
+          const envelopes = parsed.data;
+          // lazy import para evitar ciclo
+          const { syncContractStatus } = await import("../seletorApiRobot/contractSyncService.js");
+          const activeContracts = await Contract.find({ status: { $in: ["enviado", "gerado"] } }).lean();
+          const normalizeString = (s = "") => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+          const mapStatus = (await import("../seletorApiRobot/statusSyncScheduler.js")).mapEnvelopeStatusToContractStatus;
+          for (const contract of activeContracts) {
+            const cId = contract._id.toString();
+            const repEmail = normalizeString(contract.client?.representante?.email || contract.client?.admin?.email);
+            const repName = normalizeString(contract.client?.representante?.nome || contract.client?.admin?.nome);
+            const storedEnvelopeId = contract.envelopeId || contract.docusign_envelope_id;
+            const matched = envelopes.find((env) => {
+              if (storedEnvelopeId && env.envelopeId && env.envelopeId === storedEnvelopeId) return true;
+              const envRecipient = normalizeString(env.recipient);
+              if (repEmail && envRecipient.includes(repEmail)) return true;
+              if (repName && envRecipient.includes(repName)) return true;
+              return false;
+            });
+            if (!matched) continue;
+            const targetStatus = mapStatus(matched.status || "");
+            if (!targetStatus) {
+              if (matched.envelopeId && !storedEnvelopeId) {
+                await Contract.findByIdAndUpdate(cId, { envelopeId: matched.envelopeId }).catch(() => {});
+              }
+              continue;
+            }
+            if (targetStatus !== contract.status || (matched.envelopeId && !storedEnvelopeId)) {
+              await syncContractStatus(cId, targetStatus, { envelopeId: matched.envelopeId }).catch(() => {});
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[robotInstanceController] Falha na reconciliação batch query_agreements:", e.message);
+      }
+    } else if (contractId) {
       if (status === "completed") {
         if (updatedJob.action === "download") {
           await Contract.findByIdAndUpdate(contractId, { status: "assinado" });
@@ -580,7 +702,13 @@ export const registerHeartbeat = async (req, res) => {
       });
     }
 
-    const { instance_id, status, current_job_id, jobs_processed_today, machine_info } = parse.data;
+    const { instance_id, status, current_job_id, jobs_processed_today, machine_info, role } = parse.data;
+
+    const rawRole = req.body?.role;
+    if (rawRole !== undefined && rawRole !== null && rawRole !== "") {
+      const pr = parseRoleOr400(rawRole);
+      if (pr === "__invalid__") return res.status(400).json({ error: "role inválido" });
+    }
 
     const updateDoc = {
       status,
@@ -590,6 +718,10 @@ export const registerHeartbeat = async (req, res) => {
     if (current_job_id !== undefined) updateDoc.current_job_id = current_job_id;
     if (jobs_processed_today !== undefined) updateDoc.jobs_processed_today = jobs_processed_today;
     if (machine_info) updateDoc.machine_info = machine_info;
+    if (role) updateDoc.role = role;
+    // X-Robot-Key bypass: req.body.role direto
+    const directRole = parseRoleOr400(req.body?.role);
+    if (directRole && directRole !== "__invalid__") updateDoc.role = directRole;
 
     const instance = await RobotInstance.findOneAndUpdate(
       { instance_id },
@@ -601,6 +733,7 @@ export const registerHeartbeat = async (req, res) => {
       success: true,
       instance_id: instance.instance_id,
       status: instance.status,
+      role: instance.role,
       last_heartbeat: instance.last_heartbeat,
     });
   } catch (error) {
@@ -658,11 +791,18 @@ export const getAllInstances = async (req, res) => {
       .sort({ last_heartbeat: -1 })
       .lean();
 
+    const instancesByRole = { query: 0, update: 0, all: 0, total: instances.length };
+    for (const inst of instances) {
+      if (inst.role && instancesByRole[inst.role] !== undefined) instancesByRole[inst.role]++;
+      else if (!inst.role) instancesByRole.all++;
+    }
+
     return res.status(200).json({
       success: true,
       instances: instances.map((inst) => ({
         instance_id: inst.instance_id,
         status: inst.status,
+        role: inst.role || "all",
         last_heartbeat: inst.last_heartbeat,
         current_job_id: inst.current_job_id || null,
         jobs_processed_today: inst.jobs_processed_today || 0,
@@ -670,6 +810,7 @@ export const getAllInstances = async (req, res) => {
         createdAt: inst.createdAt,
         updatedAt: inst.updatedAt,
       })),
+      instances_by_role: instancesByRole,
     });
   } catch (error) {
     console.error("[robotInstanceController] Erro ao listar instâncias:", error);

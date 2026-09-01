@@ -64,8 +64,10 @@ export async function processPendingJobs(options = {}) {
   }
 
   // 4. Buscar exatamente 1 contrato/job pendente na fila (status: 'pending' ou 'retrying' elegível)
+  // ponytail: ignora jobs de leitura global (query_agreements/reports) — são do robô query
   const now = new Date();
   const job = await RobotJob.findOne({
+    action: { $nin: ["query_agreements", "reports"] },
     $or: [
       { status: "pending" },
       {

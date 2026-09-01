@@ -21,7 +21,7 @@ export const DEFAULT_ROBOT_DOCUSIGN_CONFIG = {
   },
   schedule: {
     enabled: true,
-    intervalMinutes: 15,
+    intervalMinutes: 5,
     startHour: "07:00",
     endHour: "19:00",
   },
@@ -129,6 +129,7 @@ export async function shouldUseRobot(contract, options = {}) {
     download: config.operations?.download,
     reports: config.operations?.reports,
     resend: config.operations?.resend,
+    query_agreements: config.operations?.statusCheck,
   };
 
   if (opMap[action] === false) {

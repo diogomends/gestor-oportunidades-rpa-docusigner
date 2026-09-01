@@ -46,7 +46,7 @@ help:
 	@echo "  make test            - Roda os testes nativos (node --test)"
 	@echo "  make test-headed     - Testa o robo standalone com navegador visivel (sh/bash)"
 	@echo "  make test-headed-ps  - Testa o robo standalone com navegador visivel (PowerShell)"
-	@echo "  make build-robot     - Gera executaveis .exe dos robos standalone com chave(s) embutida(s)"
+	@echo "  make build-robot     - Gera executaveis .exe dos robos standalone com chave(s) embutida(s) (ROLE=query|update|all)"
 	@echo "  make install         - Instala dependencias do servidor e do standalone"
 	@echo "  make install-backend - Instala apenas dependencias do backend"
 	@echo "  make install-robot   - Instala apenas dependencias do standalone"
@@ -94,6 +94,7 @@ help:
 	@echo "  1. Build Automatico Multi-Chave: make build-robot"
 	@echo "  2. Build com chave especifica:   make build-robot KEY=\"rf_sec_xxxx\" HEADLESS=true"
 	@echo "  3. Build com API especifica:     make build-robot KEY=\"rf_sec_xxxx\" API_URL=\"https://crm.meudominio.com\""
+	@echo "  4. Build por papel:              make build-robot ROLE=query  | make build-robot ROLE=update | make build-robot ROLE=all"
 
 ## Desenvolvimento
 
@@ -113,7 +114,7 @@ test-headed-ps:
 	powershell -Command "cd robot; $$env:HEADLESS='false'; node src/main.js"
 
 build-robot:
-	cd robot && node build/build.js --key "$(KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)"
+	cd robot && node build/build.js --key "$(KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)" --role "$(or $(ROLE),all)"
 
 ## Dependências
 

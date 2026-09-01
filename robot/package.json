@@ -6,7 +6,12 @@
   "type": "module",
   "scripts": {
     "start": "node src/main.js",
+    "start:query": "node src/main-query.js",
+    "start:update": "node src/main-update.js",
     "build": "node build/build.js",
+    "build:robot:query": "node build/build.js --role=query",
+    "build:robot:update": "node build/build.js --role=update",
+    "build:robot:all": "node build/build.js --role=all",
     "test": "node --test \"../tests/robot/**/*.test.js\""
   },
   "dependencies": {

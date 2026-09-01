@@ -19,9 +19,9 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 | Code Layer | Required Test Type | Coverage Expectation | Location Pattern | Run Command |
 | :--- | :--- | :--- | :--- | :--- |
-| Model / Schema | none | Schema validation and index correctness (build gate) | `backend/src/modules/robot-docusign/models/*.js` | build gate only |
-| Controller / API | unit | 1:1 AC mapping for role filtering, error cases, and fallback | `test/backend/**/*.test.js` | `npm run test:backend` |
-| Client Config / Runner | unit | Verification of role parsing, session resolution, and execution branch | `test/robot/**/*.test.js` | `npm run test:robot` |
+| Model / Schema | unit | Schema validation, conditional required (`function`) and index correctness | `tests/backend/models/*.test.js` | `npm run test:backend` |
+| Controller / API | unit | 1:1 AC mapping for role filtering, batch reconciliation, metrics, 400 on invalid role | `tests/backend/**/*.test.js` | `npm run test:backend` |
+| Client Config / Runner | unit | Verification of role parsing, session resolution, execution branch, guard before launch | `tests/robot/**/*.test.js` | `npm run test:robot` |
 | Build Pipeline | none | Artifact existence and integrity validation (build gate) | `robot/build/*.js` | build gate only |
 
 ## Gate Check Commands
@@ -32,7 +32,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 | :--- | :--- | :--- |
 | Quick | After tasks with unit tests only | `npm run test:backend` (ou `npm run test:robot`) |
 | Full | After controller/integration changes | `npm test` |
-| Build | After phase completion or build pipeline tasks | `npm run build:robot` |
+| Build | After phase completion or build pipeline tasks | `npm run build:robot` (verifica `dist/robot-query-N/` e `dist/robot-update-N/`) |
 
 ---
 
@@ -46,22 +46,28 @@ Phases are ordered and run sequentially - each phase completes before the next b
 T1 -> T2
 ```
 
-### Phase 2: Backend Orchestration & Filtering
+### Phase 2: Backend Orchestration, Filtering & Reconciliation
 
 ```
-T3 -> T4
+T3 -> T4 -> T5
 ```
 
 ### Phase 3: Robot Client Configuration & Segregation
 
 ```
-T5 -> T6 -> T7
+T6 -> T7 -> T8
 ```
 
 ### Phase 4: Build Pipeline & Automation
 
 ```
-T8 -> T9
+T9 -> T10
+```
+
+### Phase 5: Docs & Validation
+
+```
+T11
 ```
 
 ---
@@ -83,58 +89,63 @@ T8 -> T9
 - Skill: NONE
 
 **Done when**:
-- [ ] Campo `role` adicionado ao schema com enum `["query", "update", "all"]` e default `"all"`.
+- [ ] Campo `role` adicionado ao schema com enum `["query", "update", "all"]`, default `"all"` e `index:true`.
 - [ ] JSDoc completo adicionado ao typedef e export do model.
-- [ ] Gate check passes: build gate
+- [ ] Gate check passes: `npm run test:backend` (valida enum/default)
 
-**Tests**: none  
-**Gate**: build  
+**Tests**: unit  
+**Gate**: quick  
 **Commit**: `feat(models): add role field to RobotInstance schema`
 
 ---
 
-### T2: Indexação e Tipagem de Actions em RobotJob
+### T2: Indexação, Tipagem de Actions e Contract Opcional em RobotJob
 
-**What**: Revisar e assegurar indexação de `action` e `status` no schema de `RobotJob`.  
+**What**: Revisar schema de `RobotJob`, estender enum `action` para incluir `query_agreements`, permitir `contract_id` / `contractId` opcional para ações globais (`query_agreements`, `reports`) e otimizar índices compostos.  
 **Where**: `backend/src/modules/robot-docusign/models/RobotJob.js`  
 **Depends on**: T1  
 **Reuses**: Índices existentes no Mongoose  
-**Requirement**: ROB2-01  
+**Requirement**: ROB2-01, ROB2-09  
 
 **Tools**:
 - MCP: NONE
 - Skill: NONE
 
 **Done when**:
-- [ ] Índices compostos de `{ status: 1, action: 1, createdAt: 1 }` verificados/adicionados.
+- [ ] Enum `action` estendido para `["send","status","download","resend","reports","query_agreements"]`.
+- [ ] `contract_id` e `contractId` com `required: function() { return !["query_agreements","reports"].includes(this.action) }` (não `required:false` estático) + validador que rejeita `contract_id` ausente para `send/status/download/resend`.
+- [ ] Índices compostos `{ status: 1, action: 1, lock_expires_at: 1, createdAt: 1 }` verificados/adicionados (cobrir `findOneAndUpdate` de `getNextJob` com filtro por `action` + lock); índice parcial opcional `{ "documents.originalUrl": 1 }` documentado como future.
 - [ ] JSDoc completo atualizado.
-- [ ] Gate check passes: build gate
+- [ ] Gate check passes: `npm run test:backend` (valida conditional required + enum)
 
-**Tests**: none  
-**Gate**: build  
-**Commit**: `feat(models): optimize action and status indexing in RobotJob`
+**Tests**: unit  
+**Gate**: quick  
+**Commit**: `feat(models): optimize action indexing and optional contract support in RobotJob`
 
 ---
 
-### Phase 2: Backend Orchestration & Filtering
+### Phase 2: Backend Orchestration, Filtering & Reconciliation
 
-### T3: Filtragem de Jobs por Role em getNextJob
+### T3: Filtragem de Jobs por Role em getNextJob e Schemas Zod
 
-**What**: Atualizar o método `getNextJob` para entregar apenas jobs correspondentes ao `role` da instância solicitante.  
-**Where**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`  
-**Depends on**: None  
-**Reuses**: `robotInstanceController.js` logic  
-**Requirement**: ROB2-02  
+**What**: Atualizar o método `getNextJob` para entregar apenas jobs correspondentes ao `role` da instância solicitante com mapeamento explícito sem órfãos, e atualizar schemas Zod de disparo manual.  
+**Where**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js` + `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`  
+**Depends on**: T2  
+**Reuses**: `robotInstanceController.js` logic; `triggerSchema`  
+**Requirement**: ROB2-02, ROB2-09  
 
 **Tools**:
 - MCP: NONE
 - Skill: NONE
 
 **Done when**:
-- [ ] Se `instance.role === 'query'`, busca apenas jobs com `action` em `['query_agreements', 'status']`.
-- [ ] Se `instance.role === 'update'`, busca apenas jobs com `action` em `['send']`.
-- [ ] Se `instance.role === 'all'` ou indefinido, mantém comportamento de retornar qualquer job pendente.
-- [ ] Testes unitários cobrem todos os 3 cenários de filtro.
+- [ ] Se `instance.role === 'query'`, busca apenas jobs com `action` em `['query_agreements', 'status', 'reports', 'download']`.
+- [ ] Se `instance.role === 'update'`, busca apenas jobs com `action` em `['send', 'resend']`.
+- [ ] Se `instance.role === 'all'` ou indefinido, mantém comportamento de retornar qualquer job pendente (retrocompat).
+- [ ] `getNextJob` não falha caso `job.contract_id` seja nulo para `query_agreements`/`reports` (entrega payload de varredura global sem `Contract.findById(null)`); `robotScheduler` ignora `query_agreements`.
+- [ ] `triggerSchema` e `triggerBatchSchema` em `robotDocusignController.js` aceitam `query_agreements` e liberam `contractId` opcional apenas para `query_agreements`/`reports` (`if (!targetContractId && !["reports","query_agreements"].includes(action)) 400`).
+- [ ] `role` inválido retorna `400`.
+- [ ] Testes unitários cobrem todos os cenários de filtro + fallback `all` + job sem contrato + 400 role inválido.
 - [ ] Gate check passes: `npm run test:backend`
 
 **Tests**: unit  
@@ -143,37 +154,65 @@ T8 -> T9
 
 ---
 
-### T4: Registro de Role na Autenticação e Heartbeat
+### T4: Registro de Role na Autenticação, Heartbeat e Métricas de Frota
 
-**What**: Persistir e atualizar o `role` da instância durante o handshake de autenticação e heartbeat.  
-**Where**: `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js`  
+**What**: Persistir e atualizar o `role` da instância durante o handshake de autenticação e heartbeat, e expor contagem de instâncias agregadas por role em métricas.  
+**Where**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js` + `backend/src/modules/robot-docusign/controllers/robotDocusignController.js` + `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js`  
 **Depends on**: T3  
-**Reuses**: Rotas de instância do Express  
-**Requirement**: ROB2-02  
+**Reuses**: Rotas de instância do Express; schemas zod existentes  
+**Requirement**: ROB2-02, ROB2-09  
 
 **Tools**:
 - MCP: NONE
 - Skill: NONE
 
 **Done when**:
-- [ ] Endpoint `/instance/auth` e `/instance/heartbeat` aceitam e persistem `role` no banco.
+- [ ] `authSchema` e `heartbeatSchema` aceitam `role` opcional (`query|update|all`, default `all`); `X-Robot-Key` path lê `role` de `req.body.role` direto (bypass Zod documentado).
+- [ ] `authenticateInstance` (`POST /instance/auth` via `X-Robot-Key` ou `email/senha`) persiste `role` em `RobotInstance` (upsert) sem colidir com `JWT.role` (cargo); `role` inválido → `400`.
+- [ ] `registerHeartbeat` (`POST /instance/heartbeat`) atualiza `role` quando enviado (upsert `last_heartbeat` + `role`).
+- [ ] `getAllInstances` e `getMetrics` expõem `instances_by_role: { query, update, all, total }` + cada instância expõe `role`.
 - [ ] JSDoc completo atualizado.
 - [ ] Gate check passes: `npm run test:backend`
 
 **Tests**: unit  
 **Gate**: quick  
-**Commit**: `feat(routes): capture and persist instance role on auth and heartbeat`
+**Commit**: `feat(controller): capture instance role on auth and expose fleet metrics`
+
+---
+
+### T5: Enfileiramento em StatusSyncScheduler e Conciliação em Lote no UpdateJobStatus
+
+**What**: Implementar criação periódica de `RobotJob(action: "query_agreements")` pelo scheduler e processamento em lote de `result.envelopes` no retorno do job pelo robô query.  
+**Where**: `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js` + `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`  
+**Depends on**: T4  
+**Reuses**: `syncContractStatus`, `buildDownloadPath` e `contractSyncService.js`  
+**Requirement**: ROB2-08  
+
+**Tools**:
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+- [ ] `statusSyncScheduler.js` enfileira `RobotJob` com `action: "query_agreements"` (sem `contract_id`) quando `mode === "robot"` **e** houver query robot conectado (`RobotInstance.exists({role:{$in:["query","all"]}, last_heartbeat:{$gt: now-60s}})`) **e** não houver job de query pendente/processing (`RobotJob.exists({action:"query_agreements", status:{$in:["pending","processing"]}})`); caso contrário fallback para `executeWithBrowser`; intervalo `5` min; `isRunning` guard mantido.
+- [ ] `updateJobStatus` (`PATCH /instance/job/:jobId/status`) detecta `job.action === "query_agreements"` concluído com `result.envelopes` (validado Zod `array`) e executa conciliação em lote contra contratos ativos (`Contract.find({ status: { $in: ["enviado", "gerado"] } })`), `syncContractStatus` + auto-download de PDFs assinados; `robotScheduler` não reprocessa batch.
+- [ ] Atualização de contratos para `assinado`, preenchimento de `envelopeId` e agendamento de download automático realizados para contratos concluídos.
+- [ ] Testes unitários cobrem enfileiramento idempotente, fallback sem query robot, e conciliação em lote a partir do resultado do job.
+- [ ] Gate check passes: `npm run test:backend`
+
+**Tests**: unit  
+**Gate**: quick  
+**Commit**: `feat(scheduler): handle batch agreement reconciliation on query job completion`
 
 ---
 
 ### Phase 3: Robot Client Configuration & Segregation
 
-### T5: Suporte a ROBOT_ROLE e Sessões Isoladas no Config
+### T6: Suporte a ROBOT_ROLE e Sessões Isoladas no Config + ApiClient
 
-**What**: Adicionar resolução de `ROBOT_ROLE` e caminho de sessão específico por papel no robô standalone.  
-**Where**: `robot/src/config.js`  
-**Depends on**: None  
-**Reuses**: `config.js` loader  
+**What**: Adicionar resolução de `ROBOT_ROLE` e caminho de sessão específico por papel no robô standalone e propagar `role` ao backend.  
+**Where**: `robot/src/config.js` + `robot/src/api-client.js`  
+**Depends on**: T5  
+**Reuses**: `config.js` loader; `ApiClient` existente  
 **Requirement**: ROB2-03  
 
 **Tools**:
@@ -181,7 +220,9 @@ T8 -> T9
 - Skill: NONE
 
 **Done when**:
-- [ ] `loadConfig` suporta `ROBOT_ROLE` (`query` ou `update`), atribuindo arquivos de sessão dedicados (`session-query.json` / `session-update.json`).
+- [ ] `loadConfig` suporta `ROBOT_ROLE` / `--role` (`query` ou `update` ou `all`), atribuindo arquivos de sessão dedicados (`session-query.json` / `session-update.json`, fallback `session-docusign.json` para `all`).
+- [ ] `ApiClient.authenticate()` e `ApiClient.sendHeartbeat()` enviam `role` no payload (`instance_id` + `role`).
+- [ ] `ApiClient.getNextJob()` propaga `role` quando disponível.
 - [ ] JSDoc completo atualizado.
 - [ ] Gate check passes: `npm run test:robot`
 
@@ -191,11 +232,11 @@ T8 -> T9
 
 ---
 
-### T6: Isolamento de Execução de Rotinas no JobRunner
+### T7: Isolamento de Execução de Rotinas no JobRunner
 
-**What**: Desacoplar a execução de rotinas de envio e consulta no JobRunner, validando permissão de execução por papel.  
+**What**: Desacoplar a execução de rotinas de envio e consulta no JobRunner, validando permissão de execução por papel e tratando execução de `query_agreements`.  
 **Where**: `robot/src/job-runner.js`  
-**Depends on**: T5  
+**Depends on**: T6  
 **Reuses**: `job-runner.js` pipeline  
 **Requirement**: ROB2-05  
 
@@ -204,9 +245,11 @@ T8 -> T9
 - Skill: NONE
 
 **Done when**:
-- [ ] JobRunner valida se a ação recebida é compatível com o papel configurado na inicialização.
-- [ ] Métodos de execução desacoplados respeitando SOLID/SRP.
-- [ ] Testes unitários cobrem execução e bloqueio de ações não compatíveis.
+- [ ] JobRunner recebe `role` no construtor (`options.role` / `ROBOT_ROLE`) e expõe `allowedActions` (`query=[status,query_agreements,reports,download]`, `update=[send,resend]`, `all=todos`).
+- [ ] Guard clause rejeita `action` incompatível com `role` antes de `chromium.launch`.
+- [ ] Métodos de execução desacoplados (`handleSend`/`handleQuery`) respeitando SOLID/SRP.
+- [ ] `handleQuery` suporta execução de `query_agreements` com retorno de array estruturado `{ envelopes: [...] }` para o backend via `updateJobStatus`.
+- [ ] Testes unitários cobrem execução e bloqueio de ações não compatíveis por role.
 - [ ] Gate check passes: `npm run test:robot`
 
 **Tests**: unit  
@@ -215,12 +258,12 @@ T8 -> T9
 
 ---
 
-### T7: Entrypoints Dedicados de Inicialização
+### T8: Entrypoints Físicos Dedicados de Inicialização
 
-**What**: Criar entrypoints especializados e unificar bootstrap com seleção dinâmica de papel.  
-**Where**: `robot/src/main.js`  
-**Depends on**: T6  
-**Reuses**: `main.js` bootstrap  
+**What**: Criar entrypoints físicos especializados (wrappers 3L) e manter `main.js` como dispatcher.  
+**Where**: `robot/src/main-query.js` + `robot/src/main-update.js` + `robot/src/main.js` (dispatcher)  
+**Depends on**: T7  
+**Reuses**: `main.js` bootstrap; `config.js` role resolver  
 **Requirement**: ROB2-04  
 
 **Tools**:
@@ -228,7 +271,9 @@ T8 -> T9
 - Skill: NONE
 
 **Done when**:
-- [ ] `main.js` detecta flag CLI `--role` ou variável `ROBOT_ROLE` e inicializa o runner correspondente.
+- [ ] `main-query.js` wrapper: `process.env.ROBOT_ROLE="query"; await import("./main.js")` (ponytail: evita duplicação de bootstrap).
+- [ ] `main-update.js` wrapper: `process.env.ROBOT_ROLE="update"; await import("./main.js")`.
+- [ ] `main.js` detecta flag CLI `--role` ou variável `ROBOT_ROLE` e inicializa `JobRunner` com `role` + `sessionFilePath` correspondente.
 - [ ] JSDoc completo atualizado.
 - [ ] Gate check passes: `npm run test:robot`
 
@@ -240,11 +285,11 @@ T8 -> T9
 
 ### Phase 4: Build Pipeline & Automation
 
-### T8: Parametrização do Pipeline de Build no build.js
+### T9: Parametrização do Pipeline de Build no build.js e Customização de Scripts
 
-**What**: Adaptar o pipeline de empacotamento para gerar executáveis distintos para cada papel.  
+**What**: Adaptar o pipeline de empacotamento para gerar executáveis distintos para cada papel com scripts `run.bat` e documentação contextualizados.  
 **Where**: `robot/build/build.js`  
-**Depends on**: None  
+**Depends on**: T8  
 **Reuses**: Pipeline esbuild + bytenode + pkg existente  
 **Requirement**: ROB2-06  
 
@@ -253,7 +298,11 @@ T8 -> T9
 - Skill: NONE
 
 **Done when**:
-- [ ] `build.js` aceita `--role=query`, `--role=update` ou constrói ambos em `dist/robot-query/` e `dist/robot-update/`.
+- [ ] `parseArgs` aceita `--role=query|update|all` (default `all` = ambos).
+- [ ] `build.js` gera matriz `ROBOT_API_KEY_N × role` → `dist/robot-query-<N>/` e `dist/robot-update-<N>/` (ex: `robot-query-1.exe`, `robot-update-1.exe`); `all` gera ambos.
+- [ ] `defineArgs` injeta `process.env.ROBOT_ROLE` no bundle esbuild para embutir papel no `.exe`.
+- [ ] Entry correto por papel (`main-query.js` vs `main-update.js` vs `main.js` dispatcher).
+- [ ] Scripts `run.bat` gerados com título de terminal descritivo por papel (ex: `[DocuSign RPA] - Consulta #N` vs `[DocuSign RPA] - Atualização #N`).
 - [ ] JSDoc completo atualizado.
 - [ ] Gate check passes: build gate
 
@@ -263,12 +312,12 @@ T8 -> T9
 
 ---
 
-### T9: Configuração de Scripts NPM e Makefile
+### T10: Configuração de Scripts NPM e Makefile
 
 **What**: Adicionar scripts de automação de build para geração dos robôs especializados.  
-**Where**: `robot/package.json`  
-**Depends on**: T8  
-**Reuses**: Scripts existentes no `package.json`  
+**Where**: `robot/package.json` + `Makefile`  
+**Depends on**: T9  
+**Reuses**: Scripts existentes no `package.json`; target `build-robot` do Makefile  
 **Requirement**: ROB2-07  
 
 **Tools**:
@@ -276,7 +325,9 @@ T8 -> T9
 - Skill: NONE
 
 **Done when**:
-- [ ] Adicionados scripts `build:robot:query`, `build:robot:update` e `build:robot:all`.
+- [ ] `robot/package.json` adiciona scripts `build:robot:query`, `build:robot:update` e `build:robot:all` (repasse de `--role` para `build.js`).
+- [ ] `Makefile` target `build-robot` aceita `ROLE=query|update|all` (ex: `make build-robot ROLE=query KEY=...`) e repassa `--role` ao `build.js`; `KEY` alias de `ROBOT_API_KEY`.
+- [ ] `make help` documenta novos targets/variações.
 - [ ] Gate check passes: build gate
 
 **Tests**: none  
@@ -285,15 +336,42 @@ T8 -> T9
 
 ---
 
+### Phase 5: Docs & Validation
+
+### T11: Inventário de Rotas, STATE e Validation
+
+**What**: Atualizar documentação, inventário e artefatos de validação da feature.  
+**Where**: `.specs/routes-inventory.md` + `.specs/STATE.md` + `.specs/features/robot/dois-robos-consulta-atualizacao/validation.md`  
+**Depends on**: T10  
+**Reuses**: `tools/generate-routes-inventory.js`, `STATE.md` AD pattern  
+**Requirement**: ROB2-01..09 (docs)  
+
+**Tools**:
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+- [ ] `make routes-inventory` regenerado (se rotas alteradas).
+- [ ] `.specs/STATE.md` com AD-0XX da feature (role, fila, build matrix) + handoff atualizado.
+- [ ] `.specs/features/robot/dois-robos-consulta-atualizacao/validation.md` criado (evidências por AC, gate results).
+- [ ] Gate check passes: build gate
+
+**Tests**: none  
+**Gate**: build  
+**Commit**: `docs(specs): finalize dual-robot validation and inventory`
+
+---
+
 ## Phase Execution Map
 
 ```
-Phase 1 -> Phase 2 -> Phase 3 -> Phase 4
+Phase 1 -> Phase 2 -> Phase 3 -> Phase 4 -> Phase 5
 
 Phase 1:  T1 -> T2
-Phase 2:  T3 -> T4
-Phase 3:  T5 -> T6 -> T7
-Phase 4:  T8 -> T9
+Phase 2:  T3 -> T4 -> T5
+Phase 3:  T6 -> T7 -> T8
+Phase 4:  T9 -> T10
+Phase 5:  T11
 ```
 
 ---
@@ -303,14 +381,16 @@ Phase 4:  T8 -> T9
 | Task | Scope | Status |
 | :--- | :--- | :--- |
 | T1: Modelagem do Campo Role em RobotInstance | 1 model | ✅ Granular |
-| T2: Indexação e Tipagem de Actions em RobotJob | 1 model | ✅ Granular |
-| T3: Filtragem de Jobs por Role em getNextJob | 1 controller | ✅ Granular |
-| T4: Registro de Role na Autenticação e Heartbeat | 1 route file | ✅ Granular |
-| T5: Suporte a ROBOT_ROLE e Sessões Isoladas no Config | 1 config file | ✅ Granular |
-| T6: Isolamento de Execução de Rotinas no JobRunner | 1 runner class | ✅ Granular |
-| T7: Entrypoints Dedicados de Inicialização | 1 entrypoint | ✅ Granular |
-| T8: Parametrização do Pipeline de Build no build.js | 1 build script | ✅ Granular |
-| T9: Configuração de Scripts NPM e Makefile | 1 package manifest | ✅ Granular |
+| T2: Indexação, Tipagem de Actions e Contract Opcional em RobotJob | 1 model | ✅ Granular |
+| T3: Filtragem de Jobs por Role em getNextJob e Schemas Zod | 2 controllers | ✅ Granular |
+| T4: Registro de Role na Autenticação, Heartbeat e Métricas de Frota | controllers + routes | ✅ Granular |
+| T5: Enfileiramento em StatusSyncScheduler e Conciliação em Lote | scheduler + controller | ✅ Granular |
+| T6: Suporte a ROBOT_ROLE e Sessões Isoladas no Config + ApiClient | config + api-client | ✅ Granular |
+| T7: Isolamento de Execução de Rotinas no JobRunner | 1 runner class | ✅ Granular |
+| T8: Entrypoints Físicos Dedicados de Inicialização | 3 entrypoints (query/update/dispatcher) | ✅ Granular |
+| T9: Parametrização do Pipeline de Build no build.js | 1 build script | ✅ Granular |
+| T10: Configuração de Scripts NPM e Makefile | package + Makefile | ✅ Granular |
+| T11: Inventário de Rotas, STATE e Validation | docs (3 arquivos) | ✅ Granular |
 
 ---
 
@@ -319,14 +399,16 @@ Phase 4:  T8 -> T9
 | Task | Depends On (task body) | Diagram Shows | Status |
 | :--- | :--- | :--- | :--- |
 | T1 | None | None | ✅ Match |
-| T2 | T1 | T1 -> T2 | ✅ Match |
-| T3 | None | None | ✅ Match |
-| T4 | T3 | T3 -> T4 | ✅ Match |
-| T5 | None | None | ✅ Match |
-| T6 | T5 | T5 -> T6 | ✅ Match |
-| T7 | T6 | T6 -> T7 | ✅ Match |
-| T8 | None | None | ✅ Match |
-| T9 | T8 | T8 -> T9 | ✅ Match |
+| T2 | T1 | T1 → T2 | ✅ Match |
+| T3 | T2 | T2 (Phase 1) → T3 (Phase 2) | ✅ Match |
+| T4 | T3 | T3 → T4 | ✅ Match |
+| T5 | T4 | T4 → T5 | ✅ Match |
+| T6 | T5 | T5 (Phase 2) → T6 (Phase 3) | ✅ Match |
+| T7 | T6 | T6 → T7 | ✅ Match |
+| T8 | T7 | T7 → T8 | ✅ Match |
+| T9 | T8 | T8 (Phase 3) → T9 (Phase 4) | ✅ Match |
+| T10 | T9 | T9 → T10 | ✅ Match |
+| T11 | T10 | T10 (Phase 4) → T11 (Phase 5) | ✅ Match |
 
 ---
 
@@ -334,12 +416,14 @@ Phase 4:  T8 -> T9
 
 | Task | Code Layer Created/Modified | Matrix Requires | Task Says | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| T1 | Model / Schema | none | none | ✅ OK |
-| T2 | Model / Schema | none | none | ✅ OK |
+| T1 | Model / Schema | unit | unit | ✅ OK |
+| T2 | Model / Schema | unit | unit | ✅ OK |
 | T3 | Controller / API | unit | unit | ✅ OK |
 | T4 | Controller / API | unit | unit | ✅ OK |
-| T5 | Client Config / Runner | unit | unit | ✅ OK |
+| T5 | Controller / Scheduler | unit | unit | ✅ OK |
 | T6 | Client Config / Runner | unit | unit | ✅ OK |
 | T7 | Client Config / Runner | unit | unit | ✅ OK |
-| T8 | Build Pipeline | none | none | ✅ OK |
+| T8 | Client Config / Runner | unit | unit | ✅ OK |
 | T9 | Build Pipeline | none | none | ✅ OK |
+| T10 | Build Pipeline | none | none | ✅ OK |
+| T11 | Docs / Validation | none | none | ✅ OK |
