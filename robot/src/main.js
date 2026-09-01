@@ -33,9 +33,10 @@ async function bootstrap() {
 
   const config = loadConfig();
   logger.step("Main", `Conectando a: ${config.API_URL}`);
+  logger.step("Main", `Papel (ROBOT_ROLE): ${config.ROBOT_ROLE} | Sessão: ${config.DOCUSIGN_SESSION_PATH}`);
   logger.step("Main", `Modo Navegador: ${config.HEADLESS ? "Headless (sem janela)" : "Headed (com janela)"}`);
 
-  const api = new ApiClient(config.API_URL);
+  const api = new ApiClient(config.API_URL, null, config.ROBOT_ROLE);
 
   try {
     // 1. Autenticação na API central via Chave de API
@@ -57,6 +58,7 @@ async function bootstrap() {
     // 4. Iniciar runner e scheduler
     const runner = new JobRunner(api, {
       headless: config.HEADLESS,
+      role: config.ROBOT_ROLE,
       sessionFilePath: config.DOCUSIGN_SESSION_PATH || undefined,
     });
     const scheduler = new Scheduler(api, runner, systemConfig, config.POLL_INTERVAL_SECONDS);

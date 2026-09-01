@@ -91,11 +91,19 @@ export class JobRunner {
   constructor(apiClient, options = {}) {
     this.api = apiClient;
     this.headless = options.headless !== false;
+    this.role = options.role || process.env.ROBOT_ROLE || "all";
+    // Mapa de ações permitidas por papel (dual-robot)
+    const ROLE_ACTIONS = {
+      query: ["status", "query_agreements", "reports", "download"],
+      update: ["send", "resend"],
+      all: ["send", "status", "download", "resend", "reports", "query_agreements"],
+    };
+    this.allowedActions = ROLE_ACTIONS[this.role] || ROLE_ACTIONS.all;
     this.sessionFilePath =
       options.sessionFilePath ||
       options.sessionPath ||
       process.env.DOCUSIGN_SESSION_PATH ||
-      path.resolve(process.cwd(), "session-docusign.json");
+      path.resolve(process.cwd(), this.role === "query" ? "session-query.json" : this.role === "update" ? "session-update.json" : "session-docusign.json");
   }
 
   /**
@@ -110,6 +118,13 @@ export class JobRunner {
    */
   async processJob(job) {
     const { jobId, contractId, action, pdfUrl, recipientEmail, credentials } = job;
+    // Guard: rejeita action incompatível com role antes de chromium.launch (ponytail)
+    if (!this.allowedActions.includes(action)) {
+      const msg = `Ação '${action}' não permitida para role '${this.role}' (permitidas: ${this.allowedActions.join(",")})`;
+      logger.error("JobRunner", msg);
+      await this.api.updateJobStatus(jobId, { status: "failed", error: msg, step: { name: "role_guard", status: "failed", error: msg } }).catch(() => {});
+      throw new Error(msg);
+    }
     let tempPdfPath = null;
     let browser = null;
     let context = null;

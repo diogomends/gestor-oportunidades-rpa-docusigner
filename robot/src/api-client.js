@@ -11,9 +11,10 @@ export class ApiClient {
    * @param {string} baseUrl - URL base da API central (ex: http://localhost:3111).
    * @param {string|null} [instanceId=null] - Identificador da instância do robô.
    */
-  constructor(baseUrl, instanceId = null) {
+  constructor(baseUrl, instanceId = null, role = null) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.instanceId = instanceId;
+    this.role = role || process.env.ROBOT_ROLE || "all";
     this.token = null;
     this.tokenExpiresAt = null;
   }
@@ -36,6 +37,7 @@ export class ApiClient {
 
     const payload = {
       ...(this.instanceId ? { instance_id: this.instanceId } : {}),
+      role: this.role,
       robot_key: robotKey,
       machine_info: {
         hostname: os.hostname(),
@@ -100,7 +102,7 @@ export class ApiClient {
     if (!this.instanceId) {
       throw new Error("ID da instância não definido. Execute authenticate() primeiro.");
     }
-    const url = `${this.baseUrl}/api/robot-docusign/instance/next-job?instance_id=${encodeURIComponent(this.instanceId)}`;
+    const url = `${this.baseUrl}/api/robot-docusign/instance/next-job?instance_id=${encodeURIComponent(this.instanceId)}&role=${encodeURIComponent(this.role)}`;
     const res = await fetch(url, { headers: this.getHeaders() });
     if (!res.ok) {
       throw new Error(`Erro ao buscar próximo job: HTTP ${res.status}`);
@@ -149,6 +151,7 @@ export class ApiClient {
         body: JSON.stringify({
           instance_id: this.instanceId,
           status,
+          role: this.role,
           current_job_id: currentJobId,
           jobs_processed_today: jobsCount,
           machine_info: {

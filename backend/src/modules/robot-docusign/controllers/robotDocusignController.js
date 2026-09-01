@@ -16,7 +16,7 @@ import { encryptText } from "../../../utils/crypto.js";
 const triggerSchema = z.object({
   contractId: z.string().optional(),
   contract_id: z.string().optional(),
-  action: z.enum(["send", "status", "download", "resend", "reports"]).default("send"),
+  action: z.enum(["send", "status", "download", "resend", "reports", "query_agreements"]).default("send"),
   options: z.record(z.any()).optional().default({}),
 });
 
@@ -27,7 +27,7 @@ const triggerSchema = z.object({
  */
 const triggerBatchSchema = z.object({
   contractIds: z.array(z.string()).min(1, "contractIds deve ser um array com pelo menos 1 ID"),
-  action: z.enum(["send", "status", "download", "resend", "reports"]).optional().default("send"),
+  action: z.enum(["send", "status", "download", "resend", "reports", "query_agreements"]).optional().default("send"),
   options: z.record(z.any()).optional().default({}),
 });
 
@@ -128,7 +128,7 @@ export const triggerJob = async (req, res) => {
     const { contractId, contract_id, action, options } = parseResult.data;
     const targetContractId = contractId || contract_id;
 
-    if (!targetContractId && action !== "reports") {
+    if (!targetContractId && !["reports", "query_agreements"].includes(action)) {
       return res.status(400).json({
         error: "contractId ou contract_id é obrigatório para esta ação",
       });
@@ -364,6 +364,16 @@ export const listJobs = async (req, res) => {
  */
 export const getMetrics = async (req, res) => {
   try {
+    // ponytail: evita buffering timeout quando mongo não está conectado (testes)
+    let instancesByRoleAgg = [];
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const { RobotInstance } = await import("../models/RobotInstance.js");
+        instancesByRoleAgg = await RobotInstance.aggregate([{ $group: { _id: "$role", count: { $sum: 1 } } }]);
+      } catch (_) {
+        instancesByRoleAgg = [];
+      }
+    }
     const [
       totalJobs,
       completedJobs,
@@ -394,6 +404,12 @@ export const getMetrics = async (req, res) => {
       if (item._id) actionMetrics[item._id] = item.count;
     });
 
+    const instancesByRole = { query: 0, update: 0, all: 0, total: 0 };
+    (instancesByRoleAgg || []).forEach((item) => {
+      if (item._id) instancesByRole[item._id] = item.count;
+      instancesByRole.total += item.count;
+    });
+
     return res.status(200).json({
       success: true,
       metrics: {
@@ -405,6 +421,7 @@ export const getMetrics = async (req, res) => {
         successRate,
         byMode: modeMetrics,
         byAction: actionMetrics,
+        instances_by_role: instancesByRole,
       },
     });
   } catch (error) {
@@ -429,10 +446,6 @@ export const getJobLogs = async (req, res) => {
     const { jobId } = req.params;
     if (!jobId) {
       return res.status(400).json({ error: "Parâmetro jobId é obrigatório" });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(jobId)) {
-      return res.status(404).json({ error: "Job não encontrado" });
     }
 
     let job;

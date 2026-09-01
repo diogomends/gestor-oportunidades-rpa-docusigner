@@ -34,12 +34,29 @@ export function loadConfig() {
     }
   }
 
+  // Resolver ROBOT_ROLE de CLI --role ou env
+  let robotRole = process.env.ROBOT_ROLE || fileConfig.ROBOT_ROLE || "all";
+  for (let i = 0; i < process.argv.length; i++) {
+    const a = process.argv[i];
+    if (a.startsWith("--role=")) robotRole = a.split("=")[1];
+    else if (a === "--role" && process.argv[i + 1]) robotRole = process.argv[++i];
+  }
+  robotRole = String(robotRole).toLowerCase();
+  if (!["query", "update", "all"].includes(robotRole)) robotRole = "all";
+
+  const sessionByRole = {
+    query: path.resolve(process.cwd(), "session-query.json"),
+    update: path.resolve(process.cwd(), "session-update.json"),
+    all: process.env.DOCUSIGN_SESSION_PATH || fileConfig.DOCUSIGN_SESSION_PATH || path.resolve(process.cwd(), "session-docusign.json"),
+  };
+
   const config = {
     API_URL: (process.env.API_URL || fileConfig.API_URL || "http://localhost:3111").replace(/\/$/, ""),
     ROBOT_KEY: process.env.ROBOT_KEY || fileConfig.ROBOT_KEY || "",
+    ROBOT_ROLE: robotRole,
     HEADLESS: process.env.HEADLESS !== undefined ? (process.env.HEADLESS === "true" || process.env.HEADLESS === true) : (fileConfig.HEADLESS !== false),
     POLL_INTERVAL_SECONDS: parseInt(process.env.POLL_INTERVAL_SECONDS || fileConfig.POLL_INTERVAL_SECONDS || "15", 10),
-    DOCUSIGN_SESSION_PATH: process.env.DOCUSIGN_SESSION_PATH || fileConfig.DOCUSIGN_SESSION_PATH || "",
+    DOCUSIGN_SESSION_PATH: process.env.DOCUSIGN_SESSION_PATH || fileConfig.DOCUSIGN_SESSION_PATH || sessionByRole[robotRole],
   };
 
   return config;

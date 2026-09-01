@@ -22,21 +22,29 @@ const robotJobStepSchema = new mongoose.Schema(
 const robotJobSchema = new mongoose.Schema(
   {
     // Identificador do Contrato (Suporta contract_id e contractId)
+    // contract_id condicional: obrigatório exceto para jobs globais (query_agreements/reports); permite alias (um dos dois)
     contract_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Contract",
-      required: true,
+      required: function () {
+        if (["query_agreements", "reports"].includes(this.action)) return false;
+        return !this.contractId;
+      },
       index: true,
     },
     contractId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Contract",
+      required: function () {
+        if (["query_agreements", "reports"].includes(this.action)) return false;
+        return !this.contract_id;
+      },
     },
 
     // Ação do Robô
     action: {
       type: String,
-      enum: ["send", "status", "download", "resend", "reports"],
+      enum: ["send", "status", "download", "resend", "reports", "query_agreements"],
       required: true,
     },
 
@@ -134,9 +142,11 @@ const robotJobSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Índices compostos conforme REQ-001
+// Índices compostos conforme REQ-001 + dual-robot (filtragem por action)
 robotJobSchema.index({ contractId: 1, status: 1 });
 robotJobSchema.index({ createdAt: -1 });
+// Cobre findOneAndUpdate de getNextJob com filtro por status+action+lock
+robotJobSchema.index({ status: 1, action: 1, lock_expires_at: 1, createdAt: 1 });
 
 // Middleware pre-save para sincronizar aliases de convenção
 robotJobSchema.pre("save", function (next) {
