@@ -11,7 +11,10 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | `npm test` / `make test`                                                        | Testes nativos (`node --test` em `tests/**/*.test.js`) |
 | `npm run test:backend`                                                          | Testes backend (`tests/backend/**`)                    |
 | `npm run test:robot`                                                            | Testes robô (`tests/robot/**`)                         |
-| `npm run build:robot` / `make build-robot`                                      | Gera executáveis do robô                              |
+| `npm run build:robot` / `make build-robot`                                      | Gera executáveis dos robôs (`ROLE=query\|update\|all`)  |
+| `npm run build:robot:query`                                                     | Gera executável exclusivo de consulta (`robot-query`)   |
+| `npm run build:robot:update`                                                    | Gera executável exclusivo de envio (`robot-update`)     |
+| `npm run build:robot:all`                                                       | Gera todos os executáveis para todas as chaves e papéis  |
 | `npx playwright install chromium`                                               | Instala browser Chromium para o robô                  |
 | `make install` / `make install-backend` / `make install-robot`                  | Instalação de dependências (raiz/backend/robô)        |
 | `docker compose up --build` / `make up-dev`                                     | Sobe servidor em container Docker local               |
@@ -161,6 +164,7 @@ Fora do prefixo:
 | `ROBOT_API_KEY`                 | Sim         | —                           |
 | `API_URL` / `URI_PROD`          | Não         | `http://localhost:3111`     |
 | `ROBOT_KEY`                     | Não         | —                           |
+| `ROBOT_ROLE`                    | Não         | `all`                       |
 | `HEADLESS`                      | Não         | `true`                      |
 | `POLL_INTERVAL_SECONDS`         | Não         | `15`                        |
 | `DEPLOY_HOST`                   | Não         | `root@165.227.212.57`       |
