@@ -359,7 +359,9 @@ export const getNextJob = async (req, res) => {
       { new: true, sort: { createdAt: 1 } }
     );
 
-    // 5. Se não houver job na fila, verificar se há Contrato com status 'gerado' e documento PDF anexado (se envio permitido)
+    let originalContractStatus = null;
+
+    // 5. Se não houver job na fila, verificar se há Contrato elegível (não-rascunho) e documento PDF anexado (se envio permitido)
     if (!job && config.operations?.send !== false) {
       const contract = await Contract.findOneAndUpdate(
         GERADO_ELIGIBLE_FILTER,
@@ -368,9 +370,11 @@ export const getNextJob = async (req, res) => {
       );
 
       if (contract) {
+        originalContractStatus = contract.status;
         job = await RobotJob.create({
           contract_id: contract._id,
           contractId: contract._id,
+          originalStatus: contract.status,
           action: "send",
           status: "processing",
           mode: "robot",
@@ -404,7 +408,7 @@ export const getNextJob = async (req, res) => {
     }
 
     // Se a ação for 'send' e não houver documento PDF ou e-mail válido, cancela o lock e pula o job
-    // Reverte contrato de em_processamento_robot -> gerado para permitir retry quando PDF/e-mail forem anexados
+    // Reverte contrato de em_processamento_robot para seu status original pré-lock
     if (job.action === "send" && !isEligibleForSend(contract)) {
       await RobotJob.findByIdAndUpdate(job._id, {
         status: "failed",
@@ -414,9 +418,15 @@ export const getNextJob = async (req, res) => {
         lock_expires_at: null,
       });
 
-      // ponytail: reverte contrato legado preso em em_processamento_robot para gerado
+      // ponytail: reverte contrato preso em em_processamento_robot para status original pré-lock
       if (contractId) {
-        await Contract.findByIdAndUpdate(contractId, { status: "gerado" }).catch(() => {});
+        const revertStatus =
+          (originalContractStatus && originalContractStatus !== "em_processamento_robot")
+            ? originalContractStatus
+            : (job.originalStatus && job.originalStatus !== "em_processamento_robot")
+              ? job.originalStatus
+              : "gerado";
+        await Contract.findByIdAndUpdate(contractId, { status: revertStatus }).catch(() => {});
       }
 
       console.warn(`[robotInstanceController] Job ${job._id} ignorado por falta de PDF ou e-mail (contrato ${contractId}).`);
@@ -545,7 +555,11 @@ export const updateJobStatus = async (req, res) => {
           });
         }
       } else if (status === "failed") {
-        await Contract.findByIdAndUpdate(contractId, { status: "gerado" });
+        const revertStatus =
+          updatedJob.originalStatus && updatedJob.originalStatus !== "em_processamento_robot"
+            ? updatedJob.originalStatus
+            : "gerado";
+        await Contract.findByIdAndUpdate(contractId, { status: revertStatus });
       }
     }
 

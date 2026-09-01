@@ -104,6 +104,10 @@ const robotJobSchema = new mongoose.Schema(
     result: {
       type: mongoose.Schema.Types.Mixed,
     },
+    originalStatus: {
+      type: String,
+      default: null,
+    },
 
     // Auditoria
     created_by: {

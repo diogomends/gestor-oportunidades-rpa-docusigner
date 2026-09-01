@@ -72,7 +72,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │               ├── routes/            # robotInstanceRoutes.js
 │               ├── browserrobot/      # Submódulo Playwright (index.js barrel, browserRobot.js [send+executeWithBrowser], robotSession.js, agreementsService.js, robotSelectors.js, steps/)
 │               ├── seletorApiRobot/   # Submódulo de Seleção & Orquestração (index.js, orchestratorConfig.js, orchestratorEvents.js, apiActionService.js, contractSyncService.js, robotScheduler.js, statusSyncScheduler.js)
-│               ├── utils/             # contractEligibility.js (GERADO_ELIGIBLE_FILTER, isEligibleForSend/hasPdf/hasRecipientEmail — filtro PDF+e-mail centralizado AD-038)
+│               ├── utils/             # contractEligibility.js (GERADO_ELIGIBLE_FILTER / CONTRACT_ELIGIBLE_FILTER, isEligibleForSend/hasPdf/hasRecipientEmail — filtro não-rascunho + PDF + e-mail centralizado AD-038/AD-050)
 │               └── services/          # Barrels de retrocompatibilidade direta
 ├── robot/
 │   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, bytenode, esbuild)

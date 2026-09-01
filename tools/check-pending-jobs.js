@@ -17,21 +17,8 @@ if (fs.existsSync(envDevPath)) {
   dotenv.config({ path: envPath });
 }
 
-/**
- * Filtro de contratos 'gerado' elegíveis para envio (com PDF e e-mail).
- * @constant
- * @type {object}
- */
-const GERADO_ELIGIBLE_FILTER = {
-  status: "gerado",
-  "documents.originalUrl": { $exists: true, $ne: null, $ne: "" },
-  $or: [
-    { "client.representante.email": { $exists: true, $ne: null, $ne: "" } },
-    { "signer.email": { $exists: true, $ne: null, $ne: "" } },
-    { email: { $exists: true, $ne: null, $ne: "" } },
-    { clientEmail: { $exists: true, $ne: null, $ne: "" } },
-  ],
-};
+import { GERADO_ELIGIBLE_FILTER } from "../backend/src/modules/robot-docusign/utils/contractEligibility.js";
+
 
 /**
  * Consulta e exibe o estado atual da fila de jobs e contratos elegíveis no MongoDB.
@@ -93,27 +80,39 @@ async function run() {
     }
     console.log("");
 
-    // 3. Contratos com Status 'gerado' e Elegibilidade
-    console.log(`\x1b[36m📄 3. CONTRATOS GERADOS AGUARDANDO ENVIO (crm_contracts.contracts)\x1b[0m`);
-    const allGerados = await dbContracts
+    // 3. Contratos Ativos (Status != 'rascunho') e Elegibilidade
+    console.log(`\x1b[36m📄 3. CONTRATOS ATIVOS (STATUS != 'RASCUNHO') AGUARDANDO ENVIO (crm_contracts.contracts)\x1b[0m`);
+    const contractProjection = {
+      _id: 1,
+      name: 1,
+      clientName: 1,
+      status: 1,
+      documents: 1,
+      client: 1,
+      signer: 1,
+      email: 1,
+      clientEmail: 1,
+    };
+
+    const allActiveContracts = await dbContracts
       .collection("contracts")
-      .find({ status: "gerado" })
+      .find({ status: { $ne: "rascunho" } }, { projection: contractProjection })
       .sort({ createdAt: 1 })
       .toArray();
 
     const eligibleContracts = await dbContracts
       .collection("contracts")
-      .find(GERADO_ELIGIBLE_FILTER)
+      .find(GERADO_ELIGIBLE_FILTER, { projection: contractProjection })
       .sort({ createdAt: 1 })
       .toArray();
 
-    if (allGerados.length === 0) {
-      console.log(`  \x1b[32m✓ Nenhum contrato com status 'gerado' no banco.\x1b[0m`);
+    if (allActiveContracts.length === 0) {
+      console.log(`  \x1b[32m✓ Nenhum contrato ativo (não-rascunho) no banco.\x1b[0m`);
     } else {
-      console.log(`  Total de contratos com status 'gerado': \x1b[33m${allGerados.length}\x1b[0m`);
+      console.log(`  Total de contratos ativos (não-rascunho): \x1b[33m${allActiveContracts.length}\x1b[0m`);
       console.log(`  Contratos elegíveis (com PDF + e-mail prontos para o robô): \x1b[32m${eligibleContracts.length}\x1b[0m\n`);
 
-      allGerados.forEach((c, idx) => {
+      allActiveContracts.forEach((c, idx) => {
         const hasPdfDoc = Array.isArray(c.documents) && c.documents.some((d) => d?.originalUrl && String(d.originalUrl).trim().length > 0);
         const recipientEmail =
           c?.client?.representante?.email || c?.signer?.email || c?.email || c?.clientEmail || "";
@@ -121,8 +120,9 @@ async function run() {
 
         const icon = isEligible ? "\x1b[32m✓ [ELEGÍVEL]\x1b[0m" : "\x1b[31m✗ [INCOMPLETO]\x1b[0m";
         const title = c.name || c.clientName || c.client?.razaoSocial || "Contrato sem título";
+        const contractStatus = c.status || "desconhecido";
 
-        console.log(`  ${idx + 1}. ${icon} ID: \x1b[35m${c._id}\x1b[0m - ${title}`);
+        console.log(`  ${idx + 1}. ${icon} ID: \x1b[35m${c._id}\x1b[0m [Status: \x1b[33m${contractStatus}\x1b[0m] - ${title}`);
         console.log(`     - PDF anexado: ${hasPdfDoc ? "\x1b[32mSIM\x1b[0m" : "\x1b[31mNÃO\x1b[0m"}`);
         console.log(`     - E-mail destinatário: ${recipientEmail ? `\x1b[32m${recipientEmail}\x1b[0m` : "\x1b[31m(Vazio)\x1b[0m"}`);
       });

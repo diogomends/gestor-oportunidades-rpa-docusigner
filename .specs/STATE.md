@@ -287,12 +287,21 @@
 - **Date**: 2026-08-31
 - **Status**: active
 
+### AD-051
+- **Decision**: Hardening do filtro de contratos elegíveis com blocklist estrita (`$nin: ["rascunho", "enviado", "assinado", "cancelado", "em_processamento_robot"]`), proteção contra status nulos/ausentes e `Object.freeze` em `contractEligibility.js`; adição de `"em_processamento_robot"` ao enum de `Contract.js`; persistência de `originalStatus` pré-lock em `RobotJob` e restauração fiel no fallback de `robotInstanceController.js` (`getNextJob` e `updateJobStatus`); centralização do import de filtro em `tools/check-pending-jobs.js` com projeção de campos otimizada.
+- **Reason**: Eliminar risco de loops de reprocessamento e reenvios indevidos no DocuSign para contratos finalizados (B1), garantir conformidade do schema Mongoose e evitar rebaixamento forçado para "gerado" em falhas (B2), eliminar duplicações de código (M2), garantir imutabilidade de referências (M3) e otimizar consumo de memória na CLI.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/utils/contractEligibility.js`, `backend/src/models/Contract.js`, `backend/src/modules/robot-docusign/models/RobotJob.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `tools/check-pending-jobs.js`, `tests/backend/regression/eligibleContractsRegression.test.js`, `.specs/features/eligible-contracts-non-draft/*`
+- **Date**: 2026-09-01
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: fix/review-items-8-14
-- **Phase / Task**: Correções 8 a 14 da revisão de código (Hardening, RBAC, Graceful Shutdown, Anti-Phantom Success e JSDoc)
-- **Completed**: AD-049 documentada, endpoints protegidos com `authorize("admin")`, download validado por tamanho, escritas duplicadas eliminadas, shutdown limpo e JSDoc 100% completo.
-- **In-progress**: Finalização de commit, PR e merge
-- **Next step**: Executar comandos PowerShell para commit, PR e merge
+- **Feature**: fix/eligible-contracts-hardening
+- **Phase / Task**: Correção de Bloqueadores e Hardening de Arquitetura (AD-051 / T04-T09)
+- **Completed**: Blocklist estrita de status implementada em `contractEligibility.js`, schema de `Contract.js` atualizado com `em_processamento_robot`, `originalStatus` capturado e restaurado fielmente em `robotInstanceController.js`, `tools/check-pending-jobs.js` refatorado com import oficial e projeção, testes de regressão atualizados e documentação sincronizada.
+- **In-progress**: Finalizado e pronto para commit/PR/merge.
+- **Next step**: Executar comandos de commit, PR e merge.
 - **Blockers**: none
 - **Branch**: main
+

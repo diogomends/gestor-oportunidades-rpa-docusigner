@@ -132,7 +132,7 @@ const contractSchema = new mongoose.Schema(
     ],
     status: {
       type: String,
-      enum: ["rascunho", "gerado", "enviado", "assinado", "cancelado"],
+      enum: ["rascunho", "gerado", "em_processamento_robot", "enviado", "assinado", "cancelado"],
       default: "rascunho",
     },
     envelopeId: {
