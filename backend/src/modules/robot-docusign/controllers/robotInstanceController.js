@@ -11,7 +11,7 @@ import RobotInstance from "../models/RobotInstance.js";
 import robotOrchestrator from "../services/robotOrchestrator.js";
 import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
 import { getAclDb } from "../../../config/database.js";
-import { GERADO_ELIGIBLE_FILTER, isEligibleForSend, hasPdf } from "../utils/contractEligibility.js";
+import { isEligibleForSend, hasPdf } from "../utils/contractEligibility.js";
 
 /**
  * Zod Schema para autenticação da instância do robô via email/senha.
@@ -359,35 +359,9 @@ export const getNextJob = async (req, res) => {
       { new: true, sort: { createdAt: 1 } }
     );
 
-    let originalContractStatus = null;
-
-    // 5. Se não houver job na fila, verificar se há Contrato elegível (não-rascunho) e documento PDF anexado (se envio permitido)
-    if (!job && config.operations?.send !== false) {
-      const contract = await Contract.findOneAndUpdate(
-        GERADO_ELIGIBLE_FILTER,
-        { $set: { status: "em_processamento_robot" } },
-        { sort: { createdAt: 1 } }
-      );
-
-      if (contract) {
-        originalContractStatus = contract.status;
-        job = await RobotJob.create({
-          contract_id: contract._id,
-          contractId: contract._id,
-          originalStatus: contract.status,
-          action: "send",
-          status: "processing",
-          mode: "robot",
-          robot_mode: true,
-          locked_by: instance_id,
-          lock_expires_at: lockExpiresAt,
-          startedAt: now,
-          attempts: 1,
-          retryCount: 1,
-          steps: [{ name: "init", status: "success", timestamp: now, duration: 0 }],
-        });
-      }
-    }
+    // 5. Envio é 100% sob demanda via POST /trigger — getNextJob apenas consome fila existente (pending/retrying)
+    // ponytail: auto-enfileiramento de Contract removido; sem criar RobotJob aqui
+    const originalContractStatus = null;
 
     if (!job) {
       return res.status(200).json({
