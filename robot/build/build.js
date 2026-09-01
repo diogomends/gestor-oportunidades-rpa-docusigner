@@ -178,7 +178,7 @@ async function buildForOneKey({ buildKey, index, total, role = "all" }) {
   const bundleBase = role !== "all" ? `robot-${role}${tag}` : `robot-docusigner${tag}`;
   const outDir = path.join(DIST_DIR, bundleBase);
   fs.mkdirSync(outDir, { recursive: true });
-  const entryFile = path.join(ROOT_DIR, "src", role === "query" ? "main-query.js" : role === "update" ? "main-update.js" : "main.js");
+  const entryFile = path.join(ROOT_DIR, "src", "main.js");
 
   console.log(`\n--- [${index}/${total}] Build para chave ${buildKey.substring(0, 10)}... ---`);
 
