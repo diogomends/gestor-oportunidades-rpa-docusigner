@@ -95,26 +95,30 @@ O repositório está integrado com **GitHub Actions**:
 | `ROBOT_API_KEY`                 | Sim         | —                           | Chave de API do robô (validada no bootstrap)                        |
 | `API_URL` / `URI_PROD`          | Não         | `http://localhost:3111`     | URL do backend central consumida pelo robô standalone               |
 | `ROBOT_KEY`                     | Não         | —                           | Chave de API do robô standalone para autenticação na API            |
+| `ROBOT_ROLE`                    | Não         | `all`                       | Papel do robô (`query` para consulta/download, `update` para envio/reenvio, `all` para ambos) |
 | `HEADLESS`                      | Não         | `true`                      | `true` para rodar em segundo plano, `false` para exibir o navegador |
 | `POLL_INTERVAL_SECONDS`         | Não         | `15`                        | Intervalo em segundos para consulta de jobs na fila                 |
 | `DEPLOY_HOST`                   | Não         | `root@165.227.212.57`       | Host SSH para deploy e comandos remotos em produção                 |
 | `DEPLOY_KEY` / `DEPLOY_KEY_PATH`| Não         | —                           | Caminho da chave SSH privada para autenticação remota              |
 | `REMOTE_PROJECT_PATH`           | Não         | —                           | Caminho do projeto no servidor remoto                               |
 
-> As credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. O robô standalone carrega automaticamente o arquivo `.env` da raiz do projeto ou diretório local. A resolução de MFA (2FA) da DocuSign utiliza as credenciais de e-mail de notificação (`token_notification_email`: `email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), permitindo extração rápida em ~1s via protocolo IMAP direto com fallback para Roundcube Webmail. O robô detecta a tela de MFA pelo texto ("Get Code From Your Email"), por múltiplos seletores de formulário (`name="security_code"`, `pattern="[0-9]{6}"`, `placeholder="Enter code"`) e submete pelo botão de confirmação (`data-qa="verify-code"`, texto "Verify" ou tecla Enter). A propriedade `mode` (`"robot"` | `"api"`) é a fonte única da verdade para disponibilidade do robô (`enabled: mode === "robot"`), e o bloco `operations` (`send`, `statusCheck`, `download`, `reports`, `resend`) controla granularmente quais ações são despachadas para o robô.
+> As credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. O robô standalone carrega automaticamente o arquivo `.env` da raiz do projeto ou diretório local e resolve sessões isoladas por papel (`session-query.json` para consulta e `session-update.json` para envio). A resolução de MFA (2FA) da DocuSign utiliza as credenciais de e-mail de notificação (`token_notification_email`: `email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), permitindo extração rápida em ~1s via protocolo IMAP direto com fallback para Roundcube Webmail. O robô detecta a tela de MFA pelo texto ("Get Code From Your Email"), por múltiplos seletores de formulário (`name="security_code"`, `pattern="[0-9]{6}"`, `placeholder="Enter code"`) e submete pelo botão de confirmação (`data-qa="verify-code"`, texto "Verify" ou tecla Enter). A propriedade `mode` (`"robot"` | `"api"`) é a fonte única da verdade para disponibilidade do robô (`enabled: mode === "robot"`), e o bloco `operations` (`send`, `statusCheck`, `download`, `reports`, `resend`) controla granularmente quais ações são despachadas para o robô.
 >
-> Envios são 100% sob demanda via botão Enviar (`POST /trigger` → `RobotJob pending`); `GET /instance/next-job` e `robotScheduler` apenas consomem fila existente (lock atômico `pending`/`retrying`). Contratos precisam ser elegíveis para criar job: `status != "rascunho"` + `documents[].originalUrl` não-vazio + e-mail do destinatário (`client.representante.email` | `signer.email` | `email` | `clientEmail`). Filtro centralizado em `backend/src/modules/robot-docusign/utils/contractEligibility.js` (`GERADO_ELIGIBLE_FILTER`, `CONTRACT_ELIGIBLE_FILTER`, `isEligibleForSend`) é aplicado na pós-validação de `GET /instance/next-job` (revert `em_processamento_robot`→status original) e no `robot/job-runner.js` (validação pré-browser antes de `chromium.launch`).
+> Envios são 100% sob demanda via botão Enviar (`POST /trigger` → `RobotJob pending`); `GET /instance/next-job` e `robotScheduler` apenas consomem fila existente (lock atômico `pending`/`retrying`) filtrando pelo `role` da instância conectada. Contratos precisam ser elegíveis para criar job: `status != "rascunho"` + `documents[].originalUrl` não-vazio + e-mail do destinatário (`client.representante.email` | `signer.email` | `email` | `clientEmail`). Filtro centralizado em `backend/src/modules/robot-docusign/utils/contractEligibility.js` (`GERADO_ELIGIBLE_FILTER`, `CONTRACT_ELIGIBLE_FILTER`, `isEligibleForSend`) é aplicado na pós-validação de `GET /instance/next-job` (revert `em_processamento_robot`→status original) e no `robot/job-runner.js` (validação pré-browser antes de `chromium.launch`).
 
 ## Comandos
 
-| Comando                | Descrição                                                              |
-| ---------------------- | ---------------------------------------------------------------------- |
-| `npm start`            | Inicia o backend em produção (`node backend/src/server.js`)            |
-| `npm run dev`          | Inicia o backend em desenvolvimento com nodemon                        |
-| `npm run build:robot`  | Compila o robô e gera o executável protegido `.exe`                    |
-| `npm test`             | Executa todos os testes nativos (`node --test` em `tests/**/*.test.js`) |
-| `npm run test:backend` | Executa só testes do backend (`tests/backend/**`)                       |
-| `npm run test:robot`   | Executa só testes do robô (`tests/robot/**`)                            |
+| Comando                  | Descrição                                                              |
+| ------------------------ | ---------------------------------------------------------------------- |
+| `npm start`              | Inicia o backend em produção (`node backend/src/server.js`)            |
+| `npm run dev`            | Inicia o backend em desenvolvimento com nodemon                        |
+| `npm run build:robot`    | Compila ambos os robôs (consulta e atualização) em `.exe`              |
+| `npm run build:robot:query`  | Compila exclusivamente o robô de consulta (`dist/robot-query-<N>/`)   |
+| `npm run build:robot:update` | Compila exclusivamente o robô de envio/atualização (`dist/robot-update-<N>/`) |
+| `npm run build:robot:all`    | Compila matriz completa de robôs para todas as chaves e papéis         |
+| `npm test`               | Executa todos os testes nativos (`node --test` em `tests/**/*.test.js`) |
+| `npm run test:backend`   | Executa só testes do backend (`tests/backend/**`)                       |
+| `npm run test:robot`     | Executa só testes do robô (`tests/robot/**`)                            |
 
 ### Makefile (via `make`)
 
@@ -125,7 +129,7 @@ O repositório está integrado com **GitHub Actions**:
 | `make test`                  | Roda testes nativos                                                                                                                                                             |
 | `make test-headed`           | Roda o robô com navegador visível (`HEADLESS=false`)                                                                                                                            |
 | `make test-headed-ps`        | Idem, mas via PowerShell (para Windows CMD)                                                                                                                                     |
-| `make build-robot`           | Gera executáveis .exe dos robôs standalone com chave(s) embutida(s). Use KEY="rf_sec_xxx" para chave específica, HEADLESS=false para modo headed e API_URL para URL customizada |
+| `make build-robot`           | Gera executáveis .exe dos robôs standalone com chave(s) embutida(s). Suporta `ROLE=query|update|all`, `KEY="rf_sec_xxx"`, `HEADLESS=false` e `API_URL` customizada            |
 | `make install`               | Instala dependências de tudo (backend + robot)                                                                                                                                  |
 | `make install-backend`       | Instala dependências do backend                                                                                                                                                 |
 | `make install-robot`         | Instala dependências do robô                                                                                                                                                    |
