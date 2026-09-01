@@ -3,8 +3,14 @@ services:
     build: .
     container_name: app_docusigner
     networks:
-      - docusigner_network
+      docusigner_network: {}
+      gestor_network:
+        aliases:
+          - rpa_docusigner
 
 networks:
   docusigner_network:
     driver: bridge
+  gestor_network:
+    external: true
+    name: gestor-oportunidades_gestor_network
