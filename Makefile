@@ -35,7 +35,7 @@ else
     SSH_EXEC_CLEAN_CONTRACTS = cat tools/clean-contracts-db.js | ssh $(SSH_OPTS) $(DEPLOY_HOST) "docker exec -i app_docusigner node -"
 endif
 
-.PHONY: help dev start test test-headed test-headed-ps build-robot execute-robot execute-robot-query execute-robot-update install install-backend install-robot clean clean-test clean-all clean-contracts clean-contracts-prod up-dev up-prod down logs reset tunnel check-pending-jobs check-pending-jobs-prod clean-contracts clean-contracts-prod db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod mongosh-jobs mongosh-jobs-prod mongosh-instances mongosh-instances-prod mongosh-config mongosh-config-prod fetch-robot-debug-images ssh-uploads-prod ls-uploads-prod routes-inventory routes-inventory-check opencode-switcher opencode-conta1 opencode-conta2
+.PHONY: help dev start test test-headed test-headed-ps build-robot execute-robot execute-robot-query execute-robot-enviar execute-robot-update install install-backend install-robot clean clean-test clean-all clean-contracts clean-contracts-prod up-dev up-prod down logs reset tunnel check-pending-jobs check-pending-jobs-prod clean-contracts clean-contracts-prod db-and-collection db-and-collection-prod mongosh-contracts mongosh-contracts-prod mongosh-jobs mongosh-jobs-prod mongosh-instances mongosh-instances-prod mongosh-config mongosh-config-prod fetch-robot-debug-images ssh-uploads-prod ls-uploads-prod routes-inventory routes-inventory-check opencode-switcher opencode-conta1 opencode-conta2
 
 help:
 	@echo "Makefile - Gestor de Oportunidades RPA DocuSigner"
@@ -48,10 +48,10 @@ help:
 	@echo "  make test            - Roda os testes nativos (node --test)"
 	@echo "  make test-headed     - Testa o robo standalone com navegador visivel (sh/bash)"
 	@echo "  make test-headed-ps  - Testa o robo standalone com navegador visivel (PowerShell)"
-	@echo "  make build-robot     - Gera executaveis .exe dos robos standalone com chave(s) embutida(s) (ROLE=query|update|all)"
-	@echo "  make execute-robot   - Executa os robos de consulta e atualizacao (robot-query-1 e robot-update-1)"
+	@echo "  make build-robot     - Gera executaveis .exe dos robos standalone com chave(s) embutida(s) (ROLE=query|enviar|all)"
+	@echo "  make execute-robot   - Executa os robos de consulta e envio (robot-query-1 e robot-enviar-1)"
 	@echo "  make execute-robot-query  - Executa apenas o robo de consulta (robot-query-1)"
-	@echo "  make execute-robot-update - Executa apenas o robo de atualizacao (robot-update-1)"
+	@echo "  make execute-robot-enviar - Executa apenas o robo de envio (robot-enviar-1)"
 	@echo "  make install         - Instala dependencias do servidor e do standalone"
 	@echo "  make install-backend - Instala apenas dependencias do backend"
 	@echo "  make install-robot   - Instala apenas dependencias do standalone"
@@ -99,7 +99,7 @@ help:
 	@echo "  1. Build Automatico Multi-Chave: make build-robot"
 	@echo "  2. Build com chave especifica:   make build-robot KEY=\"rf_sec_xxxx\" HEADLESS=true"
 	@echo "  3. Build com API especifica:     make build-robot KEY=\"rf_sec_xxxx\" API_URL=\"https://crm.meudominio.com\""
-	@echo "  4. Build por papel:              make build-robot ROLE=query  | make build-robot ROLE=update | make build-robot ROLE=all"
+	@echo "  4. Build por papel:              make build-robot ROLE=query  | make build-robot ROLE=enviar | make build-robot ROLE=all"
 
 ## Desenvolvimento
 
@@ -122,13 +122,15 @@ build-robot:
 	cd robot && node build/build.js --key "$(KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)" --role "$(or $(ROLE),all)"
 
 execute-robot:
-	powershell -Command "Start-Process cmd.exe -ArgumentList '/c', 'run.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-query-1'); Start-Process cmd.exe -ArgumentList '/c', 'run.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-update-1')"
+	powershell -Command "Start-Process cmd.exe -ArgumentList '/c', 'run.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-query-1'); Start-Process cmd.exe -ArgumentList '/c', 'run.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-enviar-1')"
 
 execute-robot-query:
 	powershell -Command "Start-Process cmd.exe -ArgumentList '/c', 'run.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-query-1')"
 
-execute-robot-update:
-	powershell -Command "Start-Process cmd.exe -ArgumentList '/c', 'run.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-update-1')"
+execute-robot-enviar:
+	powershell -Command "Start-Process cmd.exe -ArgumentList '/c', 'run.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-enviar-1')"
+
+execute-robot-update: execute-robot-enviar
 
 ## Dependências
 

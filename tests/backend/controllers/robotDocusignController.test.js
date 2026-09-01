@@ -295,8 +295,8 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
   });
 
   describe("GET /api/robot-docusign/config", () => {
-    it("deve retornar 401 sem token", async () => {
-      await request(app).get("/api/robot-docusign/config").expect(401);
+    it("deve retornar 200 sem token (rota pública para leitura de modo)", async () => {
+      await request(app).get("/api/robot-docusign/config").expect(200);
     });
 
     it("deve retornar configuração do robô", async () => {

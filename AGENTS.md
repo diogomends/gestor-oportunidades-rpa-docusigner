@@ -11,12 +11,12 @@ Serviço Node.js que automatiza login e ações no DocuSign via Playwright (RPA)
 | `npm test` / `make test`                                                        | Testes nativos (`node --test` em `tests/**/*.test.js`) |
 | `npm run test:backend`                                                          | Testes backend (`tests/backend/**`)                    |
 | `npm run test:robot`                                                            | Testes robô (`tests/robot/**`)                         |
-| `npm run build:robot` / `make build-robot`                                      | Gera executáveis dos robôs (`ROLE=query\|update\|all`)  |
+| `npm run build:robot` / `make build-robot`                                      | Gera executáveis dos robôs (`ROLE=query\|enviar\|all`)  |
 | `npm run build:robot:query`                                                     | Gera executável exclusivo de consulta (`robot-query`)   |
-| `npm run build:robot:update`                                                    | Gera executável exclusivo de envio (`robot-update`)     |
+| `npm run build:robot:enviar` / `npm run build:robot:update` (alias)            | Gera executável exclusivo de envio (`robot-enviar`)     |
 | `npm run build:robot:all`                                                       | Gera todos os executáveis para todas as chaves e papéis  |
-| `make execute-robot`                                                            | Executa os robôs de consulta e atualização (query-1 e update-1) |
-| `make execute-robot-query` / `make execute-robot-update`                        | Executa individualmente o robô de consulta ou atualização |
+| `make execute-robot`                                                            | Executa os robôs de consulta e envio (query-1 e enviar-1) |
+| `make execute-robot-query` / `make execute-robot-enviar` (`update` alias)      | Executa individualmente o robô de consulta ou envio |
 | `npx playwright install chromium`                                               | Instala browser Chromium para o robô                  |
 | `make install` / `make install-backend` / `make install-robot`                  | Instalação de dependências (raiz/backend/robô)        |
 | `docker compose up --build` / `make up-dev`                                     | Sobe servidor em container Docker local               |

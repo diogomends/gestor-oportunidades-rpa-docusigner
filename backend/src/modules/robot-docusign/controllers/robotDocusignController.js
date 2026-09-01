@@ -475,7 +475,7 @@ export const getJobLogs = async (req, res) => {
       attempts: job.attempts,
       max_attempts: job.max_attempts,
       error: job.error || job.lastError || null,
-      steps: job.steps || [],
+      steps: [...(job.steps || [])].reverse(),
       createdAt: job.createdAt,
       completedAt: job.completedAt,
     });
@@ -809,7 +809,7 @@ export const streamJobProgress = async (req, res) => {
       const payload = {
         jobId: targetJobId,
         status: job.status,
-        steps: job.steps || [],
+        steps: [...(job.steps || [])].reverse(),
         result: job.result || null,
         error: job.error || null,
       };
@@ -823,7 +823,8 @@ export const streamJobProgress = async (req, res) => {
 
     onProgress = (data) => {
       if (data.jobId === targetJobId || data.jobId === jobId) {
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        const out = data.steps ? { ...data, steps: [...data.steps].reverse() } : data;
+        res.write(`data: ${JSON.stringify(out)}\n\n`);
         if (["completed", "success", "failed"].includes(data.status)) {
           cleanup();
           res.end();

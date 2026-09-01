@@ -81,7 +81,8 @@ function parseArgs() {
     } else if ((arg === "--api-url" || arg === "--uri-prod") && nextVal) {
       result.apiUrl = nextVal;
     } else if ((arg === "--role" || arg === "--ROBOT_ROLE") && nextVal) {
-      const r = nextVal.toLowerCase();
+      let r = nextVal.toLowerCase();
+      if (r === "enviar") r = "update";
       if (["query", "update", "all"].includes(r)) result.role = r;
     }
   }
@@ -174,8 +175,9 @@ for (const dir of [DIST_DIR, BUNDLE_DIR, OBF_DIR, JSC_DIR]) {
 async function buildForOneKey({ buildKey, index, total, role = "all" }) {
   const tag = total > 1 ? `-${index}` : "";
   const roleSuffix = role !== "all" ? `-${role}` : "";
-  // Dual-robot: dist/robot-query-N/ e dist/robot-update-N/ (alias legado mantido quando role=all)
-  const bundleBase = role !== "all" ? `robot-${role}${tag}` : `robot-docusigner${tag}`;
+  // Dual-robot: dist/robot-query-N/ e dist/robot-enviar-N/ (alias legado mantido quando role=all)
+  const artifactRole = role === "update" ? "enviar" : role;
+  const bundleBase = role !== "all" ? `robot-${artifactRole}${tag}` : `robot-docusigner${tag}`;
   const outDir = path.join(DIST_DIR, bundleBase);
   fs.mkdirSync(outDir, { recursive: true });
   const entryFile = path.join(ROOT_DIR, "src", "main.js");
@@ -250,7 +252,7 @@ async function buildForOneKey({ buildKey, index, total, role = "all" }) {
   }
 
   // Script auxiliar run.bat para facilitar execução com logs visíveis
-  const roleLabel = role === "query" ? "Consulta" : role === "update" ? "Atualização" : "All";
+  const roleLabel = role === "query" ? "Consulta" : role === "update" ? "Envio" : "All";
   const batContent = `@echo off\r\ntitle [DocuSign RPA] - ${roleLabel} #${index} - ${bundleBase}\r\necho ==================================================\r\necho Iniciando ${bundleBase} (${roleLabel})...\r\necho ==================================================\r\n"${bundleBase}.exe"\r\npause\r\n`;
   fs.writeFileSync(path.join(outDir, "run.bat"), batContent, "utf-8");
 
