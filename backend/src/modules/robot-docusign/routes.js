@@ -30,6 +30,11 @@ const router = express.Router();
 // Sub-roteador de instâncias do robô (com seu próprio controle de auth pública + protegida sob /instance)
 router.use("/instance", instanceRoutes);
 
+// Rota pública: leitura do modo de operação (robot/api) — sem credenciais sensíveis
+// Necessário para que o frontend do gestor-oportunidades (serviço separado) consiga
+// determinar o modo sem autenticação cruzada entre os dois serviços.
+router.get("/config", getConfig);
+
 // Todas as rotas administrativas e operacionais abaixo exigem autenticação
 router.use(protect);
 
@@ -42,7 +47,6 @@ router.get("/jobs/:jobId/stream", streamJobProgress);
 router.get("/jobs", listJobs);
 router.get("/metrics", getMetrics);
 router.get("/logs/:jobId", getJobLogs);
-router.get("/config", getConfig);
 router.put("/config", authorize("admin"), updateConfig);
 router.post("/test-login", authorize("admin"), testLogin);
 router.get("/queue", getQueue);
