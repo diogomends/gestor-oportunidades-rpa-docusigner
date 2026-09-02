@@ -376,15 +376,23 @@
 - **Date**: 2026-09-02
 - **Status**: active
 
+### AD-062
+- **Decision**: Arquitetura resiliente de fornecimento de PDFs do contrato para o robô: (1) Montagem do volume externo `gestor-oportunidades_uploads_data` em `/app/uploads:ro` nos arquivos `docker-compose.yml` e `docker-compose.prod.yml`; (2) Método `downloadContractDocumentStream` no `gestorApiClient.js`; (3) Resolução multi-caminho em disco (`process.cwd()`, `/app`, `/app/uploads`) em `downloadContractPdf` com fallback resiliente para stream HTTP do Gestor de Oportunidades antes de retornar 404.
+- **Reason**: Evitar falha de download do PDF (HTTP 404) no robô que impedia o lançamento do navegador Playwright (`chromium.launch`) na ação de envio, garantindo alta disponibilidade tanto com volume compartilhado quanto em ambientes distribuídos.
+- **Trade-off**: N/A.
+- **Scope**: `docker-compose.yml`, `docker-compose.prod.yml`, `backend/src/services/gestorApiClient.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `.specs/STATE.md`
+- **Date**: 2026-09-02
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Hardening IMAP UID + clockDrift 60s (AD-061)
-- **Phase / Task**: Código merged em `f112ce7` via PR #146; documentação sincronizada
-- **Completed**: `UID SEARCH/FETCH/STORE` + `parseUidsFromSearch` + guard sem data + `clockDriftMarginMs=60s` no robot
+- **Feature**: Resolução resiliente de download de PDF via volume compartilhado e fallback HTTP (AD-062)
+- **Phase / Task**: Implementação concluída; routes-inventory validado
+- **Completed**: Volume montado em `docker-compose*.yml` + `downloadContractDocumentStream` + fallback no controller + inventário atualizado
 - **In-progress**: nenhum
-- **Next step**: Validar em prod via `make build-robot` + `docker compose up --build`; acompanhar `gh run watch`
+- **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
-- **Branch**: main
+- **Branch**: fix/pdf-download-volume-fallback
 
 
 

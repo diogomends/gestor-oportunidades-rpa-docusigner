@@ -1,5 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
+import { Readable } from "node:stream";
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
@@ -12,6 +13,7 @@ import robotOrchestrator from "../services/robotOrchestrator.js";
 import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
 import { getAclDb } from "../../../config/database.js";
 import { isEligibleForSend, hasPdf } from "../utils/contractEligibility.js";
+import gestorApiClient from "../../../services/gestorApiClient.js";
 
 /**
  * Enum de papéis de instância do robô (dual-robot).
@@ -762,17 +764,39 @@ export const downloadContractPdf = async (req, res) => {
 
     const doc = contract.documents.find((d) => d.originalUrl) || contract.documents[0];
     const originalUrl = doc.originalUrl || "";
+    const cleanUrl = originalUrl.startsWith("/") ? originalUrl.slice(1) : originalUrl;
 
-    // Localizar arquivo no disco
-    const filePath = path.resolve(process.cwd(), originalUrl.startsWith("/") ? originalUrl.slice(1) : originalUrl);
+    // 1. Resolução em disco local (prioritária via volume compartilhado /app/uploads ou local)
+    const candidatePaths = [
+      path.resolve(process.cwd(), cleanUrl),
+      path.resolve("/app", cleanUrl),
+      path.resolve(process.cwd(), "uploads", cleanUrl.replace(/^uploads[\\/]/, "")),
+      path.resolve("/app/uploads", cleanUrl.replace(/^uploads[\\/]/, "")),
+    ];
 
-    if (fs.existsSync(filePath)) {
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="contrato_${contractId}.pdf"`);
-      return fs.createReadStream(filePath).pipe(res);
+    for (const filePath of candidatePaths) {
+      if (fs.existsSync(filePath)) {
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="contrato_${contractId}.pdf"`);
+        return fs.createReadStream(filePath).pipe(res);
+      }
     }
 
-    return res.status(404).json({ error: "Arquivo PDF não encontrado no disco do servidor." });
+    // 2. Fallback resiliente: Busca stream HTTP via GestorApiClient
+    if (originalUrl) {
+      try {
+        const fetchRes = await gestorApiClient.downloadContractDocumentStream(originalUrl);
+        if (fetchRes.ok && fetchRes.body) {
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Disposition", `attachment; filename="contrato_${contractId}.pdf"`);
+          return Readable.fromWeb(fetchRes.body).pipe(res);
+        }
+      } catch (streamErr) {
+        console.warn(`[robotInstanceController] Fallback HTTP falhou para ${originalUrl}:`, streamErr.message);
+      }
+    }
+
+    return res.status(404).json({ error: "Arquivo PDF não encontrado no disco do servidor nem via fallback HTTP." });
   } catch (error) {
     console.error("[robotInstanceController] Erro ao servir PDF:", error);
     return res.status(500).json({ error: "Erro ao baixar PDF", message: error.message });
