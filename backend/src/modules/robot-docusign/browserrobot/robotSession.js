@@ -213,7 +213,7 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
   const emailSelector =
     selectors.email ||
     selectors.email_input ||
-    '#email, input[type="email"], input[name="username"], input[data-testid="username"]';
+    "input[data-qa='username'], input[name='email'], input[type='email'], #email";
   const passwordSelector =
     selectors.password ||
     selectors.password_input ||
@@ -234,8 +234,11 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
 
     try {
       if (typeof page.fill === "function") {
+        if (typeof page.waitForLoadState === "function") {
+          await page.waitForLoadState("domcontentloaded").catch(() => {});
+        }
         if (typeof page.waitForSelector === "function") {
-          await page.waitForSelector(emailSelector, { timeout: 10000 });
+          await page.waitForSelector(emailSelector, { timeout: 15000 });
         }
         await page.fill(emailSelector, email);
       }
@@ -265,6 +268,7 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
         const maxAttempts = 3;
         const testedCodes = [];
         let mfaTriggerTime = Date.now();
+        const mfaStartedAt = Date.now();
 
         const preProvidedOtp = (credentials?.otpCode || "").trim();
 
@@ -273,13 +277,23 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
 
           if (!otpCode) {
             if (mailCreds?.email && mailCreds?.password) {
-              console.log(`[robotSession] Tentativa de resolução MFA ${attempt}/${maxAttempts} via IMAP (excluindo: [${testedCodes.join(", ")}])...`);
-              otpCode = await fetchMfaCodeViaImap(mailCreds, {
-                maxWaitMs: MFA_TIMEOUT,
-                mfaMaxAgeMs: credentials?.mfa?.maxAgeMs,
-                mfaTriggerTime,
-                excludedCodes: testedCodes,
-              });
+              // ponytail: deadline compartilhado — evita 3×90s (=270s); budget total = MFA_TIMEOUT
+              const elapsed = Date.now() - mfaStartedAt;
+              const remainingMs = Math.max(0, MFA_TIMEOUT - elapsed);
+              if (remainingMs <= 0) {
+                console.warn(`[robotSession] Budget MFA esgotado antes da tentativa ${attempt}/${maxAttempts}.`);
+                otpCode = null;
+              } else {
+                // mínimo 10s por tentativa para não abortar polling IMAP imediatamente
+                const attemptBudget = Math.max(10000, Math.ceil(remainingMs / (maxAttempts - attempt + 1)));
+                console.log(`[robotSession] Tentativa de resolução MFA ${attempt}/${maxAttempts} via IMAP (excluindo: [${testedCodes.join(", ")}], budget ${attemptBudget / 1000}s)...`);
+                otpCode = await fetchMfaCodeViaImap(mailCreds, {
+                  maxWaitMs: attemptBudget,
+                  mfaMaxAgeMs: credentials?.mfa?.maxAgeMs,
+                  mfaTriggerTime,
+                  excludedCodes: testedCodes,
+                });
+              }
             }
           }
 
@@ -325,7 +339,7 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
             break;
           }
 
-          // Código informado mas login não progrediu e o input MFA continua visível
+          // Ainda em login — verifica se input MFA persiste (código rejeitado)
           const mfaStillVisible =
             typeof page.waitForSelector === "function"
               ? await page
@@ -348,6 +362,9 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
               );
             }
           } else {
+            // Input MFA sumiu mas ainda em URL de login (ex.: interstitial DocuSign) — considera sucesso
+            // e deixa validação final (finalUrl) decidir; evita falso OTP_INVALID
+            console.log(`[robotSession] Input MFA não visível após tentativa ${attempt}, mas ainda em login URL — prosseguindo para validação final.`);
             break;
           }
         }

@@ -261,6 +261,8 @@ export async function ensureAuthenticated(page, credentials, options = {}) {
 
     // Preenche e submete e-mail
     logger.step("Browser", `Inserindo e-mail DocuSign: ${email}...`);
+    await page.waitForLoadState("domcontentloaded").catch(() => {});
+    await page.waitForSelector(loginSel.email_input, { timeout: 15000 });
     await page.fill(loginSel.email_input, email);
     await randomDelay(500, 1000);
     await page.keyboard.press("Enter");

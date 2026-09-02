@@ -13,7 +13,7 @@ const jsonPath = path.resolve(__dirname, "../selectors/docusign-ui.json");
 const defaultSelectors = {
   baseUrl: "https://app.docusign.com",
   login: {
-    email_input: "#email, input[type='email']",
+    email_input: "input[data-qa='username'], input[name='email'], input[type='email'], #email",
     password_input: "#password, input[type='password']",
     login_button: "button[data-testid='login-button'], button[type='submit']",
   },
