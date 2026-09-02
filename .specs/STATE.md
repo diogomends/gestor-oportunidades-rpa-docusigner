@@ -368,13 +368,21 @@
 - **Date**: 2026-09-01
 - **Status**: active
 
+### AD-061
+- **Decision**: Hardening IMAP UID + alinhamento de clock drift (AD-059 addendum): (1) Backend `backend/src/modules/robot-docusign/utils/imapClient.js` migra `SEARCH`/`FETCH`/`STORE` para `UID SEARCH`/`UID FETCH`/`UID STORE` com helper `parseUidsFromSearch()` — UIDs são estáveis vs sequence numbers voláteis após `EXPUNGE`; (2) Guard estrito `if (mfaTriggerTime && !metadata.date) continue` evita falso positivo de e-mail sem data legível; (3) Robô `robot/src/browser/imapClient.js` troca janela `mfaMaxAgeMs=10min` por `clockDriftMarginMs=60s` (AD-059) e propaga via `fetchMfaCodeViaImap` → `fetchLatestMfaCode`, alinhando backend e `.exe`.
+- **Reason**: Eliminar race de sequence number em mailbox concorrente, evitar consumo de OTP velho/sem data e corrigir divergência backend (60s) vs robô (10min) que causava `OTP_INVALID`.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/utils/imapClient.js`, `robot/src/browser/imapClient.js`, `.specs/STATE.md`
+- **Date**: 2026-09-02
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Resiliência de Seletores e Timing de Autenticação DocuSign (AD-060)
-- **Phase / Task**: Documentação e sincronização concluídas
-- **Completed**: Registro formal da decisão AD-060 no STATE.md após PR #144 merged na main.
+- **Feature**: Hardening IMAP UID + clockDrift 60s (AD-061)
+- **Phase / Task**: Código merged em `f112ce7` via PR #146; documentação sincronizada
+- **Completed**: `UID SEARCH/FETCH/STORE` + `parseUidsFromSearch` + guard sem data + `clockDriftMarginMs=60s` no robot
 - **In-progress**: nenhum
-- **Next step**: Validação operacional de envio/consulta pelo robô
+- **Next step**: Validar em prod via `make build-robot` + `docker compose up --build`; acompanhar `gh run watch`
 - **Blockers**: none
 - **Branch**: main
 
