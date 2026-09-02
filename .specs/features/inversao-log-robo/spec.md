@@ -4,9 +4,9 @@
 O endpoint `GET /api/robot-docusign/logs/:jobId` e o stream SSE `GET /api/robot-docusign/jobs/:jobId/stream` retornam o array `steps` em ordem cronológica (mais antigo primeiro). Operadores precisam rolar até o final para ver o passo mais recente/falha. Adicionalmente, o artefato de distribuição `robot-update` deve ser renomeado para `robot-enviar` (pastas, executáveis, scripts) para alinhar nomenclatura com domínio de envio.
 
 ## Goals
-- [ ] `GET /api/robot-docusign/logs/:jobId` retorna `steps` com mais recente primeiro (ordem descendente por inserção) sem mutar documento Mongoose.
-- [ ] `GET /api/robot-docusign/jobs/:jobId/stream` e eventos `job:progress` espelham a mesma ordem descendente.
-- [ ] Artefatos de distribuição `robot-update-*` renomeados para `robot-enviar-*` (build, Makefile, package.json) mantendo `role=update` interno com alias `enviar`.
+- [x] `GET /api/robot-docusign/logs/:jobId` retorna `steps` com mais recente primeiro (ordem descendente por inserção) sem mutar documento Mongoose.
+- [x] `GET /api/robot-docusign/jobs/:jobId/stream` e eventos `job:progress` espelham a mesma ordem descendente.
+- [x] Artefatos de distribuição `robot-update-*` renomeados para `robot-enviar-*` (build, Makefile, package.json) mantendo `role=update` interno com alias `enviar`.
 
 ## Out of Scope
 | Feature | Reason |
@@ -73,22 +73,22 @@ O endpoint `GET /api/robot-docusign/logs/:jobId` e o stream SSE `GET /api/robot-
 ## Requirement Traceability
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------ |
-| INV-01 | P1: Inversão GET /logs | Execute | Pending |
-| INV-02 | P1: Inversão SSE inicial | Execute | Pending |
-| INV-03 | P1: Inversão job:progress | Execute | Pending |
-| INV-04 | P1: steps vazio → [] | Execute | Pending |
-| INV-05 | P1: não mutar persistência | Execute | Pending |
-| REN-01 | P2: build role alias enviar | Execute | Pending |
-| REN-02 | P2: dist folder robot-enviar | Execute | Pending |
-| REN-03 | P2: Makefile envia | Execute | Pending |
-| REN-04 | P2: alias compatível | Execute | Pending |
+| INV-01 | P1: Inversão GET /logs | Execute | Verified |
+| INV-02 | P1: Inversão SSE inicial | Execute | Verified |
+| INV-03 | P1: Inversão job:progress | Execute | Verified |
+| INV-04 | P1: steps vazio → [] | Execute | Verified |
+| INV-05 | P1: não mutar persistência | Execute | Verified |
+| REN-01 | P2: build role alias enviar | Execute | Verified |
+| REN-02 | P2: dist folder robot-enviar | Execute | Verified |
+| REN-03 | P2: Makefile envia | Execute | Verified |
+| REN-04 | P2: alias compatível | Execute | Verified |
 
-**Coverage:** 9 total, 0 mapped to tasks, 9 unmapped (Small — tasks skipados, inline verify).
+**Coverage:** 9 total, 9 mapped to tasks, 0 unmapped.
 
 ---
 
 ## Success Criteria
-- [ ] `GET /logs/:jobId` com 3 steps retorna `steps[0]` = mais recente (asserção em teste).
-- [ ] SSE stream inicial e evento `job:progress` retornam mesma ordem descendente.
-- [ ] Nenhum teste existente quebrado (`tests/backend/controllers/robotDocusignController.test.js` logs).
-- [ ] `validate_spec.py` passa sem erro.
+- [x] `GET /logs/:jobId` com 3 steps retorna `steps[0]` = mais recente (asserção em teste).
+- [x] SSE stream inicial e evento `job:progress` retornam mesma ordem descendente.
+- [x] Nenhum teste existente quebrado (`tests/backend/controllers/robotDocusignController.test.js` logs).
+- [x] `validate_spec.py` passa sem erro.
