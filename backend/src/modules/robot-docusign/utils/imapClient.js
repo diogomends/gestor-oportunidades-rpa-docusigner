@@ -379,31 +379,43 @@ export class ImapClient {
   }
 
   /**
-   * Busca mensagens na INBOX com critérios de assunto e data.
+   * Busca mensagens na INBOX com critérios de assunto e data (UID).
    *
    * @param {Object} [criteria={}] - Critérios de busca.
    * @param {string} [criteria.subject] - Filtro de assunto.
    * @param {Date} [criteria.since] - Data inicial de busca.
-   * @returns {Promise<number[]>} Array de Sequence Numbers.
+   * @returns {Promise<number[]>} Array de UIDs.
    */
   async search(criteria = {}) {
-    let query = "SEARCH";
+    let query = "UID SEARCH";
     if (criteria.subject) {
       query += ` SUBJECT "${escapeImapString(criteria.subject)}"`;
     }
     if (criteria.since instanceof Date && !isNaN(criteria.since.getTime())) {
       query += ` SINCE ${formatImapDate(criteria.since)}`;
     }
-    if (query === "SEARCH") {
-      query = "SEARCH ALL";
+    if (query === "UID SEARCH") {
+      query = "UID SEARCH ALL";
     }
 
     const res = await this.sendCommand(query);
-    const match = res.match(/\*\s+SEARCH\s+([0-9\s]+)/i);
-    if (!match || !match[1].trim()) {
-      return [];
-    }
-    return match[1].trim().split(/\s+/).map((n) => parseInt(n, 10)).filter((n) => !isNaN(n) && n > 0);
+    return this.parseUidsFromSearch(res);
+  }
+
+  /**
+   * Extrai lista de UIDs da resposta do comando UID SEARCH.
+   *
+   * @param {string} raw - Resposta bruta do comando UID SEARCH.
+   * @returns {number[]} Array de UIDs.
+   */
+  parseUidsFromSearch(raw) {
+    const match = raw.match(/\*\s+SEARCH\s+([\d\s]+)/i);
+    if (!match || !match[1]) return [];
+    return match[1]
+      .trim()
+      .split(/\s+/)
+      .map((n) => parseInt(n, 10))
+      .filter((n) => !isNaN(n) && n > 0);
   }
 
   /**
@@ -456,7 +468,7 @@ export class ImapClient {
 
     for (const id of recentIds) {
       try {
-        const fetchRes = await this.sendCommand(`FETCH ${id} (INTERNALDATE BODY.PEEK[])`);
+        const fetchRes = await this.sendCommand(`UID FETCH ${id} (INTERNALDATE BODY.PEEK[])`);
         const metadata = parseEmailMetadata(fetchRes);
 
         // Validação de Assunto opcional
@@ -466,7 +478,11 @@ export class ImapClient {
         }
 
         // Validação estrita de Timestamp contra o momento de disparo do login
-        if (mfaTriggerTime && metadata.date) {
+        // Se mfaTriggerTime existe mas e-mail não tem data legível, descarta (evita falso positivo de e-mail velho)
+        if (mfaTriggerTime) {
+          if (!metadata.date) {
+            continue;
+          }
           const emailTime = metadata.date.getTime();
           // Rejeita e-mails recebidos antes do disparo de login (com margem de clock drift)
           if (emailTime < (mfaTriggerTime - clockDriftMarginMs)) {
@@ -480,8 +496,8 @@ export class ImapClient {
           if (excludedCodes.includes(code)) {
             continue;
           }
-          // Marca a mensagem processada com sucesso como lida (\Seen)
-          await this.sendCommand(`STORE ${id} +FLAGS (\\Seen)`).catch(() => {});
+          // Marca a mensagem processada com sucesso como lida (\Seen) — UID garante idempotência
+          await this.sendCommand(`UID STORE ${id} +FLAGS (\\Seen)`).catch(() => {});
           return code;
         }
       } catch (err) {
