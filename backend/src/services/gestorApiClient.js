@@ -212,12 +212,45 @@ export const updateContractStatus = async (contractId, payload, options = {}) =>
 };
 
 /**
+ * Baixa o stream/buffer de um documento de contrato diretamente do Gestor de Oportunidades.
+ * @param {string} relativeUrl - URL relativa ou caminho do documento (ex: /uploads/... ou uploads/...).
+ * @param {Object} [options={}] - Opções adicionais de timeout/retry.
+ * @returns {Promise<Response>} Resposta fetch contendo o stream do PDF.
+ * @throws {Error} Quando a resposta HTTP não for ok ou ocorrer erro de rede.
+ */
+export const downloadContractDocumentStream = async (relativeUrl, options = {}) => {
+  const apiKey = getRobotApiKey();
+  const baseUrl = getBaseUrl();
+  const cleanPath = relativeUrl.startsWith("/") ? relativeUrl : `/${relativeUrl}`;
+  const url = `${baseUrl}${cleanPath}`;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
+  const response = await fetchWithRetry(
+    url,
+    {
+      method: "GET",
+      headers: {
+        "x-robot-key": apiKey,
+      },
+    },
+    { retries: options.retries ?? 2, timeoutMs }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Falha ao obter documento do Gestor: HTTP ${response.status}`);
+  }
+
+  return response;
+};
+
+/**
  * Cliente padrão do Gestor API com métodos de validação e contratos.
- * @type {{validateApiKey: Function, fetchPendingContracts: Function, updateContractStatus: Function}}
+ * @type {{validateApiKey: Function, fetchPendingContracts: Function, updateContractStatus: Function, downloadContractDocumentStream: Function}}
  */
 export default {
   validateApiKey,
   fetchPendingContracts,
   updateContractStatus,
+  downloadContractDocumentStream,
 };
 

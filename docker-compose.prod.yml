@@ -3,6 +3,8 @@ services:
     restart: always
     ports:
       - "${PORT:-3111}:3111"
+    volumes:
+      - uploads_data:/app/uploads:ro
     environment:
       - NODE_ENV=production
       - PORT=3111
@@ -22,3 +24,8 @@ services:
       - SENHA_DOCUSIGNER=${SENHA_DOCUSIGNER}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+volumes:
+  uploads_data:
+    external: true
+    name: gestor-oportunidades_uploads_data

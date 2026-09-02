@@ -2,6 +2,8 @@ services:
   app_docusigner:
     build: .
     container_name: app_docusigner
+    volumes:
+      - uploads_data:/app/uploads:ro
     networks:
       docusigner_network: {}
       gestor_network:
@@ -14,3 +16,8 @@ networks:
   gestor_network:
     external: true
     name: gestor-oportunidades_gestor_network
+
+volumes:
+  uploads_data:
+    external: true
+    name: gestor-oportunidades_uploads_data
