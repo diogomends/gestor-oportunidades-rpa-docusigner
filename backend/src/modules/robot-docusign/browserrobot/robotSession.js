@@ -217,11 +217,11 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
   const passwordSelector =
     selectors.password ||
     selectors.password_input ||
-    '#password, input[type="password"], input[name="password"], input[data-testid="password"]';
+    "input[data-qa='password'], input[name='password'], input[type='password'], #password";
   const submitSelector =
     selectors.submitButton ||
     selectors.login_button ||
-    'button[data-testid="login-button"], button[type="submit"], button[data-testid="submit-btn"], button[data-testid="submit-username"]';
+    "button[data-qa='submit-username'], button[data-testid='login-button'], button[type='submit'], button[data-qa='submit']";
   const loginUrl = selectors.loginUrl || "https://account.docusign.com";
 
   try {

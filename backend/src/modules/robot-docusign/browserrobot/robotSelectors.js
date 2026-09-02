@@ -14,8 +14,8 @@ const defaultSelectors = {
   baseUrl: "https://app.docusign.com",
   login: {
     email_input: "input[data-qa='username'], input[name='email'], input[type='email'], #email",
-    password_input: "#password, input[type='password']",
-    login_button: "button[data-testid='login-button'], button[type='submit']",
+    password_input: "input[data-qa='password'], input[name='password'], input[type='password'], #password",
+    login_button: "button[data-qa='submit-username'], button[data-qa='submit'], button[type='submit'], button[data-testid='login-button']",
   },
   dashboard: {
     url: "https://app.docusign.com/documents",
