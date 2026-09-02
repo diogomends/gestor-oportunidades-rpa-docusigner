@@ -360,13 +360,21 @@
 - **Date**: 2026-09-01
 - **Status**: active
 
+### AD-060
+- **Decision**: Atualização resiliente dos seletores de login e mitigação de race condition na React SPA da DocuSign: (1) Substituição do seletor estrito baseado em IDs dinâmicos (`#email`, `#password`) por atributos estáveis oficiais (`input[data-qa='username']`, `input[name='email']`, `input[data-qa='password']`, `input[name='password']`, `button[data-qa='submit-username']`) em `docusign-ui.json`, `robotSelectors.js`, `robotSession.js`, `robot/src/browser/selectors.js` e `robot/src/browser/auth.js`; (2) Adição de `page.waitForLoadState("domcontentloaded")` e extensão do timeout de 10s para 15s no `page.waitForSelector` antes de preencher credenciais no backend e robô standalone.
+- **Reason**: Eliminar timeouts (`page.waitForSelector: Timeout 10000ms exceeded`) decorrentes do tempo de hidratação/renderização da React SPA da DocuSign e da aleatoriedade dos identificadores gerados dinamicamente no DOM.
+- **Trade-off**: N/A. Mantém compatibilidade com seletores legados via fallbacks encadeados.
+- **Scope**: `backend/.../selectors/docusign-ui.json`, `backend/.../browserrobot/robotSelectors.js`, `backend/.../browserrobot/robotSession.js`, `robot/src/browser/selectors.js`, `robot/src/browser/auth.js`, `.specs/STATE.md`
+- **Date**: 2026-09-01
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Hardening do Fluxo de MFA IMAP com Validação de Timestamp e Retry (AD-059)
-- **Phase / Task**: Execução concluída com sucesso
-- **Completed**: Implementação da validação estrita de timestamp com tolerância de clock drift e suporte a retry com exclusão de códigos em `imapClient.js` e `robotSession.js`.
+- **Feature**: Resiliência de Seletores e Timing de Autenticação DocuSign (AD-060)
+- **Phase / Task**: Documentação e sincronização concluídas
+- **Completed**: Registro formal da decisão AD-060 no STATE.md após PR #144 merged na main.
 - **In-progress**: nenhum
-- **Next step**: Fluxo de commit, PR e merge
+- **Next step**: Validação operacional de envio/consulta pelo robô
 - **Blockers**: none
 - **Branch**: main
 
