@@ -414,6 +414,8 @@ export class ImapClient {
     const excludedCodes = Array.isArray(options.excludedCodes) ? options.excludedCodes : [];
     const expectedSubject = typeof options.subjectFilter === "string" ? options.subjectFilter : "Verificar um novo dispositivo";
     const mfaTriggerTime = typeof options.mfaTriggerTime === "number" ? options.mfaTriggerTime : null;
+    // clockDriftMarginMs = 60s (AD-059) — tolerância para clock skew; mfaMaxAgeMs mantido como fallback de busca (10min)
+    const clockDriftMarginMs = typeof options.clockDriftMarginMs === "number" ? options.clockDriftMarginMs : 60000;
     const maxAgeMs =
       typeof options.mfaMaxAgeMs === "number"
         ? options.mfaMaxAgeMs
@@ -455,15 +457,17 @@ export class ImapClient {
         continue;
       }
 
-      // Validação de Timestamp (mfaTriggerTime)
+      // Validação de Timestamp (mfaTriggerTime) — 60s drift (AD-059) alinha com backend
       if (mfaTriggerTime) {
         if (!metadata.date) {
           logger.warn("IMAP", `Mensagem UID ${uid} ignorada: sem data/INTERNALDATE para validar mfaTriggerTime.`);
           continue;
         }
-        // ponytail: janela configurável (SystemConfig mfaMaxAgeMs via options) — default 10min para recuperação em reinício
-        if (metadata.date.getTime() < mfaTriggerTime - maxAgeMs) {
-          logger.step("IMAP", `Mensagem UID ${uid} ignorada: recebida em ${metadata.date.toISOString()} (expirada, anterior a 10 min do disparo de MFA ${new Date(mfaTriggerTime).toISOString()}).`);
+        if (metadata.date.getTime() < mfaTriggerTime - clockDriftMarginMs) {
+          logger.step(
+            "IMAP",
+            `Mensagem UID ${uid} ignorada: recebida em ${metadata.date.toISOString()} (anterior a ${clockDriftMarginMs / 1000}s antes do disparo de MFA ${new Date(mfaTriggerTime).toISOString()}).`
+          );
           continue;
         }
       }
@@ -560,6 +564,7 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
   const maxPollIntervalMs = options.maxPollIntervalMs || 6000;
   const excludedCodes = Array.isArray(options.excludedCodes) ? options.excludedCodes : [];
   const mfaTriggerTime = typeof options.mfaTriggerTime === "number" ? options.mfaTriggerTime : null;
+  const clockDriftMarginMs = typeof options.clockDriftMarginMs === "number" ? options.clockDriftMarginMs : 60000;
   const subjectFilter = options.subjectFilter;
 
   const startedAt = Date.now();
@@ -585,6 +590,7 @@ export async function fetchMfaCodeViaImap(mailCredentials, options = {}) {
           mfaTriggerTime,
           subjectFilter,
           mfaMaxAgeMs,
+          clockDriftMarginMs,
         });
 
         if (code) {
