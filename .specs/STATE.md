@@ -384,15 +384,24 @@
 - **Date**: 2026-09-02
 - **Status**: active
 
+### AD-063
+- **Decision**: Inversão da ordenação de logs de steps e renomeio do artefato robot-update para robot-enviar: (1) `GET /logs/:jobId`, handshake de `GET /jobs/:jobId/stream` e evento SSE `job:progress` retornam `steps` em ordem cronológica reversa (mais recente no topo) através de `[...(steps || [])].reverse()` preservando a persistência no MongoDB; (2) `JobRunner` standalone imprime sumário recente-primeiro no terminal em modos headed/headless; (3) Geração de artefatos empacotados em `dist/robot-enviar-*` e normalização do alias `--role=enviar`.
+- **Reason**: Melhorar diagnóstico operacional sem necessidade de rolagem até o final dos logs e alinhar a nomenclatura com a ação de envio.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `robot/src/job-runner.js`, `robot/build/build.js`, `Makefile`, `.specs/STATE.md`
+- **Date**: 2026-09-02
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Resolução resiliente de download de PDF via volume compartilhado e fallback HTTP (AD-062)
-- **Phase / Task**: Implementação concluída; routes-inventory validado
-- **Completed**: Volume montado em `docker-compose*.yml` + `downloadContractDocumentStream` + fallback no controller + inventário atualizado
+- **Feature**: Inversão Log Robô + Renomeio Robot-Enviar (AD-063)
+- **Phase / Task**: Implementação e testes concluídos; documentação e validação geradas
+- **Completed**: Inversão de steps na API e SSE + sumário terminal recente-primeiro no JobRunner + testes de regressão + renomeio de artefato robot-enviar
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
-- **Branch**: fix/pdf-download-volume-fallback
+- **Branch**: feat/inversao-log-robo-enviar
+
 
 
 

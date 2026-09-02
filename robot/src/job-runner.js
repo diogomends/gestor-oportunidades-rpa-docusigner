@@ -104,6 +104,8 @@ export class JobRunner {
       options.sessionPath ||
       process.env.DOCUSIGN_SESSION_PATH ||
       path.resolve(process.cwd(), this.role === "query" ? "session-query.json" : this.role === "update" ? "session-update.json" : "session-docusign.json");
+    // ponytail: injeção para teste (evita chromium real)
+    this._getChromium = options.chromiumFactory || getChromium;
   }
 
   /**
@@ -128,6 +130,17 @@ export class JobRunner {
     let tempPdfPath = null;
     let browser = null;
     let context = null;
+    // ponytail: coleta cronológica para sumário invertido (headless=false vê recente no topo)
+    const summarySteps = [];
+    const trackStep = (s) => summarySteps.push({ ...s, timestamp: new Date() });
+    const logSummary = () => {
+      const ordered = [...(summarySteps || [])].reverse();
+      logger.info("JobRunner", "— Resumo (recente primeiro) —");
+      for (const s of ordered) {
+        const icon = s.status === "success" ? "✓" : s.status === "failed" ? "✗" : "→";
+        logger.info("JobRunner", `  ${icon} ${s.name} [${s.status}]`);
+      }
+    };
 
     logger.step("JobRunner", `Iniciando execução do job ${jobId} (Contrato: ${contractId}, Ação: ${action})...`);
 
@@ -145,6 +158,7 @@ export class JobRunner {
         }
 
         logger.step("JobRunner", `Baixando PDF do contrato via API central (${pdfUrl})...`);
+        trackStep({ name: "download_temp_pdf", status: "running" });
         await this.api.updateJobStatus(jobId, {
           status: "processing",
           step: { name: "download_temp_pdf", status: "running" },
@@ -153,6 +167,7 @@ export class JobRunner {
         tempPdfPath = await this.api.downloadPdfToTemp(pdfUrl);
         logger.success("JobRunner", `PDF baixado com sucesso em arquivo temporário: ${tempPdfPath}`);
 
+        trackStep({ name: "download_temp_pdf", status: "success" });
         await this.api.updateJobStatus(jobId, {
           status: "processing",
           step: { name: "download_temp_pdf", status: "success" },
@@ -161,12 +176,13 @@ export class JobRunner {
 
       // 2. Inicialização do navegador Playwright
       logger.step("JobRunner", `Inicializando navegador Playwright (Modo: ${this.headless ? "Headless" : "Headed"})...`);
+      trackStep({ name: "launch_browser", status: "running" });
       await this.api.updateJobStatus(jobId, {
         status: "processing",
         step: { name: "launch_browser", status: "running" },
       });
 
-      const chromium = getChromium();
+      const chromium = this._getChromium();
       browser = await chromium.launch({
         headless: this.headless,
         args: [
@@ -217,6 +233,7 @@ export class JobRunner {
       const page = await context.newPage();
       logger.success("JobRunner", "Navegador Playwright inicializado com sucesso.");
 
+      trackStep({ name: "launch_browser", status: "success" });
       await this.api.updateJobStatus(jobId, {
         status: "processing",
         step: { name: "launch_browser", status: "success" },
@@ -226,6 +243,7 @@ export class JobRunner {
       let result = null;
       if (action === "send") {
         logger.step("JobRunner", "Executando automação de envio de contrato na DocuSign...");
+        trackStep({ name: "docusign_send", status: "running" });
         await this.api.updateJobStatus(jobId, {
           status: "processing",
           step: { name: "docusign_send", status: "running" },
@@ -241,6 +259,7 @@ export class JobRunner {
           sessionPath: this.sessionFilePath,
         });
 
+        trackStep({ name: "docusign_send", status: "success" });
         await this.api.updateJobStatus(jobId, {
           status: "completed",
           envelopeId: result.envelopeId,
@@ -249,9 +268,11 @@ export class JobRunner {
         });
       } else if (action === "status") {
         logger.step("JobRunner", `Consultando status do envelope ${job.envelopeId}...`);
+        trackStep({ name: "docusign_status_check", status: "running" });
         result = await checkEnvelopeStatus(page, job.envelopeId, credentials, {
           sessionPath: this.sessionFilePath,
         });
+        trackStep({ name: "docusign_status_check", status: "success" });
         await this.api.updateJobStatus(jobId, {
           status: "completed",
           result,
@@ -259,6 +280,7 @@ export class JobRunner {
         });
       } else if (action === "query_agreements") {
         logger.step("JobRunner", `Consultando acordos para representante: ${job.repName || job.representativeName || "Todos"}...`);
+        trackStep({ name: "query_agreements", status: "running" });
         await this.api.updateJobStatus(jobId, {
           status: "processing",
           step: { name: "query_agreements", status: "running" },
@@ -271,6 +293,7 @@ export class JobRunner {
           sessionPath: this.sessionFilePath,
         });
 
+        trackStep({ name: "query_agreements", status: "success" });
         await this.api.updateJobStatus(jobId, {
           status: "completed",
           result,
@@ -279,9 +302,12 @@ export class JobRunner {
       }
 
       logger.success("JobRunner", `Job ${jobId} finalizado com sucesso!`);
+      logSummary();
       return { success: true, result };
     } catch (error) {
       logger.error("JobRunner", `Falha no processamento do job ${jobId}: ${error.message}`);
+      trackStep({ name: "execution_error", status: "failed" });
+      logSummary();
 
       await this.api
         .updateJobStatus(jobId, {

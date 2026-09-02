@@ -9,6 +9,8 @@ import RobotJob from "../../../backend/src/modules/robot-docusign/models/RobotJo
 import Contract from "../../../backend/src/models/Contract.js";
 import SystemConfig from "../../../backend/src/models/SystemConfig.js";
 import robotOrchestrator from "../../../backend/src/modules/robot-docusign/services/robotOrchestrator.js";
+import * as robotDocusignController from "../../../backend/src/modules/robot-docusign/controllers/robotDocusignController.js";
+import { robotEvents } from "../../../backend/src/modules/robot-docusign/seletorApiRobot/index.js";
 
 describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
   let tokenAdmin;
@@ -292,6 +294,83 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
       assert.strictEqual(res.body.steps.length, 1);
       assert.strictEqual(res.body.status, "completed");
     });
+
+    it("deve retornar steps em ordem descendente (recente primeiro) sem mutar original", async () => {
+      const now = Date.now();
+      const originalSteps = [
+        { name: "init", status: "success", timestamp: new Date(now) },
+        { name: "attempt_1", status: "success", timestamp: new Date(now + 1000) },
+        { name: "robot_send", status: "success", timestamp: new Date(now + 2000) },
+      ];
+      const mockJob = {
+        _id: "job123",
+        status: "completed",
+        action: "send",
+        mode: "api",
+        attempts: 1,
+        max_attempts: 3,
+        steps: originalSteps,
+        createdAt: new Date(),
+        completedAt: new Date(),
+      };
+      mock.method(RobotJob, "findById", () => ({
+        select: () => ({ lean: async () => mockJob }),
+      }));
+
+      const res = await request(app)
+        .get("/api/robot-docusign/logs/job123")
+        .set("Authorization", `Bearer ${tokenAdmin}`)
+        .expect(200);
+
+      assert.strictEqual(res.body.success, true);
+      assert.strictEqual(res.body.steps.length, 3);
+      assert.strictEqual(res.body.steps[0].name, "robot_send");
+      assert.strictEqual(res.body.steps[2].name, "init");
+      // não mutou original (INV-05)
+      assert.strictEqual(mockJob.steps[0].name, "init");
+      assert.strictEqual(mockJob.steps[2].name, "robot_send");
+      assert.notStrictEqual(res.body.steps, mockJob.steps);
+    });
+
+    it("deve retornar steps=[] quando job.steps é null/undefined", async () => {
+      for (const stepsVal of [null, undefined]) {
+        const mockJob = {
+          _id: "job123",
+          status: "completed",
+          action: "send",
+          mode: "api",
+          attempts: 1,
+          max_attempts: 3,
+          steps: stepsVal,
+          createdAt: new Date(),
+          completedAt: new Date(),
+        };
+        mock.method(RobotJob, "findById", () => ({
+          select: () => ({ lean: async () => mockJob }),
+        }));
+
+        const res = await request(app)
+          .get("/api/robot-docusign/logs/job123")
+          .set("Authorization", `Bearer ${tokenAdmin}`)
+          .expect(200);
+
+        assert.strictEqual(res.body.success, true);
+        assert.deepStrictEqual(res.body.steps, []);
+        mock.restoreAll();
+        // re-mock auth para próxima iteração
+        mock.method(User, "findById", (id) => ({
+          select: () =>
+            Promise.resolve({
+              _id: id,
+              nome: "Admin Test",
+              email: "admin@test.com",
+              cargo: "admin",
+              ativo: true,
+            }),
+        }));
+        mock.method(SystemConfig, "findOne", () => ({ lean: async () => null }));
+      }
+    });
   });
 
   describe("GET /api/robot-docusign/config", () => {
@@ -496,6 +575,106 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
 
       assert.strictEqual(res.body.success, true);
       assert.strictEqual(res.body.reason, "no_active_contracts");
+    });
+  });
+
+  describe("GET /api/robot-docusign/jobs/:jobId/stream - SSE inversão (INV-02, INV-03)", () => {
+    afterEach(() => {
+      robotEvents.removeAllListeners("job:progress");
+      mock.restoreAll();
+      mock.method(User, "findById", (id) => ({
+        select: () =>
+          Promise.resolve({
+            _id: id,
+            nome: "Admin Test",
+            email: "admin@test.com",
+            cargo: "admin",
+            ativo: true,
+          }),
+      }));
+      mock.method(SystemConfig, "findOne", () => ({ lean: async () => null }));
+    });
+
+    it("deve enviar payload inicial com steps em ordem descendente (recente primeiro)", async () => {
+      const now = Date.now();
+      const originalSteps = [
+        { name: "init", status: "success", timestamp: new Date(now) },
+        { name: "robot_send", status: "success", timestamp: new Date(now + 2000) },
+      ];
+      const mockJob = {
+        _id: { toString: () => "job123" },
+        status: "pending",
+        steps: originalSteps,
+        result: null,
+        error: null,
+      };
+      mock.method(RobotJob, "findOne", () => ({
+        sort: () => ({ lean: async () => mockJob }),
+      }));
+
+      const writes = [];
+      const mockReq = { params: { jobId: "job123" }, on: () => {} };
+      const mockRes = {
+        setHeader: () => {},
+        flushHeaders: () => {},
+        write: (data) => writes.push(data),
+        end: () => {},
+      };
+
+      await robotDocusignController.streamJobProgress(mockReq, mockRes);
+      // limpa ping interval criado pelo controller
+      robotEvents.removeAllListeners("job:progress");
+
+      assert.ok(writes.length >= 1, "deve ter escrito payload inicial");
+      const payload = JSON.parse(writes[0].replace("data: ", "").trim());
+      assert.strictEqual(payload.steps[0].name, "robot_send", "recente primeiro");
+      assert.strictEqual(payload.steps[1].name, "init");
+      // não mutou original
+      assert.strictEqual(originalSteps[0].name, "init");
+      assert.strictEqual(originalSteps[1].name, "robot_send");
+    });
+
+    it("deve transmitir job:progress com steps invertidos", async () => {
+      const mockJob = {
+        _id: { toString: () => "job123" },
+        status: "pending",
+        steps: [{ name: "init", status: "success" }],
+        result: null,
+        error: null,
+      };
+      mock.method(RobotJob, "findOne", () => ({
+        sort: () => ({ lean: async () => mockJob }),
+      }));
+
+      const writes = [];
+      const mockReq = { params: { jobId: "job123" }, on: () => {} };
+      const mockRes = {
+        setHeader: () => {},
+        flushHeaders: () => {},
+        write: (data) => writes.push(data),
+        end: () => {},
+      };
+
+      await robotDocusignController.streamJobProgress(mockReq, mockRes);
+
+      // emite progresso com 2 steps cronológicos [a,b]
+      const progressSteps = [
+        { name: "a_init", status: "success" },
+        { name: "b_send", status: "success" },
+      ];
+      robotEvents.emit("job:progress", { jobId: "job123", status: "processing", steps: progressSteps });
+
+      // espera microtask
+      await new Promise((r) => setTimeout(r, 10));
+
+      robotEvents.removeAllListeners("job:progress");
+
+      assert.ok(writes.length >= 2, "deve ter payload inicial + progress");
+      const progressPayload = JSON.parse(writes[1].replace("data: ", "").trim());
+      assert.strictEqual(progressPayload.steps[0].name, "b_send", "progress recente primeiro");
+      assert.strictEqual(progressPayload.steps[1].name, "a_init");
+      // original não mutado
+      assert.strictEqual(progressSteps[0].name, "a_init");
     });
   });
 });

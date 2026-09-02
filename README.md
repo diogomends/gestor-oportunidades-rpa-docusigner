@@ -98,6 +98,8 @@ O repositório está integrado com **GitHub Actions**:
 | `ROBOT_ROLE`                    | Não         | `all`                       | Papel do robô (`query` para consulta/download, `update` para envio/reenvio, `all` para ambos) |
 | `HEADLESS`                      | Não         | `true`                      | `true` para rodar em segundo plano, `false` para exibir o navegador |
 | `POLL_INTERVAL_SECONDS`         | Não         | `15`                        | Intervalo em segundos para consulta de jobs na fila                 |
+
+> **Armazenamento de Uploads & PDFs (AD-062):** O container Docker `app_docusigner` compartilha o volume externo `gestor-oportunidades_uploads_data` mapeado em `/app/uploads:ro` (somente leitura). O download de PDFs do contrato (`GET /api/robot-docusign/instance/contracts/:contractId/pdf`) tenta primeiro a leitura multi-caminho em disco (`/app/uploads`, `process.cwd()`, etc.) e conta com fallback resiliente para stream HTTP direto do Gestor de Oportunidades antes de emitir erro.
 | `DEPLOY_HOST`                   | Não         | `root@165.227.212.57`       | Host SSH para deploy e comandos remotos em produção                 |
 | `DEPLOY_KEY` / `DEPLOY_KEY_PATH`| Não         | —                           | Caminho da chave SSH privada para autenticação remota              |
 | `REMOTE_PROJECT_PATH`           | Não         | —                           | Caminho do projeto no servidor remoto                               |
