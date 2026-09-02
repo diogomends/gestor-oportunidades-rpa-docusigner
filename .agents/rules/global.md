@@ -22,6 +22,7 @@ trigger: always_on
   - Middlewares Express: `@param {import('express').Request}` / `@param {import('express').Response}` / `@param {import('express').NextFunction}`.
   - Constantes/config: `@constant` + `@type`.
 - não rodar testes sem ser solicitado
+- **Testes em Tasks TLC**: Ao especificar, planejar ou executar tasks com a metodologia TLC, os testes devem ser exclusivamente de regressão (garantindo que fluxos e comportamentos existentes permaneçam íntegros). É proibido criar testes unitários isolados.
 - verificar se há comando de teste em makefile
 - autorizado rodar testes se for de skill instaladas
 - **Projeto Relacionado**: este projeto (`gestor-oportunidades-rpa-docusigner`) interage com o projeto `gestor-oportunidades` localizado em `C:\www\producao\servidor-unity-rce\gestor-oportunidades`. Toda decisão, referência a dados compartilhados, contratos, usuários ou APIs externas deve considerar esse projeto como dependência. Sempre consulte esse repositório antes de assumir modelos, schemas ou comportamentos do sistema.
