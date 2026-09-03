@@ -278,12 +278,13 @@ export async function ensureAuthenticated(page, credentials, options = {}) {
     await randomDelay(2500, 4000);
 
     const mfaSel = selectors.mfa || {};
-    const textLocator = page.locator("text=/Get Code From Your Email/i").first();
+    const textSelector = mfaSel.text_trigger ? `text=/${mfaSel.text_trigger}/i` : "text=/Get Code From Your Email/i";
+    const textLocator = page.locator(textSelector).first();
     const hasTextTrigger = await textLocator.isVisible().catch(() => false);
 
     if (hasTextTrigger) {
       logger.step("Browser", "🔍 Detectada indicação de MFA com texto 'Get Code From Your Email'.");
-      const emailOptionBtn = page.locator(mfaSel.email_option_btn || "text=/Get Code From Your Email/i").first();
+      const emailOptionBtn = page.locator(mfaSel.email_option_btn || textSelector).first();
       if (await emailOptionBtn.isVisible().catch(() => false)) {
         logger.step("Browser", "Clicando na opção 'Get Code From Your Email' para solicitar código...");
         await emailOptionBtn.click().catch(() => {});

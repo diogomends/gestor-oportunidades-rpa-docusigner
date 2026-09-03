@@ -7,15 +7,23 @@ import { selectors } from "../../../robot/src/browser/selectors.js";
  * Monta um mock mínimo de Page com visibilidade controlada por seletor.
  * @param {string|null} visibleSelector - Seletor que deve responder como visível.
  * @param {string} footerDump - Retorno simulado do dump do rodapé.
+ * @param {Object} [options] - Opções extras de simulação.
+ * @param {boolean} [options.sendButtonVisible=true] - Se o send_button deve ficar visível na transição.
  * @returns {Object} Mock de página Playwright.
  */
-function mockPage(visibleSelector, footerDump = "Avançar|qa=-|dis=false") {
+function mockPage(visibleSelector, footerDump = "Avançar|qa=-|dis=false", options = {}) {
+  const { sendButtonVisible = true } = options;
   return {
     keyboard: { press: async () => {} },
     locator: (sel) => ({
       first: () => ({
-        waitFor: async () => {
+        waitFor: async ({ state } = {}) => {
+          if (state === "hidden") {
+            if (sel === visibleSelector) return;
+            throw new Error("Element not hidden");
+          }
           if (sel === visibleSelector) return;
+          if (sendButtonVisible && sel && (sel.includes("send-button") || sel.includes("footer-send-button"))) return;
           throw new Error("Timeout 4000ms exceeded");
         },
         scrollIntoViewIfNeeded: async () => {},

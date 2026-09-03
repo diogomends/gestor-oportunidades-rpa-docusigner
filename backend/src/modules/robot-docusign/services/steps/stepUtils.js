@@ -4,5 +4,4 @@
  */
 
 export * from "../../browserrobot/steps/stepUtils.js";
-export { default } from "../../browserrobot/steps/stepUtils.js";
 

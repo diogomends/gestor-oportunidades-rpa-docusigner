@@ -2,6 +2,19 @@ import logger from "../../utils/logger.js";
 import { randomDelay, waitForElementCount, captureDebugScreenshot } from "./stepUtils.js";
 
 /**
+ * Normaliza uma string removendo acentos e convertendo para minúsculas para comparações resilientes.
+ * @param {string} str - String a ser normalizada.
+ * @returns {string} String normalizada.
+ */
+export function normalizeCompareString(str) {
+  return String(str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+/**
  * Normaliza e deduplica uma lista de destinatários.
  * @param {Array<{name: string, email: string}>|Object} recipients - Lista ou objeto individual.
  * @returns {Array<{name: string, email: string}>} Lista deduplicada de destinatários válidos.
@@ -16,7 +29,7 @@ export function normalizeRecipientsList(recipients) {
     const email = (item.email || item.recipientEmail || "").trim().toLowerCase();
     if (!name || !email) continue;
 
-    const key = `${name.toLowerCase()}||${email}`;
+    const key = `${normalizeCompareString(name)}||${email}`;
     if (!seen.has(key)) {
       seen.add(key);
       result.push({ name, email });
@@ -76,16 +89,20 @@ export async function executeFillRecipientsStep(page, recipientsData, sendSel) {
     // 1. Preenchimento de Nome
     const nameField = nameLocators.nth(i);
     await nameField.waitFor({ state: "visible", timeout: 15000 });
+    await nameField.scrollIntoViewIfNeeded().catch(() => {});
+    await nameField.fill("");
     await nameField.fill(name);
     await randomDelay(300, 600);
 
-    // Validação de preenchimento do Nome
+    // Validação de preenchimento do Nome com normalização NFD
     const filledName = await nameField.inputValue().catch(() => "");
-    if (filledName.trim() !== name) {
+    if (normalizeCompareString(filledName) !== normalizeCompareString(name)) {
       logger.warn("Browser", `Divergência ao preencher nome do destinatário ${i + 1}. Tentando novamente...`);
+      await nameField.fill("");
       await nameField.fill(name);
       const retryName = await nameField.inputValue().catch(() => "");
-      if (retryName.trim() !== name) {
+      if (normalizeCompareString(retryName) !== normalizeCompareString(name)) {
+        await captureDebugScreenshot(page, `recipient_name_fail_${i}`);
         throw new Error(`Falha ao preencher nome do destinatário ${i + 1}: esperado '${name}', obtido '${retryName}'`);
       }
     }
@@ -95,7 +112,7 @@ export async function executeFillRecipientsStep(page, recipientsData, sendSel) {
       const deliveryCheckbox = deliveryLocators.nth(i);
       const isVisible = await deliveryCheckbox.isVisible({ timeout: 2000 }).catch(() => false);
       if (isVisible) {
-        const isChecked = await deliveryCheckbox.isChecked().catch(() => true);
+        const isChecked = await deliveryCheckbox.isChecked().catch(() => false);
         if (!isChecked) {
           logger.step("Browser", `Marcando checkbox de entrega por e-mail para destinatário ${i + 1}...`);
           await deliveryCheckbox.check().catch(() => deliveryCheckbox.click());
@@ -109,16 +126,20 @@ export async function executeFillRecipientsStep(page, recipientsData, sendSel) {
     // 3. Preenchimento de E-mail
     const emailField = emailLocators.nth(i);
     await emailField.waitFor({ state: "visible", timeout: 15000 });
+    await emailField.scrollIntoViewIfNeeded().catch(() => {});
+    await emailField.fill("");
     await emailField.fill(email);
     await randomDelay(300, 600);
 
     // Validação de preenchimento do E-mail
     const filledEmail = await emailField.inputValue().catch(() => "");
-    if (filledEmail.trim().toLowerCase() !== email) {
+    if (filledEmail.trim().toLowerCase() !== email.toLowerCase()) {
       logger.warn("Browser", `Divergência ao preencher e-mail do destinatário ${i + 1}. Tentando novamente...`);
+      await emailField.fill("");
       await emailField.fill(email);
       const retryEmail = await emailField.inputValue().catch(() => "");
-      if (retryEmail.trim().toLowerCase() !== email) {
+      if (retryEmail.trim().toLowerCase() !== email.toLowerCase()) {
+        await captureDebugScreenshot(page, `recipient_email_fail_${i}`);
         throw new Error(`Falha ao preencher e-mail do destinatário ${i + 1}: esperado '${email}', obtido '${retryEmail}'`);
       }
     }

@@ -16,6 +16,11 @@ export async function executeUploadStep(page, pdfPath, sendSel) {
     throw new Error(`Arquivo PDF do contrato não encontrado localmente: ${pdfPath}`);
   }
 
+  const ext = pdfPath.split(".").pop()?.toLowerCase();
+  if (ext !== "pdf") {
+    throw new Error(`Extensão de arquivo inválida para upload: .${ext || "desconhecida"}. Somente arquivos .pdf são aceitos.`);
+  }
+
   const prepareUrl = sendSel?.url || "https://apps.docusign.com/send/prepare/";
   logger.step("Browser", `Navegando para a página de preparação de envelope: ${prepareUrl}`);
 
@@ -37,16 +42,30 @@ export async function executeUploadStep(page, pdfPath, sendSel) {
   }
 
   logger.step("Browser", `Anexando arquivo PDF do contrato: ${pdfPath}`);
-  await page.setInputFiles(fileInputSelector, pdfPath);
-  const baseName = pdfPath.split(/[\\/]/).pop();
-  const processed = typeof page.getByText === "function"
-    ? await page.getByText(baseName, { exact: false }).first().waitFor({ state: "visible", timeout: 25000 }).then(() => true).catch(() => false)
-    : true;
+  const inputLocator = page.locator(fileInputSelector).first();
+  await inputLocator.setInputFiles(pdfPath);
+
+  const baseName = pdfPath.split(/[\\/]/).pop() || "";
+  const namePrefix = baseName.replace(/\.pdf$/i, "").slice(0, 15);
+
+  logger.step("Browser", `Aguardando processamento e confirmação visual do documento (${baseName})...`);
+  let processed = false;
+  try {
+    if (typeof page.locator === "function") {
+      const docCardLocator = page.locator(`[data-qa*='document'], [data-qa*='file-name'], text=/${namePrefix}/i`).first();
+      processed = await docCardLocator.waitFor({ state: "visible", timeout: 25000 }).then(() => true).catch(() => false);
+    } else if (typeof page.getByText === "function") {
+      processed = await page.getByText(namePrefix, { exact: false }).first().waitFor({ state: "visible", timeout: 25000 }).then(() => true).catch(() => false);
+    }
+  } catch {
+    processed = false;
+  }
+
   if (!processed) {
     await captureDebugScreenshot(page, "upload_process_fail");
-    throw new Error(`Falha no processamento do documento após upload (${baseName}): elemento não visível no tempo limite.`);
+    throw new Error(`Falha no processamento do documento após upload (${baseName}): elemento ou card de documento não visível no tempo limite de 25s.`);
   }
   await randomDelay(2000, 4000);
 
-  logger.success("Browser", "Arquivo PDF anexado com sucesso na DocuSign.");
+  logger.success("Browser", "Arquivo PDF anexado e confirmado com sucesso na DocuSign.");
 }

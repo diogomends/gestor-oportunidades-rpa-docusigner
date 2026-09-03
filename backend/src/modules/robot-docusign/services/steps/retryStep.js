@@ -4,5 +4,4 @@
  */
 
 export * from "../../browserrobot/steps/retryStep.js";
-export { default } from "../../browserrobot/steps/retryStep.js";
 

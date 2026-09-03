@@ -9,7 +9,7 @@ describe("Robot Browser Selectors - Agreements Query", () => {
     assert.equal(selectors.agreements.table, "[data-qa='manage-envelopes-list.table']");
     assert.equal(
       selectors.agreements.row,
-      "tbody[data-qa='manage-envelopes-list.body'] tr, tr[data-qa^='manage-envelopes-list.row.']"
+      "tbody[data-qa='manage-envelopes-list.body'] tr, [data-qa='manage-envelopes-list.table'] tr, tr[data-qa^='manage-envelopes-list.row.']"
     );
     assert.equal(selectors.agreements.from_recipient, "[data-qa$='-mobile-from']");
     assert.ok(selectors.agreements.status.includes("-status-status"));

@@ -11,7 +11,7 @@ import { randomDelay, captureDebugScreenshot } from "./stepUtils.js";
  */
 export async function executeSubmitEnvelopeStep(page, sendSel) {
   const sendButtonSelector = sendSel?.send_button || "button[data-qa='footer-send-button'], button[data-testid='send-button'], button[data-action='send']";
-  const sendWithoutFieldsSelector = sendSel?.send_without_fields || "button[data-qa='send-without-fields']";
+  const sendWithoutFieldsSelector = sendSel?.send_without_fields || "button[data-qa='send-without-fields'], button:has-text('Enviar sem campos'), button:has-text('Send without fields')";
 
   logger.step("Browser", "Clicando no botão de envio do envelope...");
   const sendBtn = page.locator(sendButtonSelector).first();

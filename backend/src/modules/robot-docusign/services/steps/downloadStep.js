@@ -4,5 +4,4 @@
  */
 
 export * from "../../browserrobot/steps/downloadStep.js";
-export { default } from "../../browserrobot/steps/downloadStep.js";
 

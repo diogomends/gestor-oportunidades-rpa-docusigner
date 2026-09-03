@@ -171,7 +171,8 @@ async function detectMfaScreen(page, mfaSelector) {
   const selectorPromise = (async () => {
     try {
       if (typeof page.locator === "function") {
-        const textOption = page.locator("text=/Get Code From Your Email/i").first();
+        const mfaOptionSelector = selectors.mfa?.email_option_btn || selectors.mfa?.text_trigger || "text=/Get Code From Your Email/i";
+        const textOption = page.locator(mfaOptionSelector).first();
         if (await textOption.isVisible().catch(() => false)) {
           if (typeof textOption.click === "function") {
             await textOption.click().catch(() => {});
@@ -314,7 +315,7 @@ export async function loginAndSaveSession(page, context, credentials, selectors 
               const mfaVerifySelector =
                 selectors.mfa?.verify_button ||
                 selectors.verify_button ||
-                'button[data-qa="verify-code"], button:has-text("Verify"), button[data-testid="mfa-submit"], button[type="submit"]';
+                "button[data-qa='verify-code'], button:has-text('Verify'), [data-qa='verify-code'], button[data-testid='mfa-submit'], button[data-testid='verify-btn'], button[data-testid='submit-btn'], button[type='submit']";
               await page.click(mfaVerifySelector).catch(async () => {
                 if (typeof page.keyboard?.press === "function") {
                   await page.keyboard.press("Enter").catch(() => {});

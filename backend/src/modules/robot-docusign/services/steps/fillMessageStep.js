@@ -4,5 +4,4 @@
  */
 
 export * from "../../browserrobot/steps/fillMessageStep.js";
-export { default } from "../../browserrobot/steps/fillMessageStep.js";
 

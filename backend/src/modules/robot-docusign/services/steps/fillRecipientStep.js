@@ -4,5 +4,4 @@
  */
 
 export * from "../../browserrobot/steps/fillRecipientStep.js";
-export { default } from "../../browserrobot/steps/fillRecipientStep.js";
 

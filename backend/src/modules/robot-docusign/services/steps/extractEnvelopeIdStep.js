@@ -4,5 +4,4 @@
  */
 
 export * from "../../browserrobot/steps/extractEnvelopeIdStep.js";
-export { default } from "../../browserrobot/steps/extractEnvelopeIdStep.js";
 
