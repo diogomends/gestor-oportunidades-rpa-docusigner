@@ -46,27 +46,33 @@ export async function executeUploadStep(page, pdfPath, sendSel) {
   await inputLocator.setInputFiles(pdfPath);
 
   const baseName = pdfPath.split(/[\\/]/).pop() || "";
-  const rawPrefix = baseName.replace(/\.pdf$/i, "").slice(0, 15);
+  const rawPrefix = baseName.replace(/\.pdf$/i, "").slice(0, 15).trim();
   const escapedPrefix = rawPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   logger.step("Browser", `Aguardando processamento e confirmação visual do documento (${baseName})...`);
   let confirmedBranch = null;
   try {
-    const cardPromise = page
-      .locator("[data-qa*='document'], [data-qa*='file-name']")
-      .first()
-      .waitFor({ state: "visible", timeout: 25000 })
-      .then(() => "attribute");
+    const promises = [
+      page
+        .locator("[data-qa*='document'], [data-qa*='file-name']")
+        .first()
+        .waitFor({ state: "visible", timeout: 25000 })
+        .then(() => "attribute"),
+    ];
 
-    const textPromise = (
-      typeof page.getByText === "function"
-        ? page.getByText(new RegExp(escapedPrefix, "i")).first()
-        : page.locator(`text=/${escapedPrefix}/i`).first()
-    )
-      .waitFor({ state: "visible", timeout: 25000 })
-      .then(() => "text");
+    if (rawPrefix.length > 0) {
+      const textPromise = (
+        typeof page.getByText === "function"
+          ? page.getByText(new RegExp(escapedPrefix, "i")).first()
+          : page.locator(`text=/${escapedPrefix}/i`).first()
+      )
+        .waitFor({ state: "visible", timeout: 25000 })
+        .then(() => "text");
 
-    confirmedBranch = await Promise.race([cardPromise, textPromise]);
+      promises.push(textPromise);
+    }
+
+    confirmedBranch = await Promise.any(promises);
   } catch {
     confirmedBranch = null;
   }

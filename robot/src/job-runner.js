@@ -3,6 +3,7 @@ import path from "node:path";
 import { sendEnvelope, checkEnvelopeStatus, fetchAgreementsByRepresentative } from "./browser/docusign.js";
 import { captureDebugScreenshot } from "./browser/steps/stepUtils.js";
 import { getChromium } from "./utils/playwrightResolver.js";
+import { getAllowedActions, normalizeRole } from "./utils/roleActions.js";
 import logger from "./utils/logger.js";
 
 // Compatibility shim for Node.js 18.20.4 up to 20+
@@ -35,14 +36,8 @@ export class JobRunner {
   constructor(apiClient, options = {}) {
     this.api = apiClient;
     this.headless = options.headless !== false;
-    this.role = options.role || process.env.ROBOT_ROLE || "all";
-    // Mapa de ações permitidas por papel (dual-robot)
-    const ROLE_ACTIONS = {
-      query: ["status", "query_agreements", "reports", "download"],
-      update: ["send", "resend"],
-      all: ["send", "status", "download", "resend", "reports", "query_agreements"],
-    };
-    this.allowedActions = ROLE_ACTIONS[this.role] || ROLE_ACTIONS.all;
+    this.role = normalizeRole(options.role || process.env.ROBOT_ROLE) || "all";
+    this.allowedActions = getAllowedActions(this.role);
     this.sessionFilePath =
       options.sessionFilePath ||
       options.sessionPath ||

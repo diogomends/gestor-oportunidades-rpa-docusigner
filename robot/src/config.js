@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { normalizeRole } from "./utils/roleActions.js";
 
 /**
  * Carrega a configuração da máquina a partir de constantes embutidas no build,
@@ -41,9 +42,7 @@ export function loadConfig() {
     if (a.startsWith("--role=")) robotRole = a.split("=")[1];
     else if (a === "--role" && process.argv[i + 1]) robotRole = process.argv[++i];
   }
-  robotRole = String(robotRole).toLowerCase().trim();
-  if (robotRole === "enviar") robotRole = "update";
-  if (!["query", "update", "all"].includes(robotRole)) robotRole = "all";
+  robotRole = normalizeRole(robotRole) || "all";
 
   const sessionByRole = {
     query: path.resolve(process.cwd(), "session-query.json"),

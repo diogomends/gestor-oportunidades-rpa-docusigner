@@ -64,10 +64,11 @@ export async function processPendingJobs(options = {}) {
     };
   }
 
-  // 3b. Verificar se há robô da frota (update ou all) ativo (heartbeat < 90s)
+  // 3b. Verificar se há robô da frota (update ou all) ativo (heartbeat < 90s e status não-offline)
   const activeFleetThreshold = new Date(Date.now() - 90 * 1000);
   const activeFleetRobot = await RobotInstance.findOne({
     role: { $in: ["update", "all"] },
+    status: { $ne: "offline" },
     last_heartbeat: { $gte: activeFleetThreshold },
   }).lean();
 

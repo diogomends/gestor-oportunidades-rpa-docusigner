@@ -15,6 +15,8 @@ import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
 import { getAclDb } from "../../../config/database.js";
 import { isEligibleForSend, hasPdf } from "../utils/contractEligibility.js";
 import { ROLE_ENUM, ROLE_ACTIONS, getAllowedActions, normalizeRole } from "../utils/roleActions.js";
+import { syncContractStatus } from "../seletorApiRobot/contractSyncService.js";
+import { mapEnvelopeStatusToContractStatus } from "../seletorApiRobot/statusSyncScheduler.js";
 import gestorApiClient from "../../../services/gestorApiClient.js";
 
 /**
@@ -338,8 +340,8 @@ export const getNextJob = async (req, res) => {
       });
     }
 
-    // 2b. Resolver role da instância para filtragem
-    let rawInstanceRole = req.query.role || req.body?.role || req.user?.role || null;
+    // 2b. Resolver role da instância para filtragem (ignora req.user.role que carrega permissão de usuário 'admin')
+    let rawInstanceRole = req.query.role || req.body?.role || null;
     let instanceRole = normalizeRole(rawInstanceRole);
     if (rawInstanceRole && !instanceRole) {
       return res.status(400).json({ error: "role inválido" });
@@ -665,8 +667,6 @@ export const updateJobStatus = async (req, res) => {
         const parsed = envelopesSchema.safeParse(result.envelopes);
         if (parsed.success && parsed.data.length > 0) {
           const envelopes = parsed.data;
-          // lazy import para evitar ciclo
-          const { syncContractStatus } = await import("../seletorApiRobot/contractSyncService.js");
           const activeContracts = await Contract.find({ status: { $in: ["enviado", "gerado"] } }).lean();
           const normalizeString = (s = "") => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
           const mapStatus = (await import("../seletorApiRobot/statusSyncScheduler.js")).mapEnvelopeStatusToContractStatus;
@@ -700,20 +700,32 @@ export const updateJobStatus = async (req, res) => {
       }
     } else if (contractId) {
       if (effectiveStatus === "completed") {
-        if (updatedJob.action === "download") {
-          await Contract.findByIdAndUpdate(contractId, { status: "assinado" });
-        } else {
-          await Contract.findByIdAndUpdate(contractId, {
-            status: "enviado",
-            envelopeId: finalEnvelopeId || updatedJob.envelopeId,
-          });
-        }
+        const targetStatus = updatedJob.action === "download" ? "assinado" : "enviado";
+        const extraPayload = updatedJob.action === "download" ? {} : { envelopeId: finalEnvelopeId || updatedJob.envelopeId };
+
+        // Atualiza contrato localmente de imediato no MongoDB
+        await Contract.findByIdAndUpdate(contractId, {
+          status: targetStatus,
+          ...extraPayload,
+        }).catch(() => {});
+
+        // Sincroniza status com o CRM externo (gestor-oportunidades) de forma desacoplada/assíncrona sem bloquear resposta HTTP
+        syncContractStatus(contractId, targetStatus, extraPayload).catch((err) => {
+          console.warn(`[robotInstanceController] Erro ao sincronizar status '${targetStatus}' no CRM externo para contrato ${contractId}:`, err?.message || err);
+        });
       } else if (effectiveStatus === "failed") {
         const revertStatus =
           updatedJob.originalStatus && updatedJob.originalStatus !== "em_processamento_robot"
             ? updatedJob.originalStatus
             : "gerado";
-        await Contract.findByIdAndUpdate(contractId, { status: revertStatus });
+
+        // Reverte contrato localmente de imediato no MongoDB
+        await Contract.findByIdAndUpdate(contractId, { status: revertStatus }).catch(() => {});
+
+        // Sincroniza reversão de status com o CRM externo de forma desacoplada/assíncrona sem bloquear resposta HTTP
+        syncContractStatus(contractId, revertStatus).catch((err) => {
+          console.warn(`[robotInstanceController] Erro ao sincronizar reversão de status '${revertStatus}' no CRM externo para contrato ${contractId}:`, err?.message || err);
+        });
       }
     }
 
