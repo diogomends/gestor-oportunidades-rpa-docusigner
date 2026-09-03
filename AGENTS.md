@@ -83,7 +83,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 ├── robot/
 │   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, bytenode, esbuild)
 │   ├── src/               # Código-fonte da automação (main, job-runner, scheduler)
-│   │   ├── browser/       # docusign.js (facade), auth.js, envelopes.js, agreements.js, statusParser.js, imapClient.js, roundcube.js, selectors.js
+│   │   ├── browser/       # docusign.js (facade), auth.js, envelopes.js, agreements.js, statusParser.js, imapClient.js, roundcube.js, selectors.js, steps/ (uploadStep, fillRecipientsStep, advancePrepareStep, submitEnvelopeStep, extractEnvelopeIdStep, stepUtils — pipeline 8 etapas AD-064)
 │   │   └── utils/         # logger.js (logs coloridos ANSI) + roleActions.js (ROLE_ACTIONS espelho backend AD-054)
 │   ├── build/             # Pipeline de compilação/ofuscação/empacotamento (.exe)
 │   ├── scripts/           # Scripts de instalação e inicialização do robô
