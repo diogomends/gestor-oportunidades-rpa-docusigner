@@ -8,7 +8,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 ---
 
-**Spec**: `.specs/features/robot/dois-robos-consulta-atualizacao/spec.md`  
+**Spec**: `.specs/features/robot-specs/dois-robos-consulta-atualizacao/spec.md`  
 **Status**: Completed
 
 ---
@@ -341,7 +341,7 @@ T11
 ### T11: Inventário de Rotas, STATE e Validation
 
 **What**: Atualizar documentação, inventário e artefatos de validação da feature.  
-**Where**: `.specs/routes-inventory.md` + `.specs/STATE.md` + `.specs/features/robot/dois-robos-consulta-atualizacao/validation.md`  
+**Where**: `.specs/routes-inventory.md` + `.specs/STATE.md` + `.specs/features/robot-specs/dois-robos-consulta-atualizacao/validation.md`  
 **Depends on**: T10  
 **Reuses**: `tools/generate-routes-inventory.js`, `STATE.md` AD pattern  
 **Requirement**: ROB2-01..09 (docs)  
@@ -353,7 +353,7 @@ T11
 **Done when**:
 - [x] `make routes-inventory` regenerado (se rotas alteradas).
 - [x] `.specs/STATE.md` com AD-0XX da feature (role, fila, build matrix) + handoff atualizado.
-- [x] `.specs/features/robot/dois-robos-consulta-atualizacao/validation.md` criado (evidências por AC, gate results).
+- [x] `.specs/features/robot-specs/dois-robos-consulta-atualizacao/validation.md` criado (evidências por AC, gate results).
 - [x] Gate check passes: build gate
 
 **Tests**: none  

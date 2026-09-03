@@ -2,7 +2,7 @@
 
 ## 1. Veredito Geral: PASS
 
-- **Feature**: `features/robot/envio-envelope-8-etapas`
+- **Feature**: `features/robot-specs/envio-envelope-8-etapas`
 - **Data**: 2026-09-02
 - **Autor**: Antigravity Assistant
 

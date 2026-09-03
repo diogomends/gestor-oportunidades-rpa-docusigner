@@ -123,7 +123,7 @@ O build legado do robot aceitava 6 parâmetros (`ids`, `keys`, `emails`, `passwo
 
 **Coverage:** 12 total, 12 mapped to tasks, 0 unmapped ✅
 
-> Fonte canônica do roteamento por papel: `features/robot/dois-robos-consulta-atualizacao/spec.md` (AD-053).
+> Fonte canônica do roteamento por papel: `features/robot-specs/dois-robos-consulta-atualizacao/spec.md` (AD-053).
 
 ---
 

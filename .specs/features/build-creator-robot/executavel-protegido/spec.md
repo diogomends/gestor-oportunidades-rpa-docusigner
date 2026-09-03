@@ -8,7 +8,7 @@ O robô RPA DocuSign é distribuído e executado localmente em múltiplos termin
 4. **Segurança de Dados**: Download temporário de PDFs com exclusão imediata e credenciais em memória volátil.
 5. **Segregação por Papel**: `query` (leitura: `status/query_agreements/reports/download`) vs `update` (escrita: `send/resend`) com sessões isoladas e build matriz `N×R` (AD-053).
 
-> **Relação com o Servidor**: `robot/` é o **Robô Standalone** (`.exe` por papel em `dist/robot-query-N/` / `dist/robot-update-N/`). Comunica com Servidor Central (`backend/`, porta 3111) via HTTP autenticado (`X-Robot-Key` + `role`). O servidor mantém `RobotJob`/`RobotInstance`/monitoramento. Standalone sem DB próprio. Fonte canônica do roteamento por papel: `features/robot/dois-robos-consulta-atualizacao` (AD-053).
+> **Relação com o Servidor**: `robot/` é o **Robô Standalone** (`.exe` por papel em `dist/robot-query-N/` / `dist/robot-update-N/`). Comunica com Servidor Central (`backend/`, porta 3111) via HTTP autenticado (`X-Robot-Key` + `role`). O servidor mantém `RobotJob`/`RobotInstance`/monitoramento. Standalone sem DB próprio. Fonte canônica do roteamento por papel: `features/robot-specs/dois-robos-consulta-atualizacao` (AD-053).
 
 ---
 
@@ -62,4 +62,4 @@ O robô RPA DocuSign é distribuído e executado localmente em múltiplos termin
 ### [REQ-SMI-08] Segregação Dual-Robot Query/Update (AD-053)
 - `RobotInstance.role` + `RobotJob.action=query_agreements` + índice por `action`; `getNextJob` filtra por `allowedActions`; `statusSyncScheduler` enfileira `query_agreements` idempotente quando `mode=robot` e existe `RobotInstance` com `role in [query,all]` e `last_heartbeat>60s`, senão fallback `executeWithBrowser("query_agreements")`; intervalo padrão `5min`; `updateJobStatus` reconcilia batch; `Makefile ROLE=query|update|all` + `robot/package.json build:robot:query|update|all`.
 
-> Cross-ref: `features/robot/dois-robos-consulta-atualizacao/spec.md` (AC-01.1..01.8, AC-02.1..02.3, ROB2-01..09).
+> Cross-ref: `features/robot-specs/dois-robos-consulta-atualizacao/spec.md` (AC-01.1..01.8, AC-02.1..02.3, ROB2-01..09).

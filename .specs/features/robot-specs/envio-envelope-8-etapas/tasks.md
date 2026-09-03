@@ -17,4 +17,4 @@
 - [x] **Task 3.3**: Atualizar `robot/src/job-runner.js` para passar `recipients` para `sendEnvelope` e registrar debug screenshot em falhas.
 
 ## Phase 4: Validação & Documentação
-- [x] **Task 4.1**: Criar `.specs/features/robot/envio-envelope-8-etapas/validation.md` e atualizar `.specs/STATE.md` com o registro de decisão (AD-064) e débito técnico (DT-001).
+- [x] **Task 4.1**: Criar `.specs/features/robot-specs/envio-envelope-8-etapas/validation.md` e atualizar `.specs/STATE.md` com o registro de decisão (AD-064) e débito técnico (DT-001).

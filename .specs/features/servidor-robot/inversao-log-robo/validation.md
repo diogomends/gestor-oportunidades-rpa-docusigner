@@ -1,8 +1,8 @@
 # Validation Report: Inversão Log Robô + Renomeio Robot-Enviar
 
 **Feature**: `inversao-log-robo`
-**Spec**: `.specs/features/inversao-log-robo/spec.md`
-**Tasks**: `.specs/features/inversao-log-robo/tasks.md`
+**Spec**: `.specs/features/servidor-robot/inversao-log-robo/spec.md`
+**Tasks**: `.specs/features/servidor-robot/inversao-log-robo/tasks.md`
 **Verdict**: PASS ✅
 
 ---
