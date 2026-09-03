@@ -78,7 +78,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │               ├── routes/            # robotInstanceRoutes.js
 │               ├── browserrobot/      # Submódulo Playwright (index.js barrel, browserRobot.js [send+executeWithBrowser], robotSession.js, agreementsService.js, robotSelectors.js, steps/)
 │               ├── seletorApiRobot/   # Submódulo de Seleção & Orquestração (index.js, orchestratorConfig.js, orchestratorEvents.js, apiActionService.js, contractSyncService.js, robotScheduler.js, statusSyncScheduler.js)
-│               ├── utils/             # roleActions.js (ROLE_ENUM/ROLE_ACTIONS/getAllowedActions AD-054), normalizeString.js (NFD/acento AD-054), contractEligibility.js (GERADO_ELIGIBLE_FILTER / CONTRACT_ELIGIBLE_FILTER, isEligibleForSend/hasPdf/hasRecipientEmail — filtro não-rascunho + PDF + e-mail AD-038/AD-050), imapClient.js (MFA IMAP nativo UID SEARCH/FETCH/STORE + parseUidsFromSearch + clockDrift 60s AD-058/AD-059/AD-061)
+│               ├── utils/             # contractEligibility.js (GERADO_ELIGIBLE_FILTER / CONTRACT_ELIGIBLE_FILTER, isEligibleForSend/hasPdf/hasRecipientEmail — filtro não-rascunho + PDF + e-mail AD-038/AD-050), imapClient.js (MFA IMAP nativo UID SEARCH/FETCH/STORE + parseUidsFromSearch + clockDrift 60s AD-058/AD-059/AD-061)
 │               └── services/          # Fachadas DIP (re-export seletorApiRobot/* — canônico seletorApiRobot, services é barrel estável para server.js AD-054)
 ├── robot/
 │   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, bytenode, esbuild)

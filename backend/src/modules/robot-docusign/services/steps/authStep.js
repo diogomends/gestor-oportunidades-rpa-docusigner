@@ -4,5 +4,4 @@
  */
 
 export * from "../../browserrobot/steps/authStep.js";
-export { default } from "../../browserrobot/steps/authStep.js";
 

@@ -408,15 +408,23 @@
 - **Date**: 2026-09-03
 - **Status**: active
 
+### AD-066
+- **Decision**: Correções abrangentes de Code Review em 5 trilhas paralelas: (1) Upload: validação de `.pdf`, `.first()` em `setInputFiles` para evitar strict mode violation, eliminação do escape hatch de falso-sucesso e suporte a nomes truncados; (2) Avanço: encadeamento opcional `err.message?.split`, `page.locator().first().click()` no backend e cobertura ampliada no teste; (3) Preenchimento de Destinatários: normalização Unicode NFD (`normalizeCompareString`) para evitar falso-positivo em nomes acentuados, `scrollIntoViewIfNeeded`, limpeza prévia de inputs (`fill("")`), correção do catch do checkbox de entrega para `false` e screenshots de depuração em falhas; (4) Submissão e Extração: suporte bilíngue (PT/EN) no modal "Enviar sem campos", regex estrita de UUID v4 de 36 caracteres para `envelopeId`, remoção do early-return mascarador no backend `extractEnvelopeIdStep`, e remoção de `export { default }` quebrados nos 12 barrels de `services/steps/`; (5) Seletores e Documentação: eliminação de hardcodes de MFA em `robotSession.js` e `auth.js` direcionando para `selectors.mfa`, alinhamento do teste `selectors.test.js` com os 3 segmentos canônicos de `agreements.row` e atualização da arquitetura de `utils/` no `AGENTS.md`.
+- **Reason**: Endurecimento anti-phantom success, mitigação de bugs silenciosos e alinhamento estrito dos módulos RPA e backend.
+- **Trade-off**: N/A. Preserva 100% de retrocompatibilidade com endpoints e regras legadas.
+- **Scope**: `robot/src/browser/steps/*`, `backend/src/modules/robot-docusign/browserrobot/steps/*`, `backend/src/modules/robot-docusign/services/steps/*`, `robot/src/browser/auth.js`, `backend/src/modules/robot-docusign/browserrobot/robotSession.js`, `tests/robot/browser/*`, `AGENTS.md`, `.specs/STATE.md`
+- **Date**: 2026-09-03
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Fail-fast Chromium + Resolver Playwright Compartilhado (AD-065)
-- **Phase / Task**: Implementação concluída; testes e validação gerados
-- **Completed**: Resolver canônico criado + fail-fast no bootstrap antes de rede + job-runner reusando getChromium + 6 testes chromium-guard + specs e validação registradas
+- **Feature**: Code Review 5 Trilhas Paralelas (AD-066)
+- **Phase / Task**: Correções implementadas em todas as 5 trilhas
+- **Completed**: Upload validado e sem strict-violation + Advance e testes alinhados + Fill recipients com NFD e limpeza + Submit/Extract bilíngue com UUID estrito + Barrels corrigidos + Seletores MFA e AGENTS.md sincronizados
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
-- **Branch**: fix/robot-chromium-failfast-resolver
+- **Branch**: fix/robot-code-review-5-tracks
 
 
 

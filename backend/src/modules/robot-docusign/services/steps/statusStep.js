@@ -4,5 +4,4 @@
  */
 
 export * from "../../browserrobot/steps/statusStep.js";
-export { default } from "../../browserrobot/steps/statusStep.js";
 

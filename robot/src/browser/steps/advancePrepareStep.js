@@ -86,7 +86,7 @@ export async function executeAdvancePrepareStep(page, sendSel) {
       }
       errors.push(`${selector}: transição não confirmada após clique`);
     } catch (err) {
-      errors.push(`${selector}: ${err.message.split("\n")[0]}`);
+      errors.push(`${selector}: ${err.message?.split("\n")[0] || err.message}`);
     }
   }
 

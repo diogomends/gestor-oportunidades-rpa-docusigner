@@ -30,7 +30,7 @@ export async function submitEnvelope(page, sendSel = {}, email) {
   );
 
   // Confirmação condicional do modal "Enviar sem campos"
-  const sendWithoutFieldsSelector = sendSel?.send_without_fields || "button[data-qa='send-without-fields']";
+  const sendWithoutFieldsSelector = sendSel?.send_without_fields || "button[data-qa='send-without-fields'], button:has-text('Enviar sem campos'), button:has-text('Send without fields')";
   if (typeof page.locator === "function") {
     try {
       const withoutFieldsBtn = page.locator(sendWithoutFieldsSelector).first();

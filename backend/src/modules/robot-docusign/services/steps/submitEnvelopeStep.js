@@ -4,5 +4,4 @@
  */
 
 export * from "../../browserrobot/steps/submitEnvelopeStep.js";
-export { default } from "../../browserrobot/steps/submitEnvelopeStep.js";
 

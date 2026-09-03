@@ -4,5 +4,4 @@
  */
 
 export * from "../../browserrobot/steps/uploadDocumentStep.js";
-export { default } from "../../browserrobot/steps/uploadDocumentStep.js";
 
