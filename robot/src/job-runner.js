@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createRequire } from "node:module";
 import { sendEnvelope, checkEnvelopeStatus, fetchAgreementsByRepresentative } from "./browser/docusign.js";
 import { captureDebugScreenshot } from "./browser/steps/stepUtils.js";
+import { getChromium } from "./utils/playwrightResolver.js";
 import logger from "./utils/logger.js";
 
 // Compatibility shim for Node.js 18.20.4 up to 20+
@@ -19,64 +19,7 @@ if (typeof process !== "undefined" && process.versions && process.versions.node)
   }
 }
 
-/**
- * Carrega o Playwright dinamicamente a partir do diretório do executável (.exe)
- * ou do ambiente de execução atual, garantindo compatibilidade com o snapshot virtual do @yao-pkg/pkg.
- * @returns {any} Módulo Playwright resolvido (playwright ou playwright-core).
- */
-function resolvePlaywright() {
-  const candidateDirs = [
-    path.dirname(process.execPath),
-    process.cwd(),
-    path.resolve("."),
-    path.resolve(path.dirname(process.execPath), ".."),
-  ];
-
-  for (const dir of candidateDirs) {
-    const coreIndex = path.join(dir, "node_modules", "playwright-core", "index.js");
-    const playwrightIndex = path.join(dir, "node_modules", "playwright", "index.js");
-
-    if (fs.existsSync(coreIndex)) {
-      try {
-        const extRequire = createRequire(path.join(dir, "package.json"));
-        return extRequire(coreIndex);
-      } catch (e) {
-        console.warn(`[JobRunner] Warning: failed requiring ${coreIndex}:`, e.message);
-      }
-    }
-
-    if (fs.existsSync(playwrightIndex)) {
-      try {
-        const extRequire = createRequire(path.join(dir, "package.json"));
-        return extRequire(playwrightIndex);
-      } catch (e) {
-        console.warn(`[JobRunner] Warning: failed requiring ${playwrightIndex}:`, e.message);
-      }
-    }
-  }
-
-  try {
-    const extRequire = createRequire(path.join(process.cwd(), "package.json"));
-    return extRequire("playwright-core");
-  } catch (_) {
-    try {
-      const extRequire = createRequire(path.join(process.cwd(), "package.json"));
-      return extRequire("playwright");
-    } catch (err) {
-      console.error("[JobRunner] Fatal: failed to resolve 'playwright' or 'playwright-core' module.", err);
-      throw err;
-    }
-  }
-}
-
-/**
- * Obtém a instância Chromium do Playwright resolvido.
- * @returns {import('playwright').Chromium} Objeto chromium para launch.
- */
-function getChromium() {
-  const playwrightModule = resolvePlaywright();
-  return playwrightModule.chromium || playwrightModule.default?.chromium || playwrightModule;
-}
+// ponytail: resolvePlaywright/getChromium canônicos em ./utils/playwrightResolver.js (reuse main.js + job-runner.js)
 
 /**
  * Executor isolado de tarefas Playwright com controle seguro de lifecycle e limpeza de disco.

@@ -16,10 +16,12 @@ import { loadConfig } from "./config.js";
 import { ApiClient } from "./api-client.js";
 import { JobRunner } from "./job-runner.js";
 import { Scheduler } from "./scheduler.js";
+import { assertChromiumInstalled } from "./utils/playwrightResolver.js";
 import logger from "./utils/logger.js";
 
 /**
  * Bootstraps the standalone RPA DocuSigner robot client process:
+ * 0. Fail-fast do Chromium (antes de qualquer chamada de rede)
  * 1. Loads local configuration and initializes the API client
  * 2. Authenticates against the backend API via ROBOT_KEY
  * 3. Retrieves system configuration and registers initial heartbeat
@@ -43,6 +45,10 @@ export async function bootstrap(roleOverride) {
   const api = new ApiClient(config.API_URL, null, config.ROBOT_ROLE);
 
   try {
+    // 0. Fail-fast: Chromium deve existir antes de qualquer chamada de rede
+    assertChromiumInstalled();
+    logger.success("Main", "Chromium verificado com sucesso.");
+
     // 1. Autenticação na API central via Chave de API
     if (!config.ROBOT_KEY) {
       throw new Error("ROBOT_KEY não configurada. Defina a chave de API do robô para autenticação.");
