@@ -108,7 +108,7 @@ const testLoginSchema = z
   .optional();
 
 /**
- * Dispara uma ação (send, status, download, resend, reports) no Robô DocuSign de forma síncrona.
+ * Dispara uma ação (send, status, download, resend, reports) no Robô DocuSign enfileirando de forma assíncrona.
  *
  * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
@@ -143,27 +143,13 @@ export const triggerJob = async (req, res) => {
       userId: req.user?._id || req.user?.id,
     };
 
-    const result = await robotOrchestrator.trigger(targetContractId, action, mergedOptions);
+    const enqueueResult = await robotOrchestrator.enqueueJob(targetContractId, action, mergedOptions);
 
-    if (result && result.success) {
-      return res.status(200).json({
-        success: true,
-        message: "Job executado com sucesso",
-        jobId: result.jobId || targetContractId,
-        envelopeId: result.result?.envelopeId || result.envelopeId || (typeof result.result === "string" ? result.result : null),
-        status: "completed",
-        result,
-      });
-    }
-
-    const failureMsg = result?.error || "Falha na execução do job";
-    return res.status(400).json({
-      success: false,
-      error: failureMsg,
-      message: failureMsg,
-      jobId: result?.jobId || targetContractId,
-      status: "failed",
-      result,
+    return res.status(202).json({
+      success: true,
+      message: "Job enfileirado com sucesso",
+      jobId: enqueueResult.jobId,
+      status: "pending",
     });
   } catch (error) {
     console.error("[robotDocusignController] Erro ao disparar job:", error);
@@ -176,7 +162,7 @@ export const triggerJob = async (req, res) => {
 };
 
 /**
- * Dispara ações em lote (batch) para múltiplos contratos no Robô DocuSign.
+ * Dispara ações em lote (batch) para múltiplos contratos no Robô DocuSign enfileirando de forma assíncrona.
  *
  * @async
  * @param {import("express").Request} req - Objeto de requisição Express.
@@ -201,20 +187,21 @@ export const triggerBatch = async (req, res) => {
       userId: req.user?._id || req.user?.id,
     };
 
-    setImmediate(async () => {
-      for (const contractId of contractIds) {
-        try {
-          await robotOrchestrator.trigger(contractId, action, mergedOptions);
-        } catch (err) {
-          console.error(`[robotDocusignController] Erro no job em lote para ${contractId}:`, err);
-        }
+    const createdJobIds = [];
+    for (const contractId of contractIds) {
+      try {
+        const enq = await robotOrchestrator.enqueueJob(contractId, action, mergedOptions);
+        if (enq?.jobId) createdJobIds.push(enq.jobId);
+      } catch (err) {
+        console.error(`[robotDocusignController] Erro ao enfileirar job em lote para ${contractId}:`, err);
       }
-    });
+    }
 
     return res.status(202).json({
       success: true,
       message: "Jobs agendados em lote com sucesso",
       contractIds,
+      jobIds: createdJobIds,
       status: "pending",
     });
   } catch (error) {

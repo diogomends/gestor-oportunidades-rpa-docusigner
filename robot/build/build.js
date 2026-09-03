@@ -47,11 +47,15 @@ function loadRootEnv() {
  */
 function parseArgs() {
   const rawArgs = process.argv.slice(2);
+  let defaultRole = (process.env.ROBOT_ROLE || "all").toLowerCase().trim();
+  if (defaultRole === "enviar") defaultRole = "update";
+  if (!["query", "update", "all"].includes(defaultRole)) defaultRole = "all";
+
   const result = {
     key: "",
     headless: null,
     apiUrl: "",
-    role: process.env.ROBOT_ROLE || "all",
+    role: defaultRole,
   };
 
   const cleanArgs = [];
@@ -81,9 +85,14 @@ function parseArgs() {
     } else if ((arg === "--api-url" || arg === "--uri-prod") && nextVal) {
       result.apiUrl = nextVal;
     } else if ((arg === "--role" || arg === "--ROBOT_ROLE") && nextVal) {
-      let r = nextVal.toLowerCase();
+      let r = nextVal.toLowerCase().trim();
       if (r === "enviar") r = "update";
-      if (["query", "update", "all"].includes(r)) result.role = r;
+      if (["query", "update", "all"].includes(r)) {
+        result.role = r;
+      } else {
+        console.error(`[ERRO] Papel (role) inválido: "${nextVal}". Use "query", "update" (ou alias "enviar"), ou "all".`);
+        process.exit(1);
+      }
     }
   }
   return result;

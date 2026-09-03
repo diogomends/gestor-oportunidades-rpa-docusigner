@@ -4,6 +4,7 @@
  */
 
 import RobotJob from "../models/RobotJob.js";
+import RobotInstance from "../models/RobotInstance.js";
 import SystemConfig from "../../../models/SystemConfig.js";
 import robotOrchestrator from "./index.js";
 import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
@@ -60,6 +61,24 @@ export async function processPendingJobs(options = {}) {
       reason: "max_concurrent_reached",
       runningCount,
       maxConcurrent,
+    };
+  }
+
+  // 3b. Verificar se há robô da frota (update ou all) ativo (heartbeat < 90s)
+  const activeFleetThreshold = new Date(Date.now() - 90 * 1000);
+  const activeFleetRobot = await RobotInstance.findOne({
+    role: { $in: ["update", "all"] },
+    last_heartbeat: { $gte: activeFleetThreshold },
+  }).lean();
+
+  if (activeFleetRobot) {
+    console.log(`[robotScheduler] Frota de robôs ativa detectada (${activeFleetRobot.instance_id}, role: ${activeFleetRobot.role || "all"}). O servidor não executará envio inline.`);
+    return {
+      success: true,
+      processed: 0,
+      status: "skipped",
+      reason: "fleet_active",
+      activeInstanceId: activeFleetRobot.instance_id,
     };
   }
 
