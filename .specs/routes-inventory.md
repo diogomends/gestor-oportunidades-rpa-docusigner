@@ -1,7 +1,7 @@
 # Inventário de Rotas HTTP (REST) — gestor-oportunidades-rpa-docusigner
 
 > **Fonte da verdade:** `backend/src/app.js`, `backend/src/modules/robot-docusign/routes.js`, `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js`
-> Atualizado em: 2026-09-02
+> Atualizado em: 2026-09-03
 
 ## Registros
 

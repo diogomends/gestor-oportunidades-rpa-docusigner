@@ -226,6 +226,74 @@ export async function trigger(contractOrId, action = "send", options = {}) {
   return await executeJob(contractOrId, action, options);
 }
 
+/**
+ * Enfileira um job com status 'pending' no MongoDB sem executar imediatamente, permitindo que a frota distribuída processe.
+ *
+ * @async
+ * @param {Object|string} contractOrId - Objeto do contrato ou identificador ObjectId.
+ * @param {string} [action="send"] - Ação solicitada ('send', 'status', 'download', 'resend', 'reports', 'query_agreements').
+ * @param {Object} [options={}] - Parâmetros contextuais e usuário solicitante.
+ * @returns {Promise<{ success: boolean, jobId: string, job: Object }>} Job enfileirado estruturado.
+ */
+export async function enqueueJob(contractOrId, action = "send", options = {}) {
+  let contractId = null;
+  let contractObj = null;
+
+  if (typeof contractOrId === "object" && contractOrId !== null) {
+    contractObj = contractOrId;
+    contractId =
+      contractOrId._id ||
+      contractOrId.id ||
+      contractOrId.contract_id ||
+      contractOrId.contractId;
+  } else {
+    contractId = contractOrId;
+  }
+
+  if (contractId && !contractObj) {
+    try {
+      contractObj = await Contract.findById(contractId).lean();
+    } catch {
+      // Ignora erro de busca inicial
+    }
+  }
+
+  const config = await getRobotConfig();
+  const maxAttempts = options.maxAttempts || config.retry?.maxAttempts || 3;
+  const originalStatus = contractObj?.status || null;
+
+  const job = new RobotJob({
+    contract_id: contractId,
+    contractId: contractId,
+    action,
+    status: "pending",
+    mode: "robot",
+    robot_mode: true,
+    attempts: 0,
+    retryCount: 0,
+    max_attempts: maxAttempts,
+    originalStatus,
+    steps: [
+      {
+        name: "enqueued",
+        status: "success",
+        timestamp: new Date(),
+        duration: 0,
+      },
+    ],
+    created_by: options.userId || options.created_by || null,
+  });
+
+  await job.save();
+  emitProgress(job);
+
+  return {
+    success: true,
+    jobId: job._id.toString(),
+    job,
+  };
+}
+
 export default {
   DEFAULT_ROBOT_DOCUSIGN_CONFIG,
   getRobotConfig,
@@ -234,6 +302,7 @@ export default {
   calculateNextRetryAt,
   executeJob,
   trigger,
+  enqueueJob,
   robotEvents,
   emitProgress,
   executeApiAction,

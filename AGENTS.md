@@ -78,13 +78,13 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │               ├── routes/            # robotInstanceRoutes.js
 │               ├── browserrobot/      # Submódulo Playwright (index.js barrel, browserRobot.js [send+executeWithBrowser], robotSession.js, agreementsService.js, robotSelectors.js, steps/)
 │               ├── seletorApiRobot/   # Submódulo de Seleção & Orquestração (index.js, orchestratorConfig.js, orchestratorEvents.js, apiActionService.js, contractSyncService.js, robotScheduler.js, statusSyncScheduler.js)
-│               ├── utils/             # contractEligibility.js (GERADO_ELIGIBLE_FILTER / CONTRACT_ELIGIBLE_FILTER, isEligibleForSend/hasPdf/hasRecipientEmail — filtro não-rascunho + PDF + e-mail AD-038/AD-050), imapClient.js (MFA IMAP nativo UID SEARCH/FETCH/STORE + parseUidsFromSearch + clockDrift 60s AD-058/AD-059/AD-061)
+│               ├── utils/             # roleActions.js (ROLE_ENUM/ROLE_ACTIONS/isActionAllowedForRole AD-067), contractEligibility.js (GERADO_ELIGIBLE_FILTER / CONTRACT_ELIGIBLE_FILTER, isEligibleForSend/hasPdf/hasRecipientEmail — filtro não-rascunho + PDF + e-mail AD-038/AD-050), imapClient.js (MFA IMAP nativo UID SEARCH/FETCH/STORE + parseUidsFromSearch + clockDrift 60s AD-058/AD-059/AD-061)
 │               └── services/          # Fachadas DIP (re-export seletorApiRobot/* — canônico seletorApiRobot, services é barrel estável para server.js AD-054)
 ├── robot/
 │   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, bytenode, esbuild)
 │   ├── src/               # Código-fonte da automação (main, job-runner, scheduler)
 │   │   ├── browser/       # docusign.js (facade), auth.js, envelopes.js, agreements.js, statusParser.js, imapClient.js, roundcube.js, selectors.js, steps/ (uploadStep, fillRecipientsStep, advancePrepareStep, submitEnvelopeStep, extractEnvelopeIdStep, stepUtils — pipeline 8 etapas AD-064)
-│   │   └── utils/         # logger.js (logs coloridos ANSI) + roleActions.js (ROLE_ACTIONS espelho backend AD-054) + playwrightResolver.js (resolvePlaywright/getChromium/resolveChromiumExecutablePath/assertChromiumInstalled — fail-fast Chromium com hint setup.bat, fonte única main.js + job-runner.js AD-065)
+│   │   └── utils/         # logger.js (logs coloridos ANSI) + roleActions.js (ROLE_ACTIONS espelho backend AD-054/AD-067) + playwrightResolver.js (resolvePlaywright/getChromium/resolveChromiumExecutablePath/assertChromiumInstalled — fail-fast Chromium com hint setup.bat, fonte única main.js + job-runner.js AD-065)
 │   ├── build/             # Pipeline de compilação/ofuscação/empacotamento (.exe)
 │   ├── scripts/           # Scripts de instalação e inicialização do robô
 │   ├── dist/              # Saída do build: subpastas por chave (robot-docusigner-1/, robot-docusigner-2/, ...)
@@ -101,14 +101,22 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 - `server.js` importa models diretamente para garantir registro de schemas antes do uso.
 - `robotScheduler.start()` e `statusSyncScheduler.start()` são chamados automaticamente no boot do servidor.
 
+## Topologia da Frota de Robôs (Dual-Robot Distribution)
+
+- **Dois Robôs por Máquina**: Cada estação/chave executa em paralelo um par de instâncias autônomas:
+  - `robot-query-N`: papel `query` (somente leitura: consulta de acordos `query_agreements`, verificação de status, relatórios e download de assinados).
+  - `robot-enviar-N`: papel canônico `update` (escrita: envio e reenvio de envelopes). `enviar` é alias aceito na CLI/build.
+- **Distribuição por Pull**: Os executáveis standalone realizam polling seguro e atômico via `GET /instance/next-job`.
+- **Desacoplamento do Servidor**: `POST /trigger` enfileira `RobotJob pending` e responde HTTP 202 com o `jobId` real para a UI acompanhar via SSE (`/jobs/:jobId/stream`). O `robotScheduler` do backend atua exclusivamente como fallback se não houver robô `update`/`all` vivo (heartbeat < 90s).
+
 ## Rotas
 
 Prefixo `/api/robot-docusign` (exceto `/health` na raiz):
 
 | Método | Rota                                  | Auth                             | Descrição                                                    |
 | ------ | ------------------------------------- | -------------------------------- | ------------------------------------------------------------ |
-| POST   | `/trigger`                            | `protect`                        | Dispara job individual síncrono (body: `contractId`/`contract_id`) |
-| POST   | `/trigger-batch`                      | `protect` + `authorize("admin")` | Dispara jobs em lote                                         |
+| POST   | `/trigger`                            | `protect`                        | Enfileira job assíncrono (status 202 com jobId real)         |
+| POST   | `/trigger-batch`                      | `protect` + `authorize("admin")` | Enfileira lote de jobs assíncronos (status 202)              |
 | GET    | `/status/:jobId`                      | `protect`                        | Status de um job (busca por `_id` ou `contract_id`)          |
 | GET    | `/jobs`                               | `protect`                        | Lista jobs (filtros + paginação)                             |
 | GET    | `/jobs/:jobId/stream`                 | `protect`                        | SSE stream de progresso do job                               |
@@ -118,14 +126,14 @@ Prefixo `/api/robot-docusign` (exceto `/health` na raiz):
 | PUT    | `/config`                             | `protect` + `authorize("admin")` | Atualizar config do robô                                     |
 | POST   | `/test-login`                         | `protect` + `authorize("admin")` | Testa login no DocuSign (aceita `otpCode` opcional)          |
 | GET    | `/queue`                              | `protect`                        | Fila de jobs pendentes/em processamento                      |
-| POST   | `/process-pending`                    | `protect`                        | Processa até 1 contrato pendente (scheduler)                 |
+| POST   | `/process-pending`                    | `protect`                        | Processa até 1 contrato pendente (scheduler fallback)        |
 | POST   | `/sync-status`                        | `protect`                        | Executa varredura de sincronização geral de status sob demanda |
-| GET    | `/instances`                          | `protect` + `authorize("admin")` | Lista instâncias do robô (fleet monitoring)                  |
+| GET    | `/instances`                          | `protect` + `authorize("admin")` | Lista instâncias do robô com flag `alive` (< 90s)           |
 | POST   | `/instance/auth`                      | público                          | Autenticação da instância (`X-Robot-Key` ou `email`/`senha`) |
 | GET    | `/instance/instances`                 | `protect` + `authorize("admin")` | Lista instâncias (via sub-router)                            |
 | GET    | `/instance/config`                    | `protect`                        | Config da instância                                          |
-| GET    | `/instance/next-job`                  | `protect`                        | Próximo job pendente (polling do robô `.exe`)                |
-| PATCH  | `/instance/job/:jobId/status`         | `protect`                        | Atualiza status do job                                       |
+| GET    | `/instance/next-job`                  | `protect`                        | Próximo job pendente (polling atômico do robô `.exe`)        |
+| PATCH  | `/instance/job/:jobId/status`         | `protect`                        | Atualiza status do job com emissão SSE e guard anti-fantasma |
 | POST   | `/instance/heartbeat`                 | `protect`                        | Heartbeat da instância                                       |
 | GET    | `/instance/contracts/:contractId/pdf` | `protect`                        | Download de PDF do contrato                                  |
 

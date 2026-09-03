@@ -10,16 +10,12 @@ import SystemConfig from "../../../models/SystemConfig.js";
 import RobotJob from "../models/RobotJob.js";
 import RobotInstance from "../models/RobotInstance.js";
 import robotOrchestrator from "../services/robotOrchestrator.js";
+import { emitProgress } from "../seletorApiRobot/orchestratorEvents.js";
 import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
 import { getAclDb } from "../../../config/database.js";
 import { isEligibleForSend, hasPdf } from "../utils/contractEligibility.js";
+import { ROLE_ENUM, ROLE_ACTIONS, getAllowedActions, normalizeRole } from "../utils/roleActions.js";
 import gestorApiClient from "../../../services/gestorApiClient.js";
-
-/**
- * Enum de papéis de instância do robô (dual-robot).
- * @constant
- */
-const ROLE_ENUM = ["query", "update", "all"];
 
 /**
  * Valida role e retorna 400 se inválido.
@@ -28,8 +24,9 @@ const ROLE_ENUM = ["query", "update", "all"];
  */
 function parseRoleOr400(role) {
   if (role === undefined || role === null || role === "") return null;
-  if (!ROLE_ENUM.includes(role)) return "__invalid__";
-  return role;
+  const norm = normalizeRole(role);
+  if (!norm) return "__invalid__";
+  return norm;
 }
 
 /**
@@ -342,20 +339,17 @@ export const getNextJob = async (req, res) => {
     }
 
     // 2b. Resolver role da instância para filtragem
-    let instanceRole = req.query.role || req.body?.role || req.user?.role || null;
-    // Busca role persistido se não enviado
-    if (!instanceRole || !ROLE_ENUM.includes(instanceRole)) {
-      const instDoc = await RobotInstance.findOne({ instance_id }).lean();
-      instanceRole = instDoc?.role || "all";
-    }
-    if (instanceRole && !ROLE_ENUM.includes(instanceRole)) {
+    let rawInstanceRole = req.query.role || req.body?.role || req.user?.role || null;
+    let instanceRole = normalizeRole(rawInstanceRole);
+    if (rawInstanceRole && !instanceRole) {
       return res.status(400).json({ error: "role inválido" });
     }
-    const ROLE_ACTIONS = {
-      query: ["query_agreements", "status", "reports", "download"],
-      update: ["send", "resend"],
-    };
-    const allowedActions = ROLE_ACTIONS[instanceRole] || null; // null = all
+    // Busca role persistido se não enviado
+    if (!instanceRole) {
+      const instDoc = await RobotInstance.findOne({ instance_id }).lean();
+      instanceRole = normalizeRole(instDoc?.role) || "all";
+    }
+    const allowedActions = instanceRole === "all" ? null : getAllowedActions(instanceRole);
 
     // 3. Limpar/recuperar jobs com lock expirado para evitar deadlock
     await RobotJob.updateMany(
@@ -411,6 +405,10 @@ export const getNextJob = async (req, res) => {
       },
       { new: true, sort: { createdAt: 1 } }
     );
+
+    if (job) {
+      emitProgress(job);
+    }
 
     // 5. Envio é 100% sob demanda via POST /trigger — getNextJob apenas consome fila existente (pending/retrying)
     // ponytail: auto-enfileiramento de Contract removido; sem criar RobotJob aqui
@@ -597,20 +595,44 @@ export const updateJobStatus = async (req, res) => {
     const { instance_id, status, step, envelopeId, signedDocPath, result, error } = parse.data;
     const now = new Date();
 
+    const existingJob = await RobotJob.findById(jobId).lean();
+    if (!existingJob) {
+      return res.status(404).json({ error: "Job não encontrado." });
+    }
+
+    let effectiveStatus = status;
+    const action = existingJob.action || "send";
+    const finalEnvelopeId = envelopeId || (result && typeof result === "object" ? result.envelopeId : null);
+
+    // Anti-fantasma: send/resend completed exige envelopeId UUID v4 válido de 36 caracteres
+    const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let antiPhantomFailed = false;
+    if ((action === "send" || action === "resend") && status === "completed") {
+      if (!finalEnvelopeId || typeof finalEnvelopeId !== "string" || !UUID_V4_REGEX.test(finalEnvelopeId.trim())) {
+        console.warn(`[robotInstanceController] Anti-fantasma: Job ${jobId} tentou concluir '${action}' sem envelopeId UUID válido (${finalEnvelopeId}). Marcando como failed.`);
+        effectiveStatus = "failed";
+        antiPhantomFailed = true;
+      }
+    }
+
     const updateFields = {
-      status,
+      status: effectiveStatus,
       updatedAt: now,
     };
 
-    if (envelopeId) updateFields.envelopeId = envelopeId;
+    if (finalEnvelopeId) updateFields.envelopeId = finalEnvelopeId;
     if (signedDocPath) updateFields.signedDocPath = signedDocPath;
     if (result !== undefined) updateFields.result = result;
     if (error) {
       updateFields.error = error;
       updateFields.lastError = error;
+    } else if (antiPhantomFailed) {
+      const phantomMsg = `Falha no envio do envelope: envelopeId UUID ausente ou inválido (${finalEnvelopeId || "nenhum"}) retornado pelo robô.`;
+      updateFields.error = phantomMsg;
+      updateFields.lastError = phantomMsg;
     }
 
-    if (status === "completed" || status === "failed") {
+    if (effectiveStatus === "completed" || effectiveStatus === "failed") {
       updateFields.completedAt = now;
       updateFields.locked_by = null;
       updateFields.lock_expires_at = null;
@@ -621,9 +643,9 @@ export const updateJobStatus = async (req, res) => {
       updateOps.$push = {
         steps: {
           name: step.name,
-          status: step.status || "success",
+          status: antiPhantomFailed ? "failed" : (step.status || "success"),
           duration: step.duration || 0,
-          error: step.error || null,
+          error: antiPhantomFailed ? updateFields.error : (step.error || null),
           timestamp: now,
         },
       };
@@ -637,7 +659,7 @@ export const updateJobStatus = async (req, res) => {
     // Atualizar Contrato correspondente (skip para jobs globais sem contractId)
     const contractId = updatedJob.contract_id || updatedJob.contractId;
     // Reconciliação em lote para query_agreements (AC-01.7)
-    if (updatedJob.action === "query_agreements" && status === "completed" && result?.envelopes) {
+    if (updatedJob.action === "query_agreements" && effectiveStatus === "completed" && result?.envelopes) {
       try {
         const envelopesSchema = z.array(z.object({ envelopeId: z.string().optional(), status: z.string().optional(), recipient: z.string().optional() }).passthrough());
         const parsed = envelopesSchema.safeParse(result.envelopes);
@@ -677,16 +699,16 @@ export const updateJobStatus = async (req, res) => {
         console.warn("[robotInstanceController] Falha na reconciliação batch query_agreements:", e.message);
       }
     } else if (contractId) {
-      if (status === "completed") {
+      if (effectiveStatus === "completed") {
         if (updatedJob.action === "download") {
           await Contract.findByIdAndUpdate(contractId, { status: "assinado" });
         } else {
           await Contract.findByIdAndUpdate(contractId, {
             status: "enviado",
-            envelopeId: envelopeId || updatedJob.envelopeId,
+            envelopeId: finalEnvelopeId || updatedJob.envelopeId,
           });
         }
-      } else if (status === "failed") {
+      } else if (effectiveStatus === "failed") {
         const revertStatus =
           updatedJob.originalStatus && updatedJob.originalStatus !== "em_processamento_robot"
             ? updatedJob.originalStatus
@@ -698,11 +720,11 @@ export const updateJobStatus = async (req, res) => {
     // Atualizar métricas da instância
     const instanceUpdate = {
       last_heartbeat: now,
-      status: status === "completed" || status === "failed" ? "idle" : "busy",
-      current_job_id: status === "completed" || status === "failed" ? null : updatedJob._id,
+      status: effectiveStatus === "completed" || effectiveStatus === "failed" ? "idle" : "busy",
+      current_job_id: effectiveStatus === "completed" || effectiveStatus === "failed" ? null : updatedJob._id,
     };
 
-    if (status === "completed") {
+    if (effectiveStatus === "completed") {
       await RobotInstance.findOneAndUpdate(
         { instance_id },
         { $set: instanceUpdate, $inc: { jobs_processed_today: 1 } }
@@ -710,6 +732,8 @@ export const updateJobStatus = async (req, res) => {
     } else {
       await RobotInstance.findOneAndUpdate({ instance_id }, { $set: instanceUpdate });
     }
+
+    emitProgress(updatedJob);
 
     return res.status(200).json({
       success: true,
@@ -855,19 +879,26 @@ export const getAllInstances = async (req, res) => {
       else if (!inst.role) instancesByRole.all++;
     }
 
+    const now = Date.now();
     return res.status(200).json({
       success: true,
-      instances: instances.map((inst) => ({
-        instance_id: inst.instance_id,
-        status: inst.status,
-        role: inst.role || "all",
-        last_heartbeat: inst.last_heartbeat,
-        current_job_id: inst.current_job_id || null,
-        jobs_processed_today: inst.jobs_processed_today || 0,
-        machine_info: inst.machine_info || {},
-        createdAt: inst.createdAt,
-        updatedAt: inst.updatedAt,
-      })),
+      instances: instances.map((inst) => {
+        const isAlive = inst.last_heartbeat
+          ? (now - new Date(inst.last_heartbeat).getTime()) < 90000
+          : false;
+        return {
+          instance_id: inst.instance_id,
+          status: inst.status,
+          role: inst.role || "all",
+          alive: isAlive,
+          last_heartbeat: inst.last_heartbeat,
+          current_job_id: inst.current_job_id || null,
+          jobs_processed_today: inst.jobs_processed_today || 0,
+          machine_info: inst.machine_info || {},
+          createdAt: inst.createdAt,
+          updatedAt: inst.updatedAt,
+        };
+      }),
       instances_by_role: instancesByRole,
     });
   } catch (error) {

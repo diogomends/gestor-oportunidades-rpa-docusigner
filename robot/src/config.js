@@ -41,7 +41,8 @@ export function loadConfig() {
     if (a.startsWith("--role=")) robotRole = a.split("=")[1];
     else if (a === "--role" && process.argv[i + 1]) robotRole = process.argv[++i];
   }
-  robotRole = String(robotRole).toLowerCase();
+  robotRole = String(robotRole).toLowerCase().trim();
+  if (robotRole === "enviar") robotRole = "update";
   if (!["query", "update", "all"].includes(robotRole)) robotRole = "all";
 
   const sessionByRole = {

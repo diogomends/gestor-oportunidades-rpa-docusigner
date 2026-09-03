@@ -46,25 +46,37 @@ export async function executeUploadStep(page, pdfPath, sendSel) {
   await inputLocator.setInputFiles(pdfPath);
 
   const baseName = pdfPath.split(/[\\/]/).pop() || "";
-  const namePrefix = baseName.replace(/\.pdf$/i, "").slice(0, 15);
+  const rawPrefix = baseName.replace(/\.pdf$/i, "").slice(0, 15);
+  const escapedPrefix = rawPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   logger.step("Browser", `Aguardando processamento e confirmação visual do documento (${baseName})...`);
-  let processed = false;
+  let confirmedBranch = null;
   try {
-    if (typeof page.locator === "function") {
-      const docCardLocator = page.locator(`[data-qa*='document'], [data-qa*='file-name'], text=/${namePrefix}/i`).first();
-      processed = await docCardLocator.waitFor({ state: "visible", timeout: 25000 }).then(() => true).catch(() => false);
-    } else if (typeof page.getByText === "function") {
-      processed = await page.getByText(namePrefix, { exact: false }).first().waitFor({ state: "visible", timeout: 25000 }).then(() => true).catch(() => false);
-    }
+    const cardPromise = page
+      .locator("[data-qa*='document'], [data-qa*='file-name']")
+      .first()
+      .waitFor({ state: "visible", timeout: 25000 })
+      .then(() => "attribute");
+
+    const textPromise = (
+      typeof page.getByText === "function"
+        ? page.getByText(new RegExp(escapedPrefix, "i")).first()
+        : page.locator(`text=/${escapedPrefix}/i`).first()
+    )
+      .waitFor({ state: "visible", timeout: 25000 })
+      .then(() => "text");
+
+    confirmedBranch = await Promise.race([cardPromise, textPromise]);
   } catch {
-    processed = false;
+    confirmedBranch = null;
   }
 
-  if (!processed) {
+  if (!confirmedBranch) {
     await captureDebugScreenshot(page, "upload_process_fail");
     throw new Error(`Falha no processamento do documento após upload (${baseName}): elemento ou card de documento não visível no tempo limite de 25s.`);
   }
+
+  logger.step("Browser", `Confirmação visual pós-upload obtida com sucesso via ${confirmedBranch === "attribute" ? "card por atributo" : "texto do documento"}.`);
   await randomDelay(2000, 4000);
 
   logger.success("Browser", "Arquivo PDF anexado e confirmado com sucesso na DocuSign.");

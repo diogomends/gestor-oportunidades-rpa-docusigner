@@ -416,15 +416,24 @@
 - **Date**: 2026-09-03
 - **Status**: active
 
+### AD-067
+- **Decision**: Arquitetura de distribuição da frota de robôs RPA com desacoplamento de execução do servidor, propagação de eventos SSE e padronização de papéis: (1) `uploadStep.js` substitui locator misto por corrida (`Promise.race`) de seletores Playwright válidos com prefixo de arquivo regex-escaped e confirmação visual real (FROTA-01); (2) `POST /trigger` e `POST /trigger-batch` realizam enfileiramento assíncrono puro (`enqueueJob`) retornando HTTP 202 com o `jobId` real (`_id` MongoDB) sem fallback para `contractId` (FROTA-02); (3) `robotScheduler.js` atua exclusivamente como fallback de processamento inline, ignorando execução quando houver instâncias ativas (`role: update|all` com heartbeat < 90s) na frota (FROTA-03); (4) `getNextJob` (lock) e `updateJobStatus` emitem progresso via `emitProgress` para consumo em tempo real no SSE da UI (FROTA-04); (5) `updateJobStatus` valida obrigatoriamente `envelopeId` como UUID v4 em conclusões de `send`/`resend`, marcando o job como `failed` e revertendo o contrato caso seja inválido ou ausente (anti-fantasma) (FROTA-05); (6) `getAllInstances` expõe o campo booleano `alive` (< 90s) por instância (FROTA-06); (7) Criação do módulo canônico `roleActions.js` (`ROLE_ENUM`, `ROLE_ACTIONS`, `getAllowedActions`, `isActionAllowedForRole`, `normalizeRole`) e normalização do alias `enviar -> update` na compilação e runtime (FROTA-07).
+- **Reason**: Eliminar competição de jobs entre servidor central e frota distribuída, prover visibilidade total do ciclo de vida dos robôs `.exe` na UI via SSE e assegurar integridade no envio de envelopes.
+- **Trade-off**: Enfileiramento assíncrono exige que o front acompanhe o status via SSE ou polling pelo `jobId`.
+- **Scope**: `robot/src/browser/steps/uploadStep.js`, `backend/src/modules/robot-docusign/seletorApiRobot/index.js`, `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/utils/roleActions.js`, `robot/build/build.js`, `robot/src/config.js`, `AGENTS.md`, `.specs/STATE.md`
+- **Date**: 2026-09-03
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Code Review 5 Trilhas Paralelas (AD-066)
-- **Phase / Task**: Correções implementadas em todas as 5 trilhas
-- **Completed**: Upload validado e sem strict-violation + Advance e testes alinhados + Fill recipients com NFD e limpeza + Submit/Extract bilíngue com UUID estrito + Barrels corrigidos + Seletores MFA e AGENTS.md sincronizados
+- **Feature**: Distribuição de Frota de Robôs (AD-067)
+- **Phase / Task**: Phase 5 / T11-T12 Concluídas
+- **Completed**: T1 (upload confirmation race) + T2 (enqueueJob orquestrador) + T3 (POST trigger 202 jobId real) + T4 (scheduler fallback) + T5 (SSE progresso .exe) + T6 (alive flag instâncias) + T7 (guard envelopeId UUID anti-fantasma) + T8 (utilitário canônico roleActions) + T9 (controlador consome roles canônicos) + T10 (alias enviar no build) + T11 (AD-067 registrada) + T12 (topologia documentada em AGENTS.md)
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
-- **Branch**: fix/robot-code-review-5-tracks
+- **Branch**: feat/distribuicao-frota-robos
+
 
 
 
