@@ -12,13 +12,20 @@
     "status_badge": "[data-testid='status-badge'], .status-badge, .envelope-status"
   },
   "send": {
-    "url": "https://app.docusign.com/send",
+    "url": "https://apps.docusign.com/send/prepare/",
     "file_input": "input[type='file']",
-    "recipient_name": "input[data-testid='recipient-name'], input[name='recipientName']",
-    "recipient_email": "input[data-testid='recipient-email'], input[name='recipientEmail']",
+    "upload_button": "button[data-qa='upload-file-button']",
+    "upload_container": "[data-qa='upload-button-container'][data-hotspot='upload-button-container']",
+    "drop_icon": "svg[data-qa='file-drop-zone-text-image']",
+    "recipient_name": "input[data-qa='recipient-name'], input[data-testid='recipient-name'], input[name='recipientName']",
+    "recipient_email": "input[data-qa='recipient-email'], input[data-testid='recipient-email'], input[name='recipientEmail']",
+    "delivery_checkbox": "input[data-qa='delivery-email']",
+    "recipients_add": "button[data-qa='recipients-add']",
+    "next_button": "button[data-qa='footer-add-fields-link-correct']",
+    "send_button": "button[data-qa='footer-send-button'], button[data-testid='send-button'], button[data-action='send']",
+    "send_without_fields": "button[data-qa='send-without-fields']",
     "subject_input": "input[data-testid='subject'], input[name='subject']",
-    "message_textarea": "textarea[data-testid='message'], textarea[name='message']",
-    "send_button": "button[data-testid='send-button'], button[data-action='send']"
+    "message_textarea": "textarea[data-testid='message'], textarea[name='message']"
   },
   "status": {
     "status_badge": "[data-testid='status-badge'], .status-badge, .envelope-status"

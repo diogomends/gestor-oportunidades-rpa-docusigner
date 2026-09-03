@@ -392,15 +392,23 @@
 - **Date**: 2026-09-02
 - **Status**: active
 
+### AD-064
+- **Decision**: Implementação do pipeline de envio de contratos em 8 etapas e modularização de steps no robô standalone (`robot/src/browser/steps/`): (1) Criação de steps modulares atômicos (`uploadStep.js`, `fillRecipientsStep.js`, `advancePrepareStep.js`, `submitEnvelopeStep.js`, `extractEnvelopeIdStep.js`, `stepUtils.js`) orquestrados por `envelopes.js`; (2) Navegação para a rota canônica `https://apps.docusign.com/send/prepare/` com verificação de montagem do container de upload (`input[type='file']`, `svg[data-qa='file-drop-zone-text-image']`, `button[data-qa='upload-file-button']`); (3) Suporte a múltiplos destinatários com isolamento ordinal (`.nth(i)`), controle de contagem de elementos (`waitForElementCount`), verificação de checkbox de entrega (`delivery-email`) e validação pós-digitação (`inputValue()`); (4) Deduplicação de signatários no backend (`robotInstanceController.js`) e no robô, compondo `recipients` com o Representante Legal e Responsáveis pela Portabilidade válidos; (5) Espera ativa de até 15s no botão "Enviar sem campos" (`button[data-qa='send-without-fields']`), clicando imediatamente ao surgir; (6) Captura de `envelopeId` em cascata de 3 níveis (URL regex -> 1ª linha da tabela de documentos -> fallback); (7) Captura de debug screenshot automática em caso de erro na execução do robô; (8) Registro do débito técnico DT-001 para inclusão do campo de e-mail dos cedentes no schema/UI de `gestor-oportunidades`.
+- **Reason**: Corrigir o timeout de 30s no upload de contratos decorrente de rota sem input montado, viabilizar assinatura de múltiplos responsáveis pela portabilidade de números com garantia anti-colisão de IDs dinâmicos, e aumentar a resiliência e diagnosticabilidade do robô de envio.
+- **Trade-off**: N/A. Preserva 100% de retrocompatibilidade com payloads legados de destinatário único.
+- **Scope**: `robot/src/browser/steps/*`, `robot/src/browser/envelopes.js`, `robot/src/browser/selectors.js`, `robot/src/job-runner.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `.specs/STATE.md`, `.specs/features/robot/envio-envelope-8-etapas/*`
+- **Date**: 2026-09-02
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Inversão Log Robô + Renomeio Robot-Enviar (AD-063)
-- **Phase / Task**: Implementação e testes concluídos; documentação e validação geradas
-- **Completed**: Inversão de steps na API e SSE + sumário terminal recente-primeiro no JobRunner + testes de regressão + renomeio de artefato robot-enviar
+- **Feature**: Envio de Envelope DocuSign em 8 Etapas & Modularização de Steps (AD-064)
+- **Phase / Task**: Implementação concluída; tasks e validação geradas
+- **Completed**: Steps modulares criados + seletores canônicos atualizados + payload de destinatários e portabilidade deduplicados + cascata de envelope ID + screenshot em erro + specs e validação registradas
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
-- **Branch**: feat/inversao-log-robo-enviar
+- **Branch**: feat/envio-envelope-8-etapas
 
 
 

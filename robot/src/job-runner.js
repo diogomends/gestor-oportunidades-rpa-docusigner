@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { sendEnvelope, checkEnvelopeStatus, fetchAgreementsByRepresentative } from "./browser/docusign.js";
+import { captureDebugScreenshot } from "./browser/steps/stepUtils.js";
 import logger from "./utils/logger.js";
 
 // Compatibility shim for Node.js 18.20.4 up to 20+
@@ -130,6 +131,7 @@ export class JobRunner {
     let tempPdfPath = null;
     let browser = null;
     let context = null;
+    let page = null;
     // ponytail: coleta cronológica para sumário invertido (headless=false vê recente no topo)
     const summarySteps = [];
     const trackStep = (s) => summarySteps.push({ ...s, timestamp: new Date() });
@@ -230,7 +232,7 @@ export class JobRunner {
         }
       }
 
-      const page = await context.newPage();
+      page = await context.newPage();
       logger.success("JobRunner", "Navegador Playwright inicializado com sucesso.");
 
       trackStep({ name: "launch_browser", status: "success" });
@@ -252,11 +254,13 @@ export class JobRunner {
         result = await sendEnvelope(page, {
           recipientName: job.recipientName,
           recipientEmail: job.recipientEmail,
+          recipients: job.recipients,
           subject: job.subject,
           message: job.message,
           pdfPath: tempPdfPath,
           credentials,
           sessionPath: this.sessionFilePath,
+          envelopeId: job.envelopeId,
         });
 
         trackStep({ name: "docusign_send", status: "success" });
@@ -305,6 +309,9 @@ export class JobRunner {
       logSummary();
       return { success: true, result };
     } catch (error) {
+      if (page) {
+        await captureDebugScreenshot(page, `job_error_${jobId}`).catch(() => {});
+      }
       logger.error("JobRunner", `Falha no processamento do job ${jobId}: ${error.message}`);
       trackStep({ name: "execution_error", status: "failed" });
       logSummary();

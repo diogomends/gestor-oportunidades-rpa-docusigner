@@ -510,6 +510,39 @@ export const getNextJob = async (req, res) => {
       contract?.clientEmail ||
       "";
 
+    // Monta lista deduplicada de signatários (Representante Legal + Responsáveis pela Portabilidade)
+    const recipients = [];
+    const seenRecipients = new Set();
+
+    if (recipientName && recipientEmail) {
+      recipients.push({ name: recipientName, email: recipientEmail, role: "representante_legal" });
+      seenRecipients.add(`${recipientName.trim().toLowerCase()}||${recipientEmail.trim().toLowerCase()}`);
+    }
+
+    if (contract && Array.isArray(contract.negotiation)) {
+      contract.negotiation.forEach((neg) => {
+        if (Array.isArray(neg.portabilityLines)) {
+          neg.portabilityLines.forEach((line) => {
+            const cedenteNome = (line?.nomeCedente || "").trim();
+            // ponytail: sem fallback para recipientEmail — cedente sem e-mail próprio é ignorado (DT-001)
+            const cedenteEmail = (line?.email || "").trim().toLowerCase();
+            if (cedenteNome && cedenteEmail) {
+              const key = `${cedenteNome.toLowerCase()}||${cedenteEmail}`;
+              if (!seenRecipients.has(key)) {
+                seenRecipients.add(key);
+                recipients.push({
+                  name: cedenteNome,
+                  email: cedenteEmail,
+                  role: "responsavel_portabilidade",
+                  numero: line.numero || null,
+                });
+              }
+            }
+          });
+        }
+      });
+    }
+
     const payload = {
       hasJob: true,
       jobId: job._id.toString(),
@@ -518,6 +551,7 @@ export const getNextJob = async (req, res) => {
       envelopeId: job.envelopeId || contract?.envelopeId || null,
       recipientName,
       recipientEmail,
+      recipients,
       subject: `Contrato de Adesão - ${contract?.client?.razaoSocial || "Cliente"}`,
       message: "Prezado cliente, segue o contrato para assinatura eletrônica.",
       pdfUrl,
