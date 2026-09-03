@@ -84,7 +84,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, bytenode, esbuild)
 │   ├── src/               # Código-fonte da automação (main, job-runner, scheduler)
 │   │   ├── browser/       # docusign.js (facade), auth.js, envelopes.js, agreements.js, statusParser.js, imapClient.js, roundcube.js, selectors.js, steps/ (uploadStep, fillRecipientsStep, advancePrepareStep, submitEnvelopeStep, extractEnvelopeIdStep, stepUtils — pipeline 8 etapas AD-064)
-│   │   └── utils/         # logger.js (logs coloridos ANSI) + roleActions.js (ROLE_ACTIONS espelho backend AD-054)
+│   │   └── utils/         # logger.js (logs coloridos ANSI) + roleActions.js (ROLE_ACTIONS espelho backend AD-054) + playwrightResolver.js (resolvePlaywright/getChromium/resolveChromiumExecutablePath/assertChromiumInstalled — fail-fast Chromium com hint setup.bat, fonte única main.js + job-runner.js AD-065)
 │   ├── build/             # Pipeline de compilação/ofuscação/empacotamento (.exe)
 │   ├── scripts/           # Scripts de instalação e inicialização do robô
 │   ├── dist/              # Saída do build: subpastas por chave (robot-docusigner-1/, robot-docusigner-2/, ...)
