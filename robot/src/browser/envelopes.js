@@ -29,88 +29,69 @@ async function ensureNotRedirectedToLogin(page, targetUrl, credentials, sessionP
   }
 }
 
+import {
+  executeUploadStep,
+  executeFillRecipientsStep,
+  executeAdvancePrepareStep,
+  executeSubmitEnvelopeStep,
+  executeExtractEnvelopeIdStep,
+} from "./steps/index.js";
+
 /**
- * Envia um envelope de contrato para assinatura na UI DocuSign.
+ * Envia um envelope de contrato para assinatura na UI DocuSign orquestrando os steps modulares.
  * @async
  * @param {import('playwright').Page} page - Instância da página Playwright autenticada.
  * @param {Object} envelopeData - Dados do envelope.
- * @param {string} envelopeData.recipientName - Nome do destinatário.
- * @param {string} envelopeData.recipientEmail - E-mail do destinatário.
- * @param {string} [envelopeData.subject] - Assunto do e-mail.
- * @param {string} [envelopeData.message] - Mensagem do e-mail.
+ * @param {string} [envelopeData.recipientName] - Nome do destinatário principal (legado).
+ * @param {string} [envelopeData.recipientEmail] - E-mail do destinatário principal (legado).
+ * @param {Array<{name: string, email: string}>} [envelopeData.recipients] - Lista de destinatários.
  * @param {string} envelopeData.pdfPath - Caminho local do PDF do contrato.
  * @param {Object} envelopeData.credentials - Credenciais DocuSign para autenticação.
  * @param {string} [envelopeData.sessionPath] - Caminho opcional do arquivo storageState de sessão.
+ * @param {string} [envelopeData.envelopeId] - ID prévio do envelope.
  * @returns {Promise<{envelopeId: string, recipientName: string, recipientEmail: string, status: string, sentAt: string}>} Resultado do envio.
  * @throws {Error} Caso arquivo PDF inexista ou ocorra falha de navegação.
  */
 export async function sendEnvelope(page, envelopeData) {
-  const { recipientName, recipientEmail, subject, message, pdfPath, credentials, sessionPath } = envelopeData;
+  const { recipientName, recipientEmail, recipients, pdfPath, credentials, sessionPath, envelopeId: existingEnvelopeId } = envelopeData;
 
   await ensureAuthenticated(page, credentials, { sessionPath });
 
-  logger.step("Browser", `Iniciando envio de contrato para ${recipientName} (${recipientEmail})...`);
+  const primaryName = recipientName || recipients?.[0]?.name || "Destinatário";
+  const primaryEmail = recipientEmail || recipients?.[0]?.email || "";
+  logger.step("Browser", `Iniciando pipeline de envio de envelope para ${primaryName} (${primaryEmail})...`);
+
   const sendSel = selectors.send;
 
-  await page.goto(sendSel.url, { waitUntil: "networkidle", timeout: 45000 });
-  await randomDelay(1500, 3000);
+  // Passo 1: Upload do documento PDF
+  await executeUploadStep(page, pdfPath, sendSel);
 
-  await ensureNotRedirectedToLogin(page, sendSel.url, credentials, sessionPath, "envio");
+  // Passos 2 a 5: Preenchimento de destinatários (loop com isolamento posicional .nth(i) e checkbox de entrega)
+  const recipientsList = recipients && recipients.length > 0
+    ? recipients
+    : [{ name: recipientName, email: recipientEmail }];
+  await executeFillRecipientsStep(page, recipientsList, sendSel);
 
-  // 1. Upload do Arquivo PDF
-  if (pdfPath && fs.existsSync(pdfPath)) {
-    logger.step("Browser", `Anexando arquivo PDF do contrato: ${pdfPath}`);
-    await page.setInputFiles(sendSel.file_input, pdfPath);
-    await randomDelay(3000, 5000);
-    logger.success("Browser", "Arquivo PDF anexado com sucesso na DocuSign.");
-  } else {
-    const err = new Error(`Arquivo PDF do contrato não encontrado localmente: ${pdfPath}`);
-    logger.error("Browser", err.message);
-    throw err;
+  // Passo 6: Avançar na tela de preparação
+  await executeAdvancePrepareStep(page, sendSel);
+
+  // Passos 7 e 8: Enviar envelope e confirmar modal "Enviar sem campos" (espera 15s)
+  await executeSubmitEnvelopeStep(page, sendSel);
+
+  // Captura do Envelope ID em cascata de 3 níveis (null = falha explícita, anti-phantom AD-046)
+  const extractedEnvelopeId = await executeExtractEnvelopeIdStep(page, existingEnvelopeId);
+  if (!extractedEnvelopeId) {
+    throw new Error("Envelope enviado mas Envelope ID não capturado via URL, listagem ou fallback do job.");
   }
-
-  // 2. Preenchimento de Destinatário
-  if (recipientName) {
-    logger.step("Browser", `Preenchendo nome do destinatário: ${recipientName}`);
-    await page.fill(sendSel.recipient_name, recipientName);
-    await randomDelay(500, 1000);
-  }
-
-  if (recipientEmail) {
-    logger.step("Browser", `Preenchendo e-mail do destinatário: ${recipientEmail}`);
-    await page.fill(sendSel.recipient_email, recipientEmail);
-    await randomDelay(500, 1000);
-  }
-
-  // 3. Assunto e Mensagem
-  if (subject) {
-    await page.fill(sendSel.subject_input, subject);
-    await randomDelay(500, 1000);
-  }
-
-  if (message) {
-    await page.fill(sendSel.message_textarea, message);
-    await randomDelay(500, 1000);
-  }
-
-  // 4. Disparo do Envio
-  logger.step("Browser", "Clicando no botão de envio do envelope...");
-  await page.click(sendSel.send_button);
-  await randomDelay(3000, 6000);
-
-  // 5. Captura do Envelope ID
-  const finalUrl = page.url();
-  const match = finalUrl.match(/\/envelopes\/([a-zA-Z0-9-]+)/i);
-  const envelopeId = match ? match[1] : `env-${Date.now()}`;
 
   // Persiste cookies atualizados após envio bem-sucedido
   await saveSessionState(page, sessionPath);
 
-  logger.success("Browser", `Contrato enviado com sucesso! Envelope ID: ${envelopeId}`);
+  logger.success("Browser", `Contrato enviado com sucesso! Envelope ID: ${extractedEnvelopeId}`);
   return {
-    envelopeId,
-    recipientName,
-    recipientEmail,
+    envelopeId: extractedEnvelopeId,
+    recipientName: primaryName,
+    recipientEmail: primaryEmail,
     status: "sent",
     sentAt: new Date().toISOString(),
   };
