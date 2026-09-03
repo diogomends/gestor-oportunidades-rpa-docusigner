@@ -400,15 +400,23 @@
 - **Date**: 2026-09-02
 - **Status**: active
 
+### AD-065
+- **Decision**: Fail-fast de Chromium no boot do robô standalone com resolver Playwright compartilhado — novo `robot/src/utils/playwrightResolver.js` canônico (`resolveCandidateDirs` deduplicado via `Set`, `resolvePlaywright`, `getChromium`, `resolveChromiumExecutablePath` injetável, `assertChromiumInstalled` injetável com hint `setup.bat` / `%LOCALAPPDATA%\ms-playwright` / `setup.log`); `bootstrap()` em `robot/src/main.js` executa step 0 antes de qualquer chamada de rede (`authenticate`/`getConfig`/`heartbeat`) e aborta com `Erro fatal na inicialização` quando ausente; `robot/src/job-runner.js` consome `getChromium` canônico (−57L duplicadas); suíte `tests/robot/chromium-guard.test.js` com 6 casos (fail null, fail path ausente, sucesso, resolve real, dedup, anti-duplicação via fonte).
+- **Reason**: DRY PonyTail rung 2 (duas cópias de resolução divergindo) + YAGNI auto-download runtime T1–T4 (frágil sob `pkg`/ofuscação — `robot/build/build.js` externaliza `playwright` — e duplicaria `setup.bat` necessário para HKCU).
+- **Trade-off**: Novo arquivo compartilhado `playwrightResolver.js`; `main.js`/`job-runner.js` acoplados a ele (fonte única intencional).
+- **Scope**: `robot/src/utils/playwrightResolver.js`, `robot/src/main.js`, `robot/src/job-runner.js`, `tests/robot/chromium-guard.test.js`
+- **Date**: 2026-09-03
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Envio de Envelope DocuSign em 8 Etapas & Modularização de Steps (AD-064)
-- **Phase / Task**: Implementação concluída; tasks e validação geradas
-- **Completed**: Steps modulares criados + seletores canônicos atualizados + payload de destinatários e portabilidade deduplicados + cascata de envelope ID + screenshot em erro + specs e validação registradas
+- **Feature**: Fail-fast Chromium + Resolver Playwright Compartilhado (AD-065)
+- **Phase / Task**: Implementação concluída; testes e validação gerados
+- **Completed**: Resolver canônico criado + fail-fast no bootstrap antes de rede + job-runner reusando getChromium + 6 testes chromium-guard + specs e validação registradas
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
-- **Branch**: feat/envio-envelope-8-etapas
+- **Branch**: fix/robot-chromium-failfast-resolver
 
 
 
