@@ -19,19 +19,21 @@
 | **FROTA-04** | Propagação de progresso do `.exe` via SSE | ✅ Aprovado | `robotInstanceController.js` chama `emitProgress(job)` no lock (`getNextJob`) e a cada atualização (`updateJobStatus`). |
 | **FROTA-05** | Anti-fantasma: `send completed` exige `envelopeId` UUID v4 válido | ✅ Aprovado | `robotInstanceController.updateJobStatus` força `failed` e reverte contrato caso o `envelopeId` seja inválido. |
 | **FROTA-06** | `GET /instances` expõe flag `alive` (< 90s) por instância | ✅ Aprovado | `robotInstanceController.getAllInstances` calcula dinamicamente `alive` baseado em `last_heartbeat`. |
-| **FROTA-07** | Módulo canônico `roleActions.js` e normalização do alias `enviar` | ✅ Aprovado | `backend/src/modules/robot-docusign/utils/roleActions.js`, `build.js` e `config.js` normalizam `enviar -> update`. |
-| **FROTA-08** | Registro da decisão AD-067 e documentação da topologia | ✅ Aprovado | `.specs/STATE.md` e `AGENTS.md` devidamente documentados com a topologia dual-robot. |
+| **FROTA-07** | Módulo canônico `roleActions.js` e normalização do alias `enviar` | ✅ Aprovado | `backend/src/modules/robot-docusign/utils/roleActions.js` e `robot/src/utils/roleActions.js` padronizados. |
+| **FROTA-08** | Registro da decisão AD-067 e documentação da topologia | ✅ Aprovado | `.specs/STATE.md` e `AGENTS.md` devidamente documentados com a topologia dual-robot e caminho `tests/`. |
+| **AD-068** | Endurecimento de Code Review (Opções 1 e 3) | ✅ Aprovado | Role sem `req.user.role`, scheduler filtra `status: { $ne: "offline" }`, uploadStep com prefix > 0 e `Promise.any`, e `syncContractStatus` desacoplado no `updateJobStatus`. |
 
 ---
 
 ## 3. Verificações de Sintaxe e Inventário
 
-- `node --check robot/src/browser/steps/uploadStep.js`: OK (código 0)
-- `node --check backend/src/modules/robot-docusign/seletorApiRobot/index.js`: OK (código 0)
-- `node --check backend/src/modules/robot-docusign/controllers/robotDocusignController.js`: OK (código 0)
-- `node --check backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`: OK (código 0)
-- `node --check backend/src/modules/robot-docusign/utils/roleActions.js`: OK (código 0)
-- `node --check backend/src/modules/robot-docusign/controllers/robotInstanceController.js`: OK (código 0)
-- `node --check robot/build/build.js`: OK (código 0)
-- `node --check robot/src/config.js`: OK (código 0)
-- `node tools/generate-routes-inventory.js --check`: OK (22 endpoints atualizados)
+- `node --check robot/src/browser/steps/uploadStep.js`: OK
+- `node --check backend/src/modules/robot-docusign/seletorApiRobot/index.js`: OK
+- `node --check backend/src/modules/robot-docusign/controllers/robotDocusignController.js`: OK
+- `node --check backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`: OK
+- `node --check backend/src/modules/robot-docusign/utils/roleActions.js`: OK
+- `node --check robot/src/utils/roleActions.js`: OK
+- `node --check backend/src/modules/robot-docusign/controllers/robotInstanceController.js`: OK
+- `node --check robot/build/build.js`: OK
+- `node --check robot/src/config.js`: OK
+

@@ -91,7 +91,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │   ├── dist-bundle/       # Bundle temporário do esbuild (CJS)
 │   ├── dist-obf/          # Código ofuscado temporário
 │   └── dist-jsc/          # Bytecode V8 temporário (.jsc)
-├── test/
+├── tests/
 │   ├── backend/               # Testes backend (controllers, models, services)
 │   └── robot/                 # Testes robô (browser/)
 ```
