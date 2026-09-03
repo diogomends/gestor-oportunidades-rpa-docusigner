@@ -1,8 +1,8 @@
 # Validation Report: Segregação de Dois Robôs (Consulta e Atualização)
 
 **Feature**: `robot/dois-robos-consulta-atualizacao`
-**Spec**: `.specs/features/robot/dois-robos-consulta-atualizacao/spec.md`
-**Tasks**: `.specs/features/robot/dois-robos-consulta-atualizacao/tasks.md`
+**Spec**: `.specs/features/robot-specs/dois-robos-consulta-atualizacao/spec.md`
+**Tasks**: `.specs/features/robot-specs/dois-robos-consulta-atualizacao/tasks.md`
 **Verdict**: PASS ✅
 
 **Commit**: `db3b594` + docs (T11) + AD-054 hardening

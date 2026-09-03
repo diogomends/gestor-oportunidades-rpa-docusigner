@@ -8,7 +8,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 ---
 
-**Design**: `.specs/features/inversao-log-robo/design.md` — Skipped (Small, ≤3 files, stdlib only)
+**Design**: `.specs/features/servidor-robot/inversao-log-robo/design.md` — Skipped (Small, ≤3 files, stdlib only)
 **Status**: Done
 
 ---
@@ -156,7 +156,7 @@ T4 → T5
 ### T5: Atualizar traceability da spec e fechar critérios de sucesso
 
 **What**: Marcar `INV-01..05` e `REN-01..04` como `Done` em `spec.md` Requirement Traceability, checar `Success Criteria` e rodar validadores determinísticos.
-**Where**: `.specs/features/inversao-log-robo/spec.md`
+**Where**: `.specs/features/servidor-robot/inversao-log-robo/spec.md`
 **Depends on**: T4
 **Reuses**: `.specs/STATE.md` decisions, `spec.md:90-94` Success Criteria
 **Requirement**: Todos (fechamento)
@@ -168,8 +168,8 @@ T4 → T5
 **Done when**:
 - [x] `spec.md` Goals `- [x]` viram `- [x]` para INV e REN
 - [x] Traceability `Status` = `Verified` para INV-01..05, REN-01..04
-- [x] `python3 <skill-dir>/scripts/validate_spec.py .specs/features/inversao-log-robo/spec.md` passa
-- [x] `python3 <skill-dir>/scripts/validate_tasks.py .specs/features/inversao-log-robo/tasks.md` passa
+- [x] `python3 <skill-dir>/scripts/validate_spec.py .specs/features/servidor-robot/inversao-log-robo/spec.md` passa
+- [x] `python3 <skill-dir>/scripts/validate_tasks.py .specs/features/servidor-robot/inversao-log-robo/tasks.md` passa
 - [x] `python3 <skill-dir>/scripts/validate_state.py inversao-log-robo` passa após Verifier (fase seguinte)
 
 **Tests**: none (build gate)

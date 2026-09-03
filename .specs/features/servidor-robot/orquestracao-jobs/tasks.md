@@ -1164,12 +1164,12 @@ Em `statusSyncScheduler.js`, o código atualiza `envelopeId` via `Contract.findB
 1. Declarar explicitamente `envelopeId: { type: String, default: null }` e `docusign_envelope_id: { type: String, default: null }` no schema Mongoose de `Contract.js`.
 2. Adicionar JSDoc `@typedef {ContractDocument}` para tipagem estática e autocomplete.
 3. Criar suíte de testes unitários e de regressão em `tests/backend/models/Contract.test.js`.
-4. Atualizar documentação de schemas em `.specs/database/schema.md` e `.specs/STATE.md`.
+4. Atualizar documentação de schemas em `.specs/features/servidor-robot/database/schema.md` e `.specs/STATE.md`.
 
 **Onde**:
 - `backend/src/models/Contract.js`
 - `tests/backend/models/Contract.test.js`
-- `.specs/database/schema.md`
+- `.specs/features/servidor-robot/database/schema.md`
 - `.specs/STATE.md`
 
 **Feito quando**:

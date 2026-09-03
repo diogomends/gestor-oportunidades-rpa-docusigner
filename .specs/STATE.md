@@ -102,7 +102,7 @@
 - **Decision**: Criação da especificação TLC Spec-Driven para a feature `docusign-agreements-query` cobrindo consulta paginada de acordos/documentos DocuSign via RPA, com filtro por representante (`Para:`), cálculo dinâmico de datas (5 dias atrás até hoje) e validação resiliente de status com alerta para status não mapeados.
 - **Reason**: Automatizar a coleta e conciliação do status de envelopes diretamente na interface Web da DocuSign para o Gestor de Oportunidades.
 - **Trade-off**: Depende da estabilidade dos seletores `data-qa="manage-envelopes-list.*"` da interface web do DocuSign.
-- **Scope**: `.specs/features/servidor-robot/consulta-paginada-acordos/` + `.specs/features/servidor-robot/extracao-dados-oneds/` + `.specs/features/robot/consulta-acordos-navegador/`, `robot/src/browser/selectors.js`, `robot/src/browser/docusign.js`, `robot/src/job-runner.js`
+- **Scope**: `.specs/features/servidor-robot/consulta-paginada-acordos/` + `.specs/features/servidor-robot/extracao-dados-oneds/` + `.specs/features/robot-specs/consulta-acordos-navegador/`, `robot/src/browser/selectors.js`, `robot/src/browser/docusign.js`, `robot/src/job-runner.js`
 - **Date**: 2026-08-28
 - **Status**: active
 
@@ -277,7 +277,7 @@
 - **Decision**: Declaração explícita das propriedades `envelopeId` e `docusign_envelope_id` (`{ type: String, default: null }`) no schema Mongoose de `Contract` (`backend/src/models/Contract.js`), tipagem estática via `@typedef {ContractDocument}` JSDoc, e criação de suíte unitária/regressão em `tests/backend/models/Contract.test.js`.
 - **Reason**: Permitir a persistência e atualização correta de `envelopeId` em `statusSyncScheduler.js` e queries sem descarte silencioso em virtude do modo `strict: true` padrão do Mongoose.
 - **Trade-off**: N/A. Total compatibilidade com o schema legado e banco `crm_contracts`.
-- **Scope**: `backend/src/models/Contract.js`, `tests/backend/models/Contract.test.js`, `.specs/database/schema.md`, `.specs/STATE.md`
+- **Scope**: `backend/src/models/Contract.js`, `tests/backend/models/Contract.test.js`, `.specs/features/servidor-robot/database/schema.md`, `.specs/STATE.md`
 - **Date**: 2026-08-31
 - **Status**: active
 
@@ -324,7 +324,7 @@
 - **Decision**: Hardening pós-AD-053 — (1) `ROLE_ACTIONS` centralizado em `backend/.../utils/roleActions.js` (`ROLE_ENUM`, `ROLE_ACTIONS`, `getAllowedActions`, `isActionAllowedForRole`) e clone isolado `robot/src/utils/roleActions.js` (offline .exe) consumido por `robotInstanceController.getNextJob` e `JobRunner`; (2) `normalizeString` extraído para `backend/.../utils/normalizeString.js` (NFD/acento/caixa) reaproveitado em `seletorApiRobot/statusSyncScheduler.js` e `robotInstanceController` (reconciliação e-mail/nome) com re-export para compat; (3) `requireJwtSecret()` fail-hard: `JWT_SECRET` ausente em `NODE_ENV=production` aborta `jwt.sign` (`controller.js:148,222`), dev mantém `default_jwt_secret_dev`; (4) reconciliação `updateJobStatus` paritária AD-053: após `syncContractStatus` para `assinado` com `envelopeId` faz auto-download via `buildDownloadPath` + `browserrobot.executeWithBrowser("download")` com `exists+size>0` e `operations.download!==false` (parity com `statusSyncScheduler`); (5) fachadas `services/statusSyncScheduler.js` e `services/robotScheduler.js` documentadas como Facade DIP (canônico `seletorApiRobot/*`); (6) `JobRunner` guard `ROLE_MISMATCH` `code/nonRetriable` antes de `chromium.launch` com `failed [ROLE_MISMATCH]` sem retry; (7) `build.js` `bundleBase` legacy `robot-docusigner` vs `robot-{query|update}` documentado para migração `all→robot-all`.
 - **Reason**: SOLID DRY/SRP/OCP/DIP e anti-falha: single source para role/normalize, JWT não assina com default em prod, paridade download evita órfãos assinados, guard evita retentar mismatch, barrel esclarece fonte canônica.
 - **Trade-off**: Duplicação lógica `roleActions` entre backend/robot por isolamento runtime (sync manual).
-- **Scope**: `backend/src/modules/robot-docusign/utils/roleActions.js`, `backend/src/modules/robot-docusign/utils/normalizeString.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `backend/src/modules/robot-docusign/services/*.js`, `robot/src/utils/roleActions.js`, `robot/src/job-runner.js`, `robot/build/build.js`, `.specs/database/schema.md`, `.specs/routes-inventory.md`, `AGENTS.md`
+- **Scope**: `backend/src/modules/robot-docusign/utils/roleActions.js`, `backend/src/modules/robot-docusign/utils/normalizeString.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `backend/src/modules/robot-docusign/services/*.js`, `robot/src/utils/roleActions.js`, `robot/src/job-runner.js`, `robot/build/build.js`, `.specs/features/servidor-robot/database/schema.md`, `.specs/routes-inventory.md`, `AGENTS.md`
 - **Date**: 2026-09-01
 - **Status**: active
 
@@ -396,7 +396,7 @@
 - **Decision**: Implementação do pipeline de envio de contratos em 8 etapas e modularização de steps no robô standalone (`robot/src/browser/steps/`): (1) Criação de steps modulares atômicos (`uploadStep.js`, `fillRecipientsStep.js`, `advancePrepareStep.js`, `submitEnvelopeStep.js`, `extractEnvelopeIdStep.js`, `stepUtils.js`) orquestrados por `envelopes.js`; (2) Navegação para a rota canônica `https://apps.docusign.com/send/prepare/` com verificação de montagem do container de upload (`input[type='file']`, `svg[data-qa='file-drop-zone-text-image']`, `button[data-qa='upload-file-button']`); (3) Suporte a múltiplos destinatários com isolamento ordinal (`.nth(i)`), controle de contagem de elementos (`waitForElementCount`), verificação de checkbox de entrega (`delivery-email`) e validação pós-digitação (`inputValue()`); (4) Deduplicação de signatários no backend (`robotInstanceController.js`) e no robô, compondo `recipients` com o Representante Legal e Responsáveis pela Portabilidade válidos; (5) Espera ativa de até 15s no botão "Enviar sem campos" (`button[data-qa='send-without-fields']`), clicando imediatamente ao surgir; (6) Captura de `envelopeId` em cascata de 3 níveis (URL regex -> 1ª linha da tabela de documentos -> fallback); (7) Captura de debug screenshot automática em caso de erro na execução do robô; (8) Registro do débito técnico DT-001 para inclusão do campo de e-mail dos cedentes no schema/UI de `gestor-oportunidades`.
 - **Reason**: Corrigir o timeout de 30s no upload de contratos decorrente de rota sem input montado, viabilizar assinatura de múltiplos responsáveis pela portabilidade de números com garantia anti-colisão de IDs dinâmicos, e aumentar a resiliência e diagnosticabilidade do robô de envio.
 - **Trade-off**: N/A. Preserva 100% de retrocompatibilidade com payloads legados de destinatário único.
-- **Scope**: `robot/src/browser/steps/*`, `robot/src/browser/envelopes.js`, `robot/src/browser/selectors.js`, `robot/src/job-runner.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `.specs/STATE.md`, `.specs/features/robot/envio-envelope-8-etapas/*`
+- **Scope**: `robot/src/browser/steps/*`, `robot/src/browser/envelopes.js`, `robot/src/browser/selectors.js`, `robot/src/job-runner.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `.specs/STATE.md`, `.specs/features/robot-specs/envio-envelope-8-etapas/*`
 - **Date**: 2026-09-02
 - **Status**: active
 
@@ -424,15 +424,24 @@
 - **Date**: 2026-09-03
 - **Status**: active
 
+### AD-068
+- **Decision**: Endurecimento de Code Review da Frota e Desacoplamento de Notificação de Status (Combinação Opções 1 e 3): (1) Correção na extração de `instanceRole` em `getNextJob` (`robotInstanceController.js`), removendo `req.user?.role` para evitar colisão do perfil de usuário JWT ("admin") com papéis operacionais do robô; (2) Refinamento da consulta de robôs ativos no `robotScheduler.js` para ignorar explicitamente instâncias com `status: "offline"`; (3) Criação do utilitário canônico `robot/src/utils/roleActions.js` espelhado do backend; (4) Correção em `uploadStep.js` validando `rawPrefix.length > 0` e empregando `Promise.any` em substituição a `Promise.race`, prevenindo falsos positivos por regex vazia e falsos negativos por rejeição antecipada; (5) Integração não bloqueante de `syncContractStatus` em `updateJobStatus` ao concluir (`completed`) ou reverter (`failed`) jobs, sincronizando o CRM externo (`gestor-oportunidades` via `gestorApiClient`) em background sem onerar o tempo de resposta HTTP; (6) Correção da referência de diretório de testes de `test/` para `tests/` no `AGENTS.md`.
+- **Reason**: Sanar falsos positivos de validação, eliminar deadlocks no scheduler com nós offline, sincronizar status com CRM externo de forma não-bloqueante e alinhar módulos e documentação.
+- **Trade-off**: N/A. Preserva retrocompatibilidade com endpoints e regras existentes.
+- **Scope**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `robot/src/utils/roleActions.js`, `robot/src/browser/steps/uploadStep.js`, `AGENTS.md`, `.specs/STATE.md`
+- **Date**: 2026-09-03
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Distribuição de Frota de Robôs (AD-067)
-- **Phase / Task**: Phase 5 / T11-T12 Concluídas
-- **Completed**: T1 (upload confirmation race) + T2 (enqueueJob orquestrador) + T3 (POST trigger 202 jobId real) + T4 (scheduler fallback) + T5 (SSE progresso .exe) + T6 (alive flag instâncias) + T7 (guard envelopeId UUID anti-fantasma) + T8 (utilitário canônico roleActions) + T9 (controlador consome roles canônicos) + T10 (alias enviar no build) + T11 (AD-067 registrada) + T12 (topologia documentada em AGENTS.md)
+- **Feature**: Endurecimento de Code Review da Frota e Sincronização Desacoplada (AD-068)
+- **Phase / Task**: Execução Concluída (Opções 1 e 3)
+- **Completed**: Role extraction fix + Scheduler offline filter + robot roleActions.js + uploadStep prefix guard & Promise.any + updateJobStatus decoupled sync + AGENTS.md tests/ path + AD-068
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
 - **Branch**: feat/distribuicao-frota-robos
+
 
 
 

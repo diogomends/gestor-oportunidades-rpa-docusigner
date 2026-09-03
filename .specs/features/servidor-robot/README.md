@@ -6,7 +6,9 @@ Servidor Central `backend/src` (porta 3111) — API REST, fila RobotJob, orquest
 
 | Sub-feature | Origem / AD | Conteúdo |
 |---|---|---|
-| `orquestracao-jobs` | `robot-docusigner` REQ-001..012 (god-spec) | Orquestração de jobs: RobotJob, SystemConfig, sessão, automação browser, orquestrador e rotas (fila e execução) |
+| `orquestracao-jobs` | `robot-docusigner` REQ-001..012 (god-spec, índice) | Índice da orquestração — detalhe canônico vive nos fragmentos (`disparo-assincrono-sse`, `envio-sob-demanda`, `trava-concorrencia-periodica`, `conciliacao-atualizacao`) |
+| `inversao-log-robo` | AD-063 (P1) | Logs recente-primeiro: `GET /logs/:jobId` + SSE `job:progress` com `[...steps].reverse()` sem mutar persistência |
+| `database` | AD-048/051/054 | Schema Mongo: `Contract` (`envelopeId`), `RobotJob`, `RobotInstance`, `RobotSession` (`ER-diagram.md` + `schema.md`) |
 | `disparo-assincrono-sse` | `sub-specs/job-async-sse` | Disparo assíncrono com SSE: 202 Accepted + stream de progresso + Nginx |
 | `contratos-elegiveis` | `eligible-contracts-non-draft` | Filtro de contratos elegíveis: contractEligibility, blocklist $nin, hasPdf/hasRecipientEmail (AD-038/051) |
 | `envio-sob-demanda` | AD-041 parte 1 | Envio sob demanda: POST /trigger exclusivo, lock atômico next-job (AD-039/052) |
