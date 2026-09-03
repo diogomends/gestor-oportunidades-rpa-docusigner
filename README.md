@@ -206,12 +206,22 @@ robot/
 │   ├── utils/
 │   │   └── logger.js   # Sistema de logs coloridos ANSI (verde=sucesso, azul=etapa, vermelho=erro)
 │   └── browser/
-│       ├── docusign.js   # Automação DocuSign (login, detecção de MFA, envio, status)
+│       ├── docusign.js   # Fachada de automação DocuSign (login, detecção de MFA, envio, status)
+│       ├── auth.js       # Autenticação, sessão e MFA/2FA
+│       ├── envelopes.js  # Orquestrador do pipeline de envio e consulta de status
+│       ├── agreements.js # Consulta e extração de acordos
 │       ├── imapClient.js # Extração headless de código MFA via socket IMAP/TLS nativo
 │       ├── roundcube.js  # Fallback de extração visual de MFA via Webmail Roundcube
-│       └── selectors.js  # Seletores CSS
+│       ├── selectors.js  # Seletores CSS/data-qa centralizados
+│       └── steps/        # Steps modulares do pipeline de 8 etapas de envio (AD-064)
+│           ├── stepUtils.js             # Helpers (delays, contagem, screenshots)
+│           ├── uploadStep.js            # Passo 1: Upload de PDF (prepare)
+│           ├── fillRecipientsStep.js    # Passos 2-5: Destinatários e checkbox
+│           ├── advancePrepareStep.js    # Passo 6: Avançar na preparação
+│           ├── submitEnvelopeStep.js    # Passos 7-8: Enviar e confirmação sem campos
+│           └── extractEnvelopeIdStep.js # Extração de Envelope ID em cascata 3 níveis
 ├── build/
-│   └── build.js        # Pipeline: esbuild → obfuscator → bytenode → pkg
+│   └── build.js        # Pipeline: esbuild → obfuscator → pkg (AD-053)
 ├── scripts/
 │   └── setup.bat       # Instalador para máquina do agente
 └── package.json
