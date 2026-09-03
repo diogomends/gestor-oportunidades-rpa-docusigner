@@ -29,6 +29,20 @@ export async function submitEnvelope(page, sendSel = {}, email) {
     email
   );
 
+  // Confirmação condicional do modal "Enviar sem campos"
+  const sendWithoutFieldsSelector = sendSel?.send_without_fields || "button[data-qa='send-without-fields']";
+  if (typeof page.locator === "function") {
+    try {
+      const withoutFieldsBtn = page.locator(sendWithoutFieldsSelector).first();
+      const isVisible = await withoutFieldsBtn.waitFor({ state: "visible", timeout: 8000 }).then(() => true).catch(() => false);
+      if (isVisible) {
+        await guardedAction(() => withoutFieldsBtn.click(), page, email);
+      }
+    } catch {
+      // Modal opcional, segue o fluxo
+    }
+  }
+
   if (typeof page.waitForLoadState === "function") {
     await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
   }

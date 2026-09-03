@@ -60,6 +60,8 @@ export async function executeFillRecipientsStep(page, recipientsData, sendSel) {
     if (i > 0) {
       logger.step("Browser", `Adicionando novo destinatário (${i + 1})...`);
       const addBtn = page.locator(addRecipientSelector).first();
+      await addBtn.waitFor({ state: "visible", timeout: 15000 });
+      await addBtn.scrollIntoViewIfNeeded().catch(() => {});
       await addBtn.click();
       await randomDelay(1000, 2000);
 
@@ -74,8 +76,6 @@ export async function executeFillRecipientsStep(page, recipientsData, sendSel) {
     // 1. Preenchimento de Nome
     const nameField = nameLocators.nth(i);
     await nameField.waitFor({ state: "visible", timeout: 15000 });
-    await nameField.fill("");
-    await randomDelay(200, 400);
     await nameField.fill(name);
     await randomDelay(300, 600);
 
@@ -83,8 +83,11 @@ export async function executeFillRecipientsStep(page, recipientsData, sendSel) {
     const filledName = await nameField.inputValue().catch(() => "");
     if (filledName.trim() !== name) {
       logger.warn("Browser", `Divergência ao preencher nome do destinatário ${i + 1}. Tentando novamente...`);
-      await nameField.fill("");
       await nameField.fill(name);
+      const retryName = await nameField.inputValue().catch(() => "");
+      if (retryName.trim() !== name) {
+        throw new Error(`Falha ao preencher nome do destinatário ${i + 1}: esperado '${name}', obtido '${retryName}'`);
+      }
     }
 
     // 2. Verificação do Checkbox de Entrega
@@ -106,8 +109,6 @@ export async function executeFillRecipientsStep(page, recipientsData, sendSel) {
     // 3. Preenchimento de E-mail
     const emailField = emailLocators.nth(i);
     await emailField.waitFor({ state: "visible", timeout: 15000 });
-    await emailField.fill("");
-    await randomDelay(200, 400);
     await emailField.fill(email);
     await randomDelay(300, 600);
 
@@ -115,9 +116,15 @@ export async function executeFillRecipientsStep(page, recipientsData, sendSel) {
     const filledEmail = await emailField.inputValue().catch(() => "");
     if (filledEmail.trim().toLowerCase() !== email) {
       logger.warn("Browser", `Divergência ao preencher e-mail do destinatário ${i + 1}. Tentando novamente...`);
-      await emailField.fill("");
       await emailField.fill(email);
+      const retryEmail = await emailField.inputValue().catch(() => "");
+      if (retryEmail.trim().toLowerCase() !== email) {
+        throw new Error(`Falha ao preencher e-mail do destinatário ${i + 1}: esperado '${email}', obtido '${retryEmail}'`);
+      }
     }
+    // ponytail: Tab commita o campo e dispara a validação inline da DocuSign
+    await emailField.press("Tab").catch(() => {});
+    await randomDelay(300, 600);
 
     logger.success("Browser", `Destinatário ${i + 1} (${name}) preenchido e validado com sucesso.`);
   }

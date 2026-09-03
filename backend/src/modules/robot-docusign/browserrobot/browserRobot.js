@@ -9,6 +9,7 @@ import { ensureAuthenticated } from "./steps/authStep.js";
 import { uploadDocument } from "./steps/uploadDocumentStep.js";
 import { fillRecipient } from "./steps/fillRecipientStep.js";
 import { fillMessage } from "./steps/fillMessageStep.js";
+import { advancePrepare } from "./steps/advancePrepareStep.js";
 import { submitEnvelope } from "./steps/submitEnvelopeStep.js";
 import { extractEnvelopeId } from "./steps/extractEnvelopeIdStep.js";
 import { checkStatus } from "./steps/statusStep.js";
@@ -77,10 +78,13 @@ const send = async (page, envelopeData = {}) => {
     // Passo 5: Preencher mensagem e assunto
     await fillMessage(page, sendSel, { subject, message }, email);
 
-    // Passo 6: Submeter envelope
+    // Passo 6: Avançar da tela de preparação
+    await advancePrepare(page, sendSel, email);
+
+    // Passo 7: Submeter envelope
     await submitEnvelope(page, sendSel, email);
 
-    // Passo 7: Extrair e retornar ID do envelope
+    // Passo 8: Extrair e retornar ID do envelope
     return await extractEnvelopeId(page, sendSel, envelopeId);
   } catch (err) {
     await robotSession

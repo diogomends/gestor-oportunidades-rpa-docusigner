@@ -28,12 +28,9 @@ export async function executeUploadStep(page, pdfPath, sendSel) {
   const uploadButtonSelector = sendSel?.upload_button || "button[data-qa='upload-file-button']";
 
   logger.step("Browser", "Aguardando container de upload da DocuSign ficar disponível...");
+  const uploadContainerSelector = [fileInputSelector, dropIconSelector, uploadButtonSelector].join(", ");
   try {
-    await Promise.race([
-      page.waitForSelector(fileInputSelector, { timeout: 30000 }),
-      page.waitForSelector(dropIconSelector, { timeout: 30000 }),
-      page.waitForSelector(uploadButtonSelector, { timeout: 30000 }),
-    ]);
+    await page.locator(uploadContainerSelector).first().waitFor({ state: "attached", timeout: 30000 });
   } catch (timeoutErr) {
     await captureDebugScreenshot(page, "upload_timeout");
     throw new Error(`Tempo limite de 30s excedido aguardando tela de upload (${page.url()}): ${timeoutErr.message}`);
@@ -41,7 +38,15 @@ export async function executeUploadStep(page, pdfPath, sendSel) {
 
   logger.step("Browser", `Anexando arquivo PDF do contrato: ${pdfPath}`);
   await page.setInputFiles(fileInputSelector, pdfPath);
-  await randomDelay(3000, 5000);
+  const baseName = pdfPath.split(/[\\/]/).pop();
+  const processed = typeof page.getByText === "function"
+    ? await page.getByText(baseName, { exact: false }).first().waitFor({ state: "visible", timeout: 25000 }).then(() => true).catch(() => false)
+    : true;
+  if (!processed) {
+    await captureDebugScreenshot(page, "upload_process_fail");
+    throw new Error(`Falha no processamento do documento após upload (${baseName}): elemento não visível no tempo limite.`);
+  }
+  await randomDelay(2000, 4000);
 
   logger.success("Browser", "Arquivo PDF anexado com sucesso na DocuSign.");
 }
