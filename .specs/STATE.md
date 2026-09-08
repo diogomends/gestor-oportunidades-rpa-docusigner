@@ -448,15 +448,24 @@
 - **Date**: 2026-09-08
 - **Status**: active
 
+### AD-071
+- **Decision**: Refatoração e Decomposição Modular do `robotInstanceController.js` em Handlers Atômicos (1 arquivo por função / SOLID SRP) — (1) Decomposição do arquivo monolítico de 1.040 linhas em 9 handlers atômicos dedicados sob `backend/src/modules/robot-docusign/controllers/instance/` (`authenticateInstance.js`, `getInstanceConfig.js`, `getNextJob.js`, `updateJobStatus.js`, `registerHeartbeat.js`, `downloadContractPdf.js`, `getAllInstances.js`, `getInstanceTelemetry.js`, `streamInstanceTelemetry.js`); (2) `robotInstanceController.js` passa a atuar como Fachada / Barrel DIP estável re-exportando todas as 9 funções e o export default, garantindo 100% de retrocompatibilidade com os roteadores e testes; (3) Otimização para leitura e manipulação por IAs (LLMs) com arquivos concisos (25 a 240 linhas), escopos e schemas Zod isolados e JSDoc completo em todas as funções.
+- **Reason**: Eliminar violação do Single Responsibility Principle (SRP), facilitar manutenção cirúrgica sem poluição de contexto para IAs e mitigar riscos de regressão.
+- **Trade-off**: Criação de pasta `controllers/instance/` com 9 arquivos modulares.
+- **Scope**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/controllers/instance/*`, `.specs/features/servidor-robot/refactor-robot-instance-controller/*`
+- **Date**: 2026-09-08
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Telemetria de Logs em Modo Ocioso (Heartbeat & Scheduler Idle Logs) (AD-070)
-- **Phase / Task**: Execução e Documentação Concluídas
-- **Completed**: Buffer local FIFO 50 no robô + envio de telemetryLogs no heartbeat + RingBuffer FIFO 100 no backend + rota SSE /instances/:instanceId/stream + fallback /telemetry e ?includeLogs=true + AD-070
+- **Feature**: Refatoração Modular do robotInstanceController (SOLID & Atomic Handlers) (AD-071)
+- **Phase / Task**: Execução, Validação e Documentação Concluídas
+- **Completed**: Decomposição em 9 handlers atômicos sob `controllers/instance/` + Fachada Barrel em `robotInstanceController.js` + inventário de rotas 100% validado + testes de regressão de telemetria/SSE executados com 100% de sucesso + spec.md, tasks.md, validation.md e AD-071 registrados.
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
-- **Branch**: feat/distribuicao-frota-robos
+- **Branch**: main
+
 
 
 
