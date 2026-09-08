@@ -4,7 +4,7 @@
  */
 
 // Atomic Imports
-import { resolveSelectors, assertPage } from "./steps/stepUtils.js";
+import { resolveSelectors, assertPage, attachNetworkEnvelopeInterceptor } from "./steps/stepUtils.js";
 import { ensureAuthenticated } from "./steps/authStep.js";
 import { uploadDocument } from "./steps/uploadDocumentStep.js";
 import { fillRecipient } from "./steps/fillRecipientStep.js";
@@ -59,38 +59,43 @@ const send = async (page, envelopeData = {}) => {
   const baseUrl = selectors.baseUrl || "https://app.docusign.com";
   const targetUrl = sendSel.url || `${baseUrl}/send`;
   const email = envelopeData.credentials?.email;
+  const networkInterceptor = attachNetworkEnvelopeInterceptor(page);
 
   try {
-    // Passo 2: Garantir autenticação
-    await ensureAuthenticated(page, targetUrl, envelopeData, selectors);
+    try {
+      // Passo 2: Garantir autenticação
+      await ensureAuthenticated(page, targetUrl, envelopeData, selectors);
 
-    // Passo 3: Upload do documento
-    await uploadDocument(page, sendSel, documentPath, email);
+      // Passo 3: Upload do documento
+      await uploadDocument(page, sendSel, documentPath, email);
 
-    // Passo 4: Preencher destinatário
-    await fillRecipient(
-      page,
-      sendSel,
-      { recipientName, recipientEmail },
-      email,
-    );
+      // Passo 4: Preencher destinatário
+      await fillRecipient(
+        page,
+        sendSel,
+        { recipientName, recipientEmail },
+        email,
+      );
 
-    // Passo 5: Preencher mensagem e assunto
-    await fillMessage(page, sendSel, { subject, message }, email);
+      // Passo 5: Preencher mensagem e assunto
+      await fillMessage(page, sendSel, { subject, message }, email);
 
-    // Passo 6: Avançar da tela de preparação
-    await advancePrepare(page, sendSel, email);
+      // Passo 6: Avançar da tela de preparação
+      await advancePrepare(page, sendSel, email);
 
-    // Passo 7: Submeter envelope
-    await submitEnvelope(page, sendSel, email);
+      // Passo 7: Submeter envelope
+      await submitEnvelope(page, sendSel, email);
 
-    // Passo 8: Extrair e retornar ID do envelope
-    return await extractEnvelopeId(page, sendSel, envelopeId);
-  } catch (err) {
-    await robotSession
-      .captureDebugScreenshot(page, "send-failure")
-      .catch(() => {});
-    throw err;
+      // Passo 8: Extrair e retornar ID do envelope (rede → URL → tabela → fallback)
+      return await extractEnvelopeId(page, sendSel, envelopeId, networkInterceptor.getInterceptedId());
+    } catch (err) {
+      await robotSession
+        .captureDebugScreenshot(page, "send-failure")
+        .catch(() => {});
+      throw err;
+    }
+  } finally {
+    networkInterceptor?.cleanup?.();
   }
 };
 

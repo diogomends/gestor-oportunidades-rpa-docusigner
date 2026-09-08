@@ -1,4 +1,4 @@
-import { assertPage, isLoginUrl } from "./stepUtils.js";
+import { assertPage, isLoginUrl, UUID_REGEX } from "./stepUtils.js";
 
 /**
  * Extrai ou resolve o identificador único do envelope após a submissão.
@@ -6,10 +6,11 @@ import { assertPage, isLoginUrl } from "./stepUtils.js";
  * @param {Object} page - Instância de página do Playwright.
  * @param {Object} [sendSel={}] - Seletores da tela de envio.
  * @param {string} [fallbackEnvelopeId] - ID pré-existente fornecido ou fallback.
+ * @param {string|null} [interceptedEnvelopeId=null] - ID capturado via rede durante o fluxo.
  * @returns {Promise<string>} Identificador do envelope extraído.
  * @throws {Error} Lança erro descritivo se não for possível extrair o ID do envelope.
  */
-export async function extractEnvelopeId(page, sendSel = {}, fallbackEnvelopeId) {
+export async function extractEnvelopeId(page, sendSel = {}, fallbackEnvelopeId, interceptedEnvelopeId = null) {
   assertPage(page);
 
   const currentUrl = page.url();
@@ -17,8 +18,7 @@ export async function extractEnvelopeId(page, sendSel = {}, fallbackEnvelopeId) 
     throw new Error(`Não foi possível extrair envelopeId: o navegador foi redirecionado para a tela de autenticação (${currentUrl}).`);
   }
 
-  // Regex estrita de UUID v4 de 36 caracteres (ex: 12345678-1234-1234-1234-123456789abc)
-  const UUID_REGEX = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i;
+  // Regex estrita de UUID v4 de 36 caracteres (ex: 12345678-1234-1234-1234-123456789abc) — importada de stepUtils.js
 
   // Nível 1: Extração via URL atual pós-redirecionamento com múltiplos padrões
   let extractedId = null;
@@ -36,7 +36,12 @@ export async function extractEnvelopeId(page, sendSel = {}, fallbackEnvelopeId) 
     }
   }
 
-  // Nível 2: Leitura da 1ª linha da tabela de documentos na UI
+  // Nível 2: ID interceptado via rede (corpo do POST /restapi/.../envelopes ou URLs intermediárias)
+  if (typeof interceptedEnvelopeId === "string" && UUID_REGEX.test(interceptedEnvelopeId.trim())) {
+    return interceptedEnvelopeId.trim();
+  }
+
+  // Nível 3: Leitura da 1ª linha da tabela de documentos na UI
   if (!extractedId && typeof page.locator === "function") {
     try {
       const firstRowLink = page.locator("tbody tr a[href*='details/'], [data-qa='manage-envelopes-list.table'] tr a").first();
@@ -49,7 +54,7 @@ export async function extractEnvelopeId(page, sendSel = {}, fallbackEnvelopeId) 
         }
       }
     } catch {
-      // Falha no Nível 2 tratada pelo Nível 3 / erro
+      // Falha no Nível 3 tratada pelo Nível 4 / erro
     }
   }
 
@@ -57,7 +62,7 @@ export async function extractEnvelopeId(page, sendSel = {}, fallbackEnvelopeId) 
     return extractedId.trim();
   }
 
-  // Nível 3: Fallback para ID pré-existente válido fornecido pelo chamador
+  // Nível 4: Fallback para ID pré-existente válido fornecido pelo chamador
   if (typeof fallbackEnvelopeId === "string" && UUID_REGEX.test(fallbackEnvelopeId.trim())) {
     return fallbackEnvelopeId.trim();
   }
