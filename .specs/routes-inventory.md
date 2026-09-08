@@ -1,7 +1,7 @@
 # Inventário de Rotas HTTP (REST) — gestor-oportunidades-rpa-docusigner
 
 > **Fonte da verdade:** `backend/src/app.js`, `backend/src/modules/robot-docusign/routes.js`, `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js`
-> Atualizado em: 2026-09-03
+> Atualizado em: 2026-09-08
 
 ## Registros
 
@@ -9,21 +9,21 @@
 |--------|---------------|-----------------|------|---------------|------------|
 | GET | `/health` | Health check | Público | `backend/src/app.js:27` | Fora do prefixo /api/robot-docusign |
 | GET | `/api/robot-docusign/config` | Buscar config do robô | Público | `backend/src/modules/robot-docusign/routes.js:36` | Qualquer usuário autenticado |
-| GET | `/api/robot-docusign/instances` | Lista instâncias do robô (fleet monitoring) | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:41` | Alias de /instance/instances; `?includeLogs=true` inclui telemetria |
-| GET | `/api/robot-docusign/instances/:instanceId/telemetry` | Telemetria ociosa da instância (fallback polling) | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:42` | `{ instanceId, status, lastHeartbeat, logs[] }` |
-| GET | `/api/robot-docusign/instances/:instanceId/stream` | SSE stream de telemetria ociosa | protect | `backend/src/modules/robot-docusign/routes.js:43` | token via ?token= para EventSource; handshake + `instance:telemetry` |
-| POST | `/api/robot-docusign/trigger` | Dispara job individual (body: contractId/contract_id) | protect | `backend/src/modules/robot-docusign/routes.js:43` | HTTP 202, job criado em background |
-| POST | `/api/robot-docusign/trigger-batch` | Dispara jobs em lote | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:44` | body `{ contractIds: [] }` |
-| GET | `/api/robot-docusign/status/:jobId` | Status de um job (por _id ou contract_id) | protect | `backend/src/modules/robot-docusign/routes.js:45` | Busca $or: _id/contract_id/contractId |
-| GET | `/api/robot-docusign/jobs/:jobId/stream` | SSE stream de progresso do job | protect | `backend/src/modules/robot-docusign/routes.js:46` | token via ?token= para EventSource |
-| GET | `/api/robot-docusign/jobs` | Lista jobs (filtros + paginação) | protect | `backend/src/modules/robot-docusign/routes.js:47` | query: status, action, mode, contractId, page, limit |
-| GET | `/api/robot-docusign/metrics` | Métricas agregadas | protect | `backend/src/modules/robot-docusign/routes.js:48` | totalJobs, successRate, byMode, byAction |
-| GET | `/api/robot-docusign/logs/:jobId` | Logs detalhados de um job | protect | `backend/src/modules/robot-docusign/routes.js:49` | steps, error, attempts |
-| PUT | `/api/robot-docusign/config` | Atualizar config do robô | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:50` | body: enabled, mode, credentials, token_notification_email, limits, retry |
-| POST | `/api/robot-docusign/test-login` | Testa login no DocuSign | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:51` | body opcional: email, password, otpCode (6 dígitos) |
-| GET | `/api/robot-docusign/queue` | Fila de jobs pendentes/em processamento | protect | `backend/src/modules/robot-docusign/routes.js:52` | status in [pending, processing, running, retrying] |
-| POST | `/api/robot-docusign/process-pending` | Processa até 1 contrato pendente | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:53` | Scheduler manual, respeita enabled/horário |
-| POST | `/api/robot-docusign/sync-status` | — | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:54` | — |
+| GET | `/api/robot-docusign/instances` | Lista instâncias do robô (fleet monitoring) | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:41` | Alias de /instance/instances |
+| GET | `/api/robot-docusign/instances/:instanceId/telemetry` | — | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:42` | — |
+| GET | `/api/robot-docusign/instances/:instanceId/stream` | — | protect | `backend/src/modules/robot-docusign/routes.js:43` | — |
+| POST | `/api/robot-docusign/trigger` | Dispara job individual (body: contractId/contract_id) | protect | `backend/src/modules/robot-docusign/routes.js:45` | HTTP 202, job criado em background |
+| POST | `/api/robot-docusign/trigger-batch` | Dispara jobs em lote | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:46` | body `{ contractIds: [] }` |
+| GET | `/api/robot-docusign/status/:jobId` | Status de um job (por _id ou contract_id) | protect | `backend/src/modules/robot-docusign/routes.js:47` | Busca $or: _id/contract_id/contractId |
+| GET | `/api/robot-docusign/jobs/:jobId/stream` | SSE stream de progresso do job | protect | `backend/src/modules/robot-docusign/routes.js:48` | token via ?token= para EventSource |
+| GET | `/api/robot-docusign/jobs` | Lista jobs (filtros + paginação) | protect | `backend/src/modules/robot-docusign/routes.js:49` | query: status, action, mode, contractId, page, limit |
+| GET | `/api/robot-docusign/metrics` | Métricas agregadas | protect | `backend/src/modules/robot-docusign/routes.js:50` | totalJobs, successRate, byMode, byAction |
+| GET | `/api/robot-docusign/logs/:jobId` | Logs detalhados de um job | protect | `backend/src/modules/robot-docusign/routes.js:51` | steps, error, attempts |
+| PUT | `/api/robot-docusign/config` | Atualizar config do robô | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:52` | body: enabled, mode, credentials, token_notification_email, limits, retry |
+| POST | `/api/robot-docusign/test-login` | Testa login no DocuSign | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:53` | body opcional: email, password, otpCode (6 dígitos) |
+| GET | `/api/robot-docusign/queue` | Fila de jobs pendentes/em processamento | protect | `backend/src/modules/robot-docusign/routes.js:54` | status in [pending, processing, running, retrying] |
+| POST | `/api/robot-docusign/process-pending` | Processa até 1 contrato pendente | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:55` | Scheduler manual, respeita enabled/horário |
+| POST | `/api/robot-docusign/sync-status` | — | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:56` | — |
 | POST | `/api/robot-docusign/instance/auth` | Autenticação da instância | Público | `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js:22` | X-Robot-Key ou email/senha → JWT 30d + instance_id |
 | GET | `/api/robot-docusign/instance/instances` | Lista instâncias (via sub-router) | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js:27` | Duplicata de /instances |
 | GET | `/api/robot-docusign/instance/config` | Config da instância | protect | `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js:28` | Usado pelo robô .exe |
