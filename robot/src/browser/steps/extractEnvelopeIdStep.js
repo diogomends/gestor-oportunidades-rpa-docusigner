@@ -1,6 +1,5 @@
 import logger from "../../utils/logger.js";
-
-const UUID_REGEX = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i;
+import { UUID_REGEX } from "./stepUtils.js";
 
 /**
  * Executa a extração do Envelope ID gerado em cascata de múltiplos níveis resilientes.
