@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import app from "../../../backend/src/app.js";
 import User from "../../../backend/src/models/User.js";
 import RobotJob from "../../../backend/src/modules/robot-docusign/models/RobotJob.js";
+import RobotInstance from "../../../backend/src/modules/robot-docusign/models/RobotInstance.js";
 import Contract from "../../../backend/src/models/Contract.js";
 import SystemConfig from "../../../backend/src/models/SystemConfig.js";
 import robotOrchestrator from "../../../backend/src/modules/robot-docusign/services/robotOrchestrator.js";
@@ -535,6 +536,9 @@ describe("Robot DocuSign - Regressão de Rotas (supertest)", () => {
       mock.method(robotOrchestrator, "getRobotConfig", async () => ({
         enabled: true,
         mode: "robot",
+      }));
+      mock.method(RobotInstance, "findOne", () => ({
+        lean: async () => null,
       }));
       mock.method(RobotJob, "countDocuments", async () => 0);
       mock.method(RobotJob, "findOne", () => ({

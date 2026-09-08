@@ -128,7 +128,9 @@ Prefixo `/api/robot-docusign` (exceto `/health` na raiz):
 | GET    | `/queue`                              | `protect`                        | Fila de jobs pendentes/em processamento                      |
 | POST   | `/process-pending`                    | `protect`                        | Processa até 1 contrato pendente (scheduler fallback)        |
 | POST   | `/sync-status`                        | `protect`                        | Executa varredura de sincronização geral de status sob demanda |
-| GET    | `/instances`                          | `protect` + `authorize("admin")` | Lista instâncias do robô com flag `alive` (< 90s)           |
+| GET    | `/instances`                          | `protect` + `authorize("admin")` | Lista instâncias do robô com flag `alive` (< 90s, aceita `?includeLogs=true`) |
+| GET    | `/instances/:instanceId/telemetry`    | `protect` + `authorize("admin")` | Telemetria ociosa da instância (fallback polling)            |
+| GET    | `/instances/:instanceId/stream`       | `protect`                        | SSE stream de telemetria ociosa em tempo real                |
 | POST   | `/instance/auth`                      | público                          | Autenticação da instância (`X-Robot-Key` ou `email`/`senha`) |
 | GET    | `/instance/instances`                 | `protect` + `authorize("admin")` | Lista instâncias (via sub-router)                            |
 | GET    | `/instance/config`                    | `protect`                        | Config da instância                                          |

@@ -10,7 +10,8 @@ import SystemConfig from "../../../models/SystemConfig.js";
 import RobotJob from "../models/RobotJob.js";
 import RobotInstance from "../models/RobotInstance.js";
 import robotOrchestrator from "../services/robotOrchestrator.js";
-import { emitProgress } from "../seletorApiRobot/orchestratorEvents.js";
+import { emitProgress, robotEvents } from "../seletorApiRobot/orchestratorEvents.js";
+import { pushLogs, getLogs, pruneIdle } from "../utils/telemetryBuffer.js";
 import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
 import { getAclDb } from "../../../config/database.js";
 import { isEligibleForSend, hasPdf } from "../utils/contractEligibility.js";
@@ -86,6 +87,7 @@ const heartbeatSchema = z.object({
   role: z.enum(["query", "update", "all"]).optional(),
   current_job_id: z.string().optional().nullable(),
   jobs_processed_today: z.number().optional(),
+  telemetryLogs: z.array(z.string().max(500)).max(20).optional(),
   machine_info: z.record(z.any()).optional(),
 });
 
@@ -774,7 +776,7 @@ export const registerHeartbeat = async (req, res) => {
       });
     }
 
-    const { instance_id, status, current_job_id, jobs_processed_today, machine_info, role } = parse.data;
+    const { instance_id, status, current_job_id, jobs_processed_today, machine_info, role, telemetryLogs } = parse.data;
 
     const rawRole = req.body?.role;
     if (rawRole !== undefined && rawRole !== null && rawRole !== "") {
@@ -800,6 +802,20 @@ export const registerHeartbeat = async (req, res) => {
       { $set: updateDoc },
       { upsert: true, new: true }
     );
+
+    // Telemetria ociosa: RingBuffer + evento SSE (só logs novos do heartbeat)
+    const newLogs = Array.isArray(telemetryLogs) ? telemetryLogs : [];
+    if (newLogs.length) {
+      pushLogs(instance_id, newLogs);
+      try {
+        robotEvents.emit("instance:telemetry", {
+          instanceId: instance_id,
+          status: instance.status,
+          lastHeartbeat: instance.last_heartbeat,
+          logs: newLogs,
+        });
+      } catch (_) {}
+    }
 
     return res.status(200).json({
       success: true,
@@ -886,11 +902,19 @@ export const getAllInstances = async (req, res) => {
       .lean();
 
     const instancesByRole = { query: 0, update: 0, all: 0, total: instances.length };
+    const lastSeenMap = new Map();
     for (const inst of instances) {
       if (inst.role && instancesByRole[inst.role] !== undefined) instancesByRole[inst.role]++;
       else if (!inst.role) instancesByRole.all++;
+      if (inst.last_heartbeat) {
+        lastSeenMap.set(inst.instance_id, new Date(inst.last_heartbeat).getTime());
+      }
     }
 
+    // Limpa buffers em memória de instâncias inativas (>10 min)
+    pruneIdle(lastSeenMap);
+
+    const includeLogs = req.query?.includeLogs === "true" || req.query?.includeLogs === "1";
     const now = Date.now();
     return res.status(200).json({
       success: true,
@@ -907,6 +931,7 @@ export const getAllInstances = async (req, res) => {
           current_job_id: inst.current_job_id || null,
           jobs_processed_today: inst.jobs_processed_today || 0,
           machine_info: inst.machine_info || {},
+          ...(includeLogs ? { logs: getLogs(inst.instance_id) } : {}),
           createdAt: inst.createdAt,
           updatedAt: inst.updatedAt,
         };
@@ -920,8 +945,86 @@ export const getAllInstances = async (req, res) => {
 };
 
 /**
+ * Retorna telemetria ociosa de uma instância (fallback polling do SSE).
+ * @param {import("express").Request} req - Requisição Express (params instanceId).
+ * @param {import("express").Response} res - Resposta Express.
+ * @returns {Promise<import("express").Response>} Status + últimos 100 logs.
+ */
+export const getInstanceTelemetry = async (req, res) => {
+  try {
+    const { instanceId } = req.params;
+    if (!instanceId) return res.status(400).json({ error: "Parâmetro instanceId é obrigatório" });
+    const inst = await RobotInstance.findOne({ instance_id: instanceId }).lean();
+    if (!inst) return res.status(404).json({ error: "Instância não encontrada." });
+    return res.status(200).json({
+      instanceId: inst.instance_id,
+      status: inst.status,
+      lastHeartbeat: inst.last_heartbeat,
+      logs: getLogs(instanceId),
+    });
+  } catch (error) {
+    console.error("[robotInstanceController] Erro ao buscar telemetria:", error);
+    return res.status(500).json({ error: "Erro ao buscar telemetria", message: error.message });
+  }
+};
+
+/**
+ * Stream SSE de telemetria ociosa da instância (consumidor primário do painel).
+ * @param {import("express").Request} req - Requisição Express (params instanceId).
+ * @param {import("express").Response} res - Resposta Express (text/event-stream).
+ * @returns {Promise<void>}
+ */
+export const streamInstanceTelemetry = async (req, res) => {
+  const { instanceId } = req.params;
+  if (!instanceId) return res.status(400).json({ error: "Parâmetro instanceId é obrigatório" });
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+  let pingInterval = null;
+  let onTelemetry = null;
+  const cleanup = () => {
+    if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
+    if (onTelemetry) {
+      robotEvents.off("instance:telemetry", onTelemetry);
+      onTelemetry = null;
+    }
+  };
+  req.on("close", cleanup);
+
+  try {
+    const inst = await RobotInstance.findOne({ instance_id: instanceId }).lean().catch(() => null);
+
+    // Guarda de desconexão prematura antes de registrar listeners persistentes
+    if (req.destroyed || req.closed || res.writableEnded) {
+      cleanup();
+      return;
+    }
+
+    res.write(`data: ${JSON.stringify({
+      instanceId,
+      status: inst?.status || "offline",
+      lastHeartbeat: inst?.last_heartbeat || null,
+      logs: getLogs(instanceId),
+    })}\n\n`);
+
+    onTelemetry = (data) => {
+      if (data.instanceId === instanceId) res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+    robotEvents.on("instance:telemetry", onTelemetry);
+    pingInterval = setInterval(() => res.write(": ping\n\n"), 15000);
+  } catch (error) {
+    console.error("[robotInstanceController] Erro no stream de telemetria:", error);
+    cleanup();
+    res.end();
+  }
+};
+
+/**
  * Exportação padrão dos handlers de instância do robô.
- * @type {{authenticateInstance: function, getInstanceConfig: function, getNextJob: function, updateJobStatus: function, registerHeartbeat: function, downloadContractPdf: function, getAllInstances: function}}
+ * @type {{authenticateInstance: function, getInstanceConfig: function, getNextJob: function, updateJobStatus: function, registerHeartbeat: function, downloadContractPdf: function, getAllInstances: function, getInstanceTelemetry: function, streamInstanceTelemetry: function}}
  */
 export default {
   authenticateInstance,
@@ -931,4 +1034,6 @@ export default {
   registerHeartbeat,
   downloadContractPdf,
   getAllInstances,
+  getInstanceTelemetry,
+  streamInstanceTelemetry,
 };
