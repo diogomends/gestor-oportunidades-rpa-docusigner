@@ -101,7 +101,7 @@ export async function sendEnvelope(page, envelopeData) {
       sentAt: new Date().toISOString(),
     };
   } finally {
-    networkInterceptor.cleanup();
+    networkInterceptor?.cleanup?.();
   }
 }
 

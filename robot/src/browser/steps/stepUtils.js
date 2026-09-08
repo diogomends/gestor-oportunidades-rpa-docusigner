@@ -59,31 +59,70 @@ export async function waitForElementCount(locator, expectedCount, timeoutMs = 15
   return false;
 }
 
-const UUID_REGEX = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i;
+/**
+ * Regex estrita de UUID de 36 caracteres (Envelope ID DocuSign).
+ * @constant
+ * @type {RegExp}
+ */
+export const UUID_REGEX = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i;
+
+/**
+ * Extrai um Envelope ID de uma URL (padrões /envelopes/<id>, details/<id>, /documents/<id>, envelopeId=<id>).
+ * @param {string} url - URL a inspecionar.
+ * @returns {string|null} ID extraído ou null.
+ */
+export function extractEnvelopeIdFromUrl(url) {
+  if (typeof url !== "string" || url.length === 0) return null;
+  if (!url.includes("/envelopes/") && !url.includes("envelopeId=") && !url.includes("details/") && !url.includes("/documents/")) return null;
+  const match = url.match(/\/envelopes\/([a-f0-9-]{36})/i)
+    || url.match(/details\/([a-f0-9-]{36})/i)
+    || url.match(/\/documents\/([a-f0-9-]{36})/i)
+    || url.match(/envelopeId=([a-f0-9-]{36})/i);
+  if (match && match[1] && UUID_REGEX.test(match[1])) return match[1];
+  return null;
+}
 
 /**
  * Anexa interceptadores de rede para capturar o ID de envelope trafegado durante o envio com desanexação segura.
+ * Escuta URLs de navegação (request) e o corpo JSON do POST de criação (`/restapi/.../envelopes` → `{ envelopeId }`).
  * @param {import('playwright').Page} page - Instância da página Playwright.
  * @returns {{ getInterceptedId: () => string|null, cleanup: () => void }} Objeto com getter do ID interceptado e função de cleanup.
  */
 export function attachNetworkEnvelopeInterceptor(page) {
   let interceptedEnvelopeId = null;
 
-  const networkListener = (requestOrResponse) => {
+  const onRequest = (request) => {
     try {
-      const url = typeof requestOrResponse.url === "function" ? requestOrResponse.url() : "";
-      if (url.includes("/envelopes/") || url.includes("envelopeId=")) {
-        const match = url.match(/\/envelopes\/([a-f0-9-]{36})/i) || url.match(/envelopeId=([a-f0-9-]{36})/i);
-        if (match && match[1] && UUID_REGEX.test(match[1])) {
-          interceptedEnvelopeId = match[1];
+      const url = typeof request?.url === "function" ? request.url() : "";
+      const id = extractEnvelopeIdFromUrl(url);
+      if (id) interceptedEnvelopeId = id;
+    } catch (_) {}
+  };
+
+  const onResponse = async (response) => {
+    try {
+      const url = typeof response?.url === "function" ? response.url() : "";
+      const idFromUrl = extractEnvelopeIdFromUrl(url);
+      if (idFromUrl) {
+        interceptedEnvelopeId = idFromUrl;
+        return;
+      }
+      // Caso principal: POST de criação retorna o ID no corpo JSON, com URL sem ID (…/envelopes)
+      const req = typeof response?.request === "function" ? response.request() : null;
+      const method = typeof req?.method === "function" ? req.method() : "";
+      if (url.includes("/restapi/") && url.includes("/envelopes") && method === "POST" && typeof response?.json === "function") {
+        const body = await response.json().catch(() => null);
+        const candidate = body?.envelopeId;
+        if (typeof candidate === "string" && UUID_REGEX.test(candidate.trim())) {
+          interceptedEnvelopeId = candidate.trim();
         }
       }
     } catch (_) {}
   };
 
   if (page && typeof page.on === "function") {
-    page.on("request", networkListener);
-    page.on("response", networkListener);
+    page.on("request", onRequest);
+    page.on("response", onResponse);
   }
 
   return {
@@ -91,8 +130,8 @@ export function attachNetworkEnvelopeInterceptor(page) {
     cleanup: () => {
       try {
         if (page && typeof page.off === "function") {
-          page.off("request", networkListener);
-          page.off("response", networkListener);
+          page.off("request", onRequest);
+          page.off("response", onResponse);
         }
       } catch (_) {}
     },
