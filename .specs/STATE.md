@@ -440,11 +440,19 @@
 - **Date**: 2026-09-08
 - **Status**: active
 
+### AD-070
+- **Decision**: Telemetria de logs ociosos via heartbeat com consumidor SSE — (1) Robô bufferiza ciclos ociosos (`scheduler.js: pushTelemetry/flushHeartbeat`, FIFO 50, flush só em 2xx) e envia `telemetryLogs` (max 20×500 chars) no 4º arg de `api-client.js:sendHeartbeat`; (2) Backend guarda RingBuffer em memória (`utils/telemetryBuffer.js`, FIFO 100/instância) e emite `robotEvents "instance:telemetry"` em `registerHeartbeat`; (3) Leitura lado admin em `routes.js`: SSE primário `GET /instances/:instanceId/stream` (handshake + ping 15s, `?token=` p/ EventSource) + fallback polling `GET /instances/:instanceId/telemetry` + `GET /instances?includeLogs=true`.
+- **Reason**: Operadores com 'Logs na Íntegra' não viam heartbeats/ciclos ociosos (só stdout local), gerando impressão de delay/desconexão sem jobs ativos.
+- **Trade-off**: Buffer só em memória (perde em restart — aceitável p/ dado efêmero); sem persistência Mongo.
+- **Scope**: `robot/src/scheduler.js`, `robot/src/api-client.js`, `backend/src/modules/robot-docusign/utils/telemetryBuffer.js`, `backend/src/modules/robot-docusign/controllers/robotInstanceController.js`, `backend/src/modules/robot-docusign/routes.js`, `tests/robot/scheduler-telemetry.test.js`, `tests/backend/controllers/robotInstance-telemetry.test.js`, `.specs/features/servidor-robot/telemetria-logs-idle/*`
+- **Date**: 2026-09-08
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Extração Resiliente de Envelope ID & Refinamento SOLID/PonyTail (AD-069)
+- **Feature**: Telemetria de Logs em Modo Ocioso (Heartbeat & Scheduler Idle Logs) (AD-070)
 - **Phase / Task**: Execução e Documentação Concluídas
-- **Completed**: Cascata de 4 níveis de extração + attachNetworkEnvelopeInterceptor com cleanup seguro try...finally + remoção de delay redundante + AD-069
+- **Completed**: Buffer local FIFO 50 no robô + envio de telemetryLogs no heartbeat + RingBuffer FIFO 100 no backend + rota SSE /instances/:instanceId/stream + fallback /telemetry e ?includeLogs=true + AD-070
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none

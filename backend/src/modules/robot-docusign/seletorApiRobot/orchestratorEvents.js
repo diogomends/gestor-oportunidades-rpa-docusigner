@@ -12,6 +12,7 @@ export const robotEvents = new EventEmitter();
 
 /**
  * Emite evento de progresso do job para os ouvintes (ex: SSE endpoints).
+ * Eventos: `job:progress` (jobs) e `instance:telemetry` (logs ociosos via heartbeat).
  *
  * @param {Object} job - Instância ou dados do RobotJob.
  */

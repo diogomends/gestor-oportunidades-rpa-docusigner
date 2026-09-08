@@ -140,11 +140,15 @@ export class ApiClient {
    * @param {string} [status="idle"] - Status atual da instância (idle | busy).
    * @param {string|null} [currentJobId=null] - ID do job em execução, se houver.
    * @param {number} [jobsCount=0] - Total de jobs processados no dia.
-   * @returns {Promise<Object|void>} Resposta da API ou void em caso de falha silenciosa.
+   * @param {string[]} [telemetryLogs=[]] - Logs ociosos acumulados (max 20, 500 chars cada).
+   * @returns {Promise<Object|null>} Resposta da API ou null em caso de falha (retém buffer no chamador).
    */
-  async sendHeartbeat(status = "idle", currentJobId = null, jobsCount = 0) {
+  async sendHeartbeat(status = "idle", currentJobId = null, jobsCount = 0, telemetryLogs = []) {
     const url = `${this.baseUrl}/api/robot-docusign/instance/heartbeat`;
     try {
+      const clean = Array.isArray(telemetryLogs)
+        ? telemetryLogs.slice(0, 20).map((s) => String(s).slice(0, 500))
+        : [];
       const res = await fetch(url, {
         method: "POST",
         headers: this.getHeaders(),
@@ -154,15 +158,18 @@ export class ApiClient {
           role: this.role,
           current_job_id: currentJobId,
           jobs_processed_today: jobsCount,
+          ...(clean.length ? { telemetryLogs: clean } : {}),
           machine_info: {
             hostname: os.hostname(),
             platform: os.platform(),
           },
         }),
       });
+      if (!res.ok) return null;
       return await res.json();
     } catch (e) {
       console.warn(`[API] Heartbeat falhou: ${e.message}`);
+      return null;
     }
   }
 

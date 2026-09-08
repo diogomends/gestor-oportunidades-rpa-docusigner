@@ -9,7 +9,9 @@
 |--------|---------------|-----------------|------|---------------|------------|
 | GET | `/health` | Health check | Público | `backend/src/app.js:27` | Fora do prefixo /api/robot-docusign |
 | GET | `/api/robot-docusign/config` | Buscar config do robô | Público | `backend/src/modules/robot-docusign/routes.js:36` | Qualquer usuário autenticado |
-| GET | `/api/robot-docusign/instances` | Lista instâncias do robô (fleet monitoring) | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:41` | Alias de /instance/instances |
+| GET | `/api/robot-docusign/instances` | Lista instâncias do robô (fleet monitoring) | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:41` | Alias de /instance/instances; `?includeLogs=true` inclui telemetria |
+| GET | `/api/robot-docusign/instances/:instanceId/telemetry` | Telemetria ociosa da instância (fallback polling) | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:42` | `{ instanceId, status, lastHeartbeat, logs[] }` |
+| GET | `/api/robot-docusign/instances/:instanceId/stream` | SSE stream de telemetria ociosa | protect | `backend/src/modules/robot-docusign/routes.js:43` | token via ?token= para EventSource; handshake + `instance:telemetry` |
 | POST | `/api/robot-docusign/trigger` | Dispara job individual (body: contractId/contract_id) | protect | `backend/src/modules/robot-docusign/routes.js:43` | HTTP 202, job criado em background |
 | POST | `/api/robot-docusign/trigger-batch` | Dispara jobs em lote | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:44` | body `{ contractIds: [] }` |
 | GET | `/api/robot-docusign/status/:jobId` | Status de um job (por _id ou contract_id) | protect | `backend/src/modules/robot-docusign/routes.js:45` | Busca $or: _id/contract_id/contractId |
@@ -47,6 +49,6 @@
 
 ## Resumo
 
-- **Prefixo /api/robot-docusign:** 21 endpoints
+- **Prefixo /api/robot-docusign:** 23 endpoints
 - **Fora do prefixo:** 1 endpoint (/health)
-- **Total:** 22 endpoints
+- **Total:** 24 endpoints

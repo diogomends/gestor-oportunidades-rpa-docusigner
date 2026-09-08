@@ -17,7 +17,7 @@ import {
   streamJobProgress,
 } from "./controllers/robotDocusignController.js";
 
-import { getAllInstances } from "./controllers/robotInstanceController.js";
+import { getAllInstances, getInstanceTelemetry, streamInstanceTelemetry } from "./controllers/robotInstanceController.js";
 import instanceRoutes from "./routes/robotInstanceRoutes.js";
 
 /**
@@ -39,6 +39,8 @@ router.get("/config", getConfig);
 router.use(protect);
 
 router.get("/instances", authorize("admin"), getAllInstances);
+router.get("/instances/:instanceId/telemetry", authorize("admin"), getInstanceTelemetry);
+router.get("/instances/:instanceId/stream", streamInstanceTelemetry);
 
 router.post("/trigger", triggerJob);
 router.post("/trigger-batch", authorize("admin"), triggerBatch);

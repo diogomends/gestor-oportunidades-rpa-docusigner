@@ -19,6 +19,35 @@ export class Scheduler {
     this.running = false;
     this.jobsProcessedCount = 0;
     this.heartbeatTimer = null;
+    this.telemetryBuffer = [];
+  }
+
+  /**
+   * Enfileira mensagem de telemetria ociosa com timestamp (FIFO cap 50).
+   * @param {string} message - Mensagem sem prefixo (ex: "Sem jobs pendentes (Motivo: no_pending_jobs)").
+   * @returns {void}
+   */
+  pushTelemetry(message) {
+    const ts = new Date().toTimeString().slice(0, 8);
+    this.telemetryBuffer.push(`[${ts}] [Scheduler] ${message}`);
+    if (this.telemetryBuffer.length > 50) {
+      this.telemetryBuffer.splice(0, this.telemetryBuffer.length - 50);
+    }
+  }
+
+  /**
+   * Envia heartbeat com buffer de telemetria; esvazia SOMENTE em 2xx.
+   * @param {string} [status="idle"] - Status da instância.
+   * @param {string|null} [jobId=null] - Job atual, se houver.
+   * @returns {Promise<Object|null>} Resposta da API ou null em falha.
+   */
+  async flushHeartbeat(status = "idle", jobId = null) {
+    const pending = [...this.telemetryBuffer];
+    const res = await this.api
+      .sendHeartbeat(status, jobId, this.jobsProcessedCount, pending)
+      .catch(() => null);
+    if (res) this.telemetryBuffer.splice(0, pending.length);
+    return res;
   }
 
   /**
@@ -32,7 +61,7 @@ export class Scheduler {
     // Iniciar timer de Heartbeat a cada 30 segundos
     this.heartbeatTimer = setInterval(async () => {
       if (this.running) {
-        await this.api.sendHeartbeat("idle", null, this.jobsProcessedCount).catch(() => {});
+        await this.flushHeartbeat("idle", null).catch(() => {});
       }
     }, 30000);
 
@@ -41,6 +70,7 @@ export class Scheduler {
         await this.tick();
       } catch (error) {
         logger.error("Scheduler", `Erro no ciclo de polling: ${error.message}`);
+        this.pushTelemetry(`Erro no ciclo de polling: ${error.message}`);
       }
 
       if (this.running) {
@@ -63,12 +93,16 @@ export class Scheduler {
     }
 
     if (!this.config.enabled) {
-      logger.step("Scheduler", "Robô desabilitado no Gestor de Oportunidades. Aguardando...");
+      const msg = "Robô desabilitado no Gestor de Oportunidades. Aguardando...";
+      logger.step("Scheduler", msg);
+      this.pushTelemetry(msg);
       return;
     }
 
     if (this.config.isAllowedNow === false) {
-      logger.step("Scheduler", "Fora do horário de expediente permitido pelo sistema. Aguardando...");
+      const msg = "Fora do horário de expediente permitido pelo sistema. Aguardando...";
+      logger.step("Scheduler", msg);
+      this.pushTelemetry(msg);
       return;
     }
 
@@ -76,19 +110,24 @@ export class Scheduler {
     const jobResponse = await this.api.getNextJob();
 
     if (!jobResponse.hasJob) {
+      let msg;
       if (jobResponse.reason === "contract_missing_pdf_or_email") {
-        logger.warn("Scheduler", `Contrato ignorado: ${jobResponse.message || "Falta PDF ou e-mail de destinatário"}`);
+        msg = `Contrato ignorado: ${jobResponse.message || "Falta PDF ou e-mail de destinatário"}`;
+        logger.warn("Scheduler", msg);
       } else if (jobResponse.reason && jobResponse.reason !== "no_pending_jobs") {
-        logger.step("Scheduler", `Sem jobs a processar. Motivo: ${jobResponse.reason}${jobResponse.message ? ` (${jobResponse.message})` : ""}`);
+        msg = `Sem jobs a processar. Motivo: ${jobResponse.reason}${jobResponse.message ? ` (${jobResponse.message})` : ""}`;
+        logger.step("Scheduler", msg);
       } else {
-        logger.step("Scheduler", `Sem jobs pendentes (Motivo: ${jobResponse.reason || "no_pending_jobs"}).`);
+        msg = `Sem jobs pendentes (Motivo: ${jobResponse.reason || "no_pending_jobs"}).`;
+        logger.step("Scheduler", msg);
       }
+      this.pushTelemetry(msg);
       return;
     }
 
     // 3. Executa o job recebido
     logger.success("Scheduler", `Job recebido da fila: ${jobResponse.jobId} (Contrato: ${jobResponse.contractId})`);
-    await this.api.sendHeartbeat("busy", jobResponse.jobId, this.jobsProcessedCount);
+    await this.flushHeartbeat("busy", jobResponse.jobId).catch(() => {});
 
     try {
       await this.runner.processJob(jobResponse);
@@ -97,7 +136,7 @@ export class Scheduler {
     } catch (err) {
       logger.error("Scheduler", `Falha na execução do job ${jobResponse.jobId}: ${err.message}`);
     } finally {
-      await this.api.sendHeartbeat("idle", null, this.jobsProcessedCount);
+      await this.flushHeartbeat("idle", null).catch(() => {});
     }
   }
 
