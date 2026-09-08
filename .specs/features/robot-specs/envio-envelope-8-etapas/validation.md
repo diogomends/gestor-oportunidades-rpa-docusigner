@@ -15,7 +15,7 @@
 - **REQ-003 (Deduplicação de Signatários)**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js:513-545` e `robot/src/browser/steps/fillRecipientsStep.js:10-30` deduplicam signatários por chave composta (`nome||email`), evitando duplicatas quando o responsável pela portabilidade é o próprio representante legal.
 - **REQ-004 (Avançar)**: `robot/src/browser/steps/advancePrepareStep.js:13-30` clica em `button[data-qa='footer-add-fields-link-correct']` ("Avançar") e aguarda a transição de tela.
 - **REQ-005 (Enviar e Confirmação Sem Campos)**: `robot/src/browser/steps/submitEnvelopeStep.js:13-45` clica em `button[data-qa='footer-send-button']` e monitora ativamente por até 15s o surgimento do botão `button[data-qa='send-without-fields']`, clicando imediatamente no instante de visibilidade.
-- **REQ-006 (Captura de Envelope ID)**: `robot/src/browser/steps/extractEnvelopeIdStep.js:13-55` implementa cascata de 3 níveis (URL regex -> 1ª linha da tabela `/documents` -> fallback).
+- **REQ-006 (Captura de Envelope ID)**: `robot/src/browser/steps/extractEnvelopeIdStep.js:14-100` implementa cascata resiliente de 4 níveis (1: URL regex em `/envelopes/`, `details/`, `envelopeId=`, `documents/`; 2: `interceptedEnvelopeId` via `attachNetworkEnvelopeInterceptor` com cleanup seguro; 3: Leitura ativa do DOM pós-`waitForSelector` em linhas e links; 4: Fallback do `existingEnvelopeId` válido do job).
 - **REQ-007 (Payload Backend)**: `backend/src/modules/robot-docusign/controllers/robotInstanceController.js:513-550` entrega a propriedade `recipients` com signatários do representante e portabilidade no payload de `GET /instance/next-job`.
 
 ---
