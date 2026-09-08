@@ -58,3 +58,43 @@ export async function waitForElementCount(locator, expectedCount, timeoutMs = 15
   }
   return false;
 }
+
+const UUID_REGEX = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i;
+
+/**
+ * Anexa interceptadores de rede para capturar o ID de envelope trafegado durante o envio com desanexação segura.
+ * @param {import('playwright').Page} page - Instância da página Playwright.
+ * @returns {{ getInterceptedId: () => string|null, cleanup: () => void }} Objeto com getter do ID interceptado e função de cleanup.
+ */
+export function attachNetworkEnvelopeInterceptor(page) {
+  let interceptedEnvelopeId = null;
+
+  const networkListener = (requestOrResponse) => {
+    try {
+      const url = typeof requestOrResponse.url === "function" ? requestOrResponse.url() : "";
+      if (url.includes("/envelopes/") || url.includes("envelopeId=")) {
+        const match = url.match(/\/envelopes\/([a-f0-9-]{36})/i) || url.match(/envelopeId=([a-f0-9-]{36})/i);
+        if (match && match[1] && UUID_REGEX.test(match[1])) {
+          interceptedEnvelopeId = match[1];
+        }
+      }
+    } catch (_) {}
+  };
+
+  if (page && typeof page.on === "function") {
+    page.on("request", networkListener);
+    page.on("response", networkListener);
+  }
+
+  return {
+    getInterceptedId: () => interceptedEnvelopeId,
+    cleanup: () => {
+      try {
+        if (page && typeof page.off === "function") {
+          page.off("request", networkListener);
+          page.off("response", networkListener);
+        }
+      } catch (_) {}
+    },
+  };
+}

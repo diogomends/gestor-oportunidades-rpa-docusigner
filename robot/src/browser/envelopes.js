@@ -35,6 +35,7 @@ import {
   executeAdvancePrepareStep,
   executeSubmitEnvelopeStep,
   executeExtractEnvelopeIdStep,
+  attachNetworkEnvelopeInterceptor,
 } from "./steps/index.js";
 
 /**
@@ -62,39 +63,46 @@ export async function sendEnvelope(page, envelopeData) {
   logger.step("Browser", `Iniciando pipeline de envio de envelope para ${primaryName} (${primaryEmail})...`);
 
   const sendSel = selectors.send;
+  const networkInterceptor = attachNetworkEnvelopeInterceptor(page);
 
-  // Passo 1: Upload do documento PDF
-  await executeUploadStep(page, pdfPath, sendSel);
+  try {
+    // Passo 1: Upload do documento PDF
+    await executeUploadStep(page, pdfPath, sendSel);
 
-  // Passos 2 a 5: Preenchimento de destinatários (loop com isolamento posicional .nth(i) e checkbox de entrega)
-  const recipientsList = recipients && recipients.length > 0
-    ? recipients
-    : [{ name: recipientName, email: recipientEmail }];
-  await executeFillRecipientsStep(page, recipientsList, sendSel);
+    // Passos 2 a 5: Preenchimento de destinatários (loop com isolamento posicional .nth(i) e checkbox de entrega)
+    const recipientsList = recipients && recipients.length > 0
+      ? recipients
+      : [{ name: recipientName, email: recipientEmail }];
+    await executeFillRecipientsStep(page, recipientsList, sendSel);
 
-  // Passo 6: Avançar na tela de preparação
-  await executeAdvancePrepareStep(page, sendSel);
+    // Passo 6: Avançar na tela de preparação
+    await executeAdvancePrepareStep(page, sendSel);
 
-  // Passos 7 e 8: Enviar envelope e confirmar modal "Enviar sem campos" (espera 15s)
-  await executeSubmitEnvelopeStep(page, sendSel);
+    // Passos 7 e 8: Enviar envelope e confirmar modal "Enviar sem campos" (espera 15s)
+    await executeSubmitEnvelopeStep(page, sendSel);
 
-  // Captura do Envelope ID em cascata de 3 níveis (null = falha explícita, anti-phantom AD-046)
-  const extractedEnvelopeId = await executeExtractEnvelopeIdStep(page, existingEnvelopeId);
-  if (!extractedEnvelopeId) {
-    throw new Error("Envelope enviado mas Envelope ID não capturado via URL, listagem ou fallback do job.");
+    // Captura do Envelope ID (passando o interceptedEnvelopeId capturado)
+    const interceptedEnvelopeId = networkInterceptor.getInterceptedId();
+    const extractedEnvelopeId = await executeExtractEnvelopeIdStep(page, existingEnvelopeId, interceptedEnvelopeId);
+
+    if (!extractedEnvelopeId) {
+      throw new Error("Envelope enviado mas Envelope ID não capturado via URL, listagem ou fallback do job.");
+    }
+
+    // Persiste cookies atualizados após envio bem-sucedido
+    await saveSessionState(page, sessionPath);
+
+    logger.success("Browser", `Contrato enviado com sucesso! Envelope ID: ${extractedEnvelopeId}`);
+    return {
+      envelopeId: extractedEnvelopeId,
+      recipientName: primaryName,
+      recipientEmail: primaryEmail,
+      status: "sent",
+      sentAt: new Date().toISOString(),
+    };
+  } finally {
+    networkInterceptor.cleanup();
   }
-
-  // Persiste cookies atualizados após envio bem-sucedido
-  await saveSessionState(page, sessionPath);
-
-  logger.success("Browser", `Contrato enviado com sucesso! Envelope ID: ${extractedEnvelopeId}`);
-  return {
-    envelopeId: extractedEnvelopeId,
-    recipientName: primaryName,
-    recipientEmail: primaryEmail,
-    status: "sent",
-    sentAt: new Date().toISOString(),
-  };
 }
 
 /**

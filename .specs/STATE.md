@@ -432,11 +432,19 @@
 - **Date**: 2026-09-03
 - **Status**: active
 
+### AD-069
+- **Decision**: Extração resiliente de Envelope ID em cascata de 4 níveis com interceptação de rede RAII e conformidade SOLID/PonyTail: (1) `extractEnvelopeIdStep.js` opera em 4 níveis ordenados por confiabilidade — Nível 1: extração direta da URL pós-redirecionamento com regex UUID em múltiplos caminhos (`/envelopes/`, `details/`, `envelopeId=`, `documents/`); Nível 2: consumo de `interceptedEnvelopeId` capturado pelo tráfego de rede durante o fluxo; Nível 3: busca e leitura ativa no DOM com `waitForSelector` em linhas e links da tabela de documentos na SPA DocuSign; Nível 4: fallback para `existingEnvelopeId` válido do job; (2) `stepUtils.js` provê o helper `attachNetworkEnvelopeInterceptor(page)` com escuta filtrada de URLs e garantia de limpeza via `cleanup()`; (3) `envelopes.js` orquestra a pipeline de envio em bloco `try...finally` garantindo a execução de `networkInterceptor.cleanup()` para prevenção absoluta de listeners fantasmas e memory leaks; (4) Remoção de delay arbitrário redundante pós-`waitForSelector` no Nível 3.
+- **Reason**: Sanar falhas na captura de `envelopeId` decorrentes da navegação assíncrona da SPA DocuSign, respeitar a responsabilidade única (SRP) do orquestrador e eliminar riscos de memory leak na frota de robôs.
+- **Trade-off**: N/A. Preserva 100% de retrocompatibilidade com endpoints e regras existentes.
+- **Scope**: `robot/src/browser/steps/extractEnvelopeIdStep.js`, `robot/src/browser/steps/stepUtils.js`, `robot/src/browser/envelopes.js`, `.specs/STATE.md`
+- **Date**: 2026-09-08
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Endurecimento de Code Review da Frota e Sincronização Desacoplada (AD-068)
-- **Phase / Task**: Execução Concluída (Opções 1 e 3)
-- **Completed**: Role extraction fix + Scheduler offline filter + robot roleActions.js + uploadStep prefix guard & Promise.any + updateJobStatus decoupled sync + AGENTS.md tests/ path + AD-068
+- **Feature**: Extração Resiliente de Envelope ID & Refinamento SOLID/PonyTail (AD-069)
+- **Phase / Task**: Execução e Documentação Concluídas
+- **Completed**: Cascata de 4 níveis de extração + attachNetworkEnvelopeInterceptor com cleanup seguro try...finally + remoção de delay redundante + AD-069
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
