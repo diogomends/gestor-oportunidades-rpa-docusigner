@@ -5,7 +5,25 @@
 
 import path from "node:path";
 import Contract from "../../../models/Contract.js";
+import DocusignEnvelope from "../../../models/DocusignEnvelope.js";
 import gestorApiClient from "../../../services/gestorApiClient.js";
+
+/**
+ * Mapeia o status do contrato para o status equivalente do envelope DocuSign.
+ *
+ * @param {string} contractStatus - Status no contrato ('assinado', 'enviado', etc.).
+ * @returns {string} Status correspondente para DocusignEnvelope.
+ */
+export function mapContractStatusToEnvelopeStatus(contractStatus) {
+  const map = {
+    assinado: "completed",
+    cancelado: "voided",
+    enviado: "sent",
+    gerado: "created",
+    rascunho: "rascunho",
+  };
+  return map[contractStatus] || contractStatus;
+}
 
 /**
  * Atualiza o status do contrato de forma desacoplada via GestorApiClient com fallback para Mongoose.
@@ -33,6 +51,17 @@ export async function syncContractStatus(contractId, status, extraPayload = {}) 
   // 2. Fallback direto via Mongoose caso o cliente HTTP não esteja configurado ou falhe
   try {
     await Contract.findByIdAndUpdate(contractId, { status, ...extraPayload });
+    const mongoose = (await import("mongoose")).default;
+    if (mongoose.connection?.readyState === 1) {
+      const envelopeUpdate = { status: mapContractStatusToEnvelopeStatus(status) };
+      if (extraPayload.envelopeId) envelopeUpdate.envelopeId = extraPayload.envelopeId;
+      if (extraPayload.signedDocPath) envelopeUpdate.signedDocPath = extraPayload.signedDocPath;
+      await DocusignEnvelope.findOneAndUpdate(
+        { contractId },
+        { $set: envelopeUpdate },
+        { upsert: true }
+      );
+    }
   } catch (cErr) {
     console.error(
       `[contractSyncService] Erro ao atualizar status do contrato para ${status} via Mongoose:`,

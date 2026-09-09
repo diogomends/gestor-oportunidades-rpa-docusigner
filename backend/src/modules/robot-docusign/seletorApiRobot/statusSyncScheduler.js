@@ -130,9 +130,19 @@ export async function syncAllContractsStatus(options = {}) {
           role: { $in: ["query", "all"] },
           last_heartbeat: { $gt: new Date(Date.now() - 60 * 1000) },
         });
+        // Expira jobs stale com mais de 10 minutos
+        await RobotJob.updateMany(
+          {
+            action: "query_agreements",
+            status: { $in: ["pending", "processing"] },
+            createdAt: { $lt: new Date(Date.now() - 10 * 60 * 1000) },
+          },
+          { $set: { status: "failed", error: "auto-expired: TTL 10min" } }
+        );
         const hasPendingQueryJob = await RobotJob.exists({
           action: "query_agreements",
           status: { $in: ["pending", "processing"] },
+          createdAt: { $gt: new Date(Date.now() - 10 * 60 * 1000) },
         });
         if (hasQueryRobot && !hasPendingQueryJob) {
           await RobotJob.create({ action: "query_agreements", status: "pending", mode: "robot" });
@@ -231,6 +241,10 @@ export async function syncAllContractsStatus(options = {}) {
               if (fs.existsSync(fullFilePath) && fs.statSync(fullFilePath).size > 0) {
                 console.log(`[statusSyncScheduler] PDF já existe e está salvo em: ${paths.relativePath}`);
                 downloadedCount++;
+                await syncContractStatus(contractId, "assinado", {
+                  envelopeId: matchedEnvelope.envelopeId,
+                  signedDocPath: paths.relativePath,
+                });
                 continue;
               }
 
@@ -250,9 +264,17 @@ export async function syncAllContractsStatus(options = {}) {
               if (dlResult !== null && dlResult !== undefined) {
                 downloadedCount++;
                 console.log(`[statusSyncScheduler] PDF assinado salvo com sucesso em: ${paths.relativePath}`);
+                await syncContractStatus(contractId, "assinado", {
+                  envelopeId: matchedEnvelope.envelopeId,
+                  signedDocPath: paths.relativePath,
+                });
               } else if (fs.existsSync(fullFilePath) && fs.statSync(fullFilePath).size > 0) {
                 downloadedCount++;
                 console.log(`[statusSyncScheduler] PDF assinado salvo com sucesso em: ${paths.relativePath}`);
+                await syncContractStatus(contractId, "assinado", {
+                  envelopeId: matchedEnvelope.envelopeId,
+                  signedDocPath: paths.relativePath,
+                });
               }
             } catch (dlErr) {
               console.error(`[statusSyncScheduler] Erro ao baixar PDF assinado do contrato ${contractId}:`, dlErr.message);
