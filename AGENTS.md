@@ -72,7 +72,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │           └── robot-docusign/  # Módulo de domínio
 │               ├── index.js           # Exporta routes, orchestrator, session, scheduler, browserrobot, seletorApiRobot
 │               ├── routes.js          # Rotas Express (prefixo /api/robot-docusign)
-│               ├── controllers/       # robotDocusignController.js, robotInstanceController.js
+│               ├── controllers/       # robotDocusignController.js (fachada DIP AD-072), robotInstanceController.js (fachada DIP AD-071), docusign/ (13 handlers atômicos), instance/ (9 handlers atômicos)
 │               ├── models/            # RobotJob.js, RobotSession.js, RobotInstance.js
 │               ├── selectors/         # Selectors CSS para automação do DocuSign
 │               ├── routes/            # robotInstanceRoutes.js
