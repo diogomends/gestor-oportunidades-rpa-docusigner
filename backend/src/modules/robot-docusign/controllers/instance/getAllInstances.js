@@ -46,10 +46,10 @@ export const getAllInstances = async (req, res) => {
           jobs_processed_today: inst.jobs_processed_today || 0,
           machine_info: inst.machine_info || {},
           ...(includeLogs
-            ? {
-                logs: getLogs(inst.instance_id),
-                telemetryLogs: getLogs(inst.instance_id),
-              }
+            ? (() => {
+                const l = getLogs(inst.instance_id);
+                return { logs: l, telemetryLogs: l };
+              })()
             : {}),
           createdAt: inst.createdAt,
           updatedAt: inst.updatedAt,

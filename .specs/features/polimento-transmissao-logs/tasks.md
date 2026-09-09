@@ -63,15 +63,15 @@ T1 → T2 → T3
 
 ### T2: Deduplicar `getAllInstances.js` dual logs (POLISH-02)
 **What**: Extrair `const logs = getLogs(inst.instance_id)` e reusar em `logs` e `telemetryLogs` (1 call vs 2).
-**Where**: `backend/src/modules/robot-docusign/controllers/instance/getAllInstances.js:48-53`
+**Where**: `backend/src/modules/robot-docusign/controllers/instance/getAllInstances.js:48-53` (+ `streamInstanceTelemetry.js:41` guard ponteiro p/ mock SSE)
 **Depends on**: T1
 **Reuses**: `backend/src/modules/robot-docusign/utils/telemetryBuffer.js#getLogs`
 **Requirement**: POLISH-02
 **Tools**: MCP: filesystem — Skill: none
 **Done when**:
-- [ ] `includeLogs` branch usa `const l = getLogs(id); logs: l, telemetryLogs: l`
-- [ ] `GET /instances?includeLogs=true` retorna ambos idênticos; sem flag omite
-- [ ] `node --env-file=.env.dev --test tests/backend/controllers/robotInstance-telemetry.test.js` pass
+- [x] `includeLogs` branch usa `const l = getLogs(id); logs: l, telemetryLogs: l`
+- [x] `GET /instances?includeLogs=true` retorna ambos idênticos; sem flag omite
+- [x] `node --env-file=.env.dev --test tests/backend/controllers/robotInstance-telemetry.test.js` 9/9 pass (inclui guard `res.on`)
 **Tests**: regression (supertest) — existente
 **Gate**: full
 **Commit**: `refactor(backend): dedup getLogs dual exposure in getAllInstances`
