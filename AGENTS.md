@@ -119,7 +119,7 @@ Prefixo `/api/robot-docusign` (exceto `/health` na raiz):
 | POST   | `/trigger-batch`                      | `protect` + `authorize("admin")` | Enfileira lote de jobs assíncronos (status 202)              |
 | GET    | `/status/:jobId`                      | `protect`                        | Status de um job (busca por `_id` ou `contract_id`)          |
 | GET    | `/jobs`                               | `protect`                        | Lista jobs (filtros + paginação)                             |
-| GET    | `/jobs/:jobId/stream`                 | `protect`                        | SSE stream de progresso do job                               |
+| GET    | `/jobs/:jobId/stream`                 | `protect`                        | SSE stream de progresso do job (com logs em tempo real e evento `done`) |
 | GET    | `/metrics`                            | `protect`                        | Métricas agregadas                                           |
 | GET    | `/logs/:jobId`                        | `protect`                        | Logs detalhados de um job                                    |
 | GET    | `/config`                             | `protect`                        | Buscar config do robô                                        |
@@ -128,14 +128,14 @@ Prefixo `/api/robot-docusign` (exceto `/health` na raiz):
 | GET    | `/queue`                              | `protect`                        | Fila de jobs pendentes/em processamento                      |
 | POST   | `/process-pending`                    | `protect`                        | Processa até 1 contrato pendente (scheduler fallback)        |
 | POST   | `/sync-status`                        | `protect`                        | Executa varredura de sincronização geral de status sob demanda |
-| GET    | `/instances`                          | `protect` + `authorize("admin")` | Lista instâncias do robô com flag `alive` (< 90s, aceita `?includeLogs=true`) |
-| GET    | `/instances/:instanceId/telemetry`    | `protect` + `authorize("admin")` | Telemetria ociosa da instância (fallback polling)            |
+| GET    | `/instances`                          | `protect` + `authorize("admin")` | Lista instâncias do robô com flag `alive` (< 90s, aceita `?includeLogs=true` com `logs` e `telemetryLogs`) |
+| GET    | `/instances/:instanceId/telemetry`    | `protect` + `authorize("admin")` | Telemetria ociosa da instância (com `logs` e `telemetryLogs`) |
 | GET    | `/instances/:instanceId/stream`       | `protect`                        | SSE stream de telemetria ociosa em tempo real                |
 | POST   | `/instance/auth`                      | público                          | Autenticação da instância (`X-Robot-Key` ou `email`/`senha`) |
 | GET    | `/instance/instances`                 | `protect` + `authorize("admin")` | Lista instâncias (via sub-router)                            |
 | GET    | `/instance/config`                    | `protect`                        | Config da instância                                          |
 | GET    | `/instance/next-job`                  | `protect`                        | Próximo job pendente (polling atômico do robô `.exe`)        |
-| PATCH  | `/instance/job/:jobId/status`         | `protect`                        | Atualiza status do job com emissão SSE e guard anti-fantasma |
+| PATCH  | `/instance/job/:jobId/status`         | `protect`                        | Atualiza status do job (com array `logs`, emissão SSE e guard anti-fantasma) |
 | POST   | `/instance/heartbeat`                 | `protect`                        | Heartbeat da instância                                       |
 | GET    | `/instance/contracts/:contractId/pdf` | `protect`                        | Download de PDF do contrato                                  |
 

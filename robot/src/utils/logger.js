@@ -1,6 +1,7 @@
 /**
  * Utilitário de logging formatado com suporte a cores ANSI para o console do robô.
  * Utiliza cores nativas (verde para sucesso, azul/ciano para etapas, vermelho para erros, amarelo para avisos).
+ * Mantém um buffer em memória para transmissão de logs de execução dos jobs.
  */
 
 const ANSI_RESET = "\x1b[0m";
@@ -15,6 +16,12 @@ const ANSI_YELLOW = "\x1b[93m";
 const ANSI_GRAY = "\x1b[90m";
 
 /**
+ * Buffer em memória para retenção temporária dos logs de execução do job atual.
+ * @type {string[]}
+ */
+let jobLogsBuffer = [];
+
+/**
  * Formata um timestamp curto no formato HH:MM:SS.
  * @returns {string} Timestamp formatado.
  */
@@ -24,7 +31,36 @@ function getTimestamp() {
 }
 
 /**
- * Logger colorido para o robô DocuSigner.
+ * Registra uma linha de log no buffer em memória do job ativo.
+ * @param {string} tag - Identificador do módulo.
+ * @param {string} message - Conteúdo da mensagem.
+ * @returns {void}
+ */
+function recordToBuffer(tag, message) {
+  const line = `[${getTimestamp()}] [${tag}] ${message}`;
+  jobLogsBuffer.push(line);
+}
+
+/**
+ * Drena e retorna todos os logs acumulados no buffer em memória do job atual.
+ * @returns {string[]} Lista de linhas de log drenadas.
+ */
+export function drainJobLogs() {
+  const logs = [...jobLogsBuffer];
+  jobLogsBuffer = [];
+  return logs;
+}
+
+/**
+ * Limpa o buffer em memória de logs de jobs.
+ * @returns {void}
+ */
+export function clearJobLogs() {
+  jobLogsBuffer = [];
+}
+
+/**
+ * Logger colorido para o robô DocuSigner com retenção em buffer para streaming.
  */
 export const logger = {
   /**
@@ -38,6 +74,7 @@ export const logger = {
     const header = `${ANSI_CYAN}${ANSI_BRIGHT}[${tag}]${ANSI_RESET}`;
     const text = `${ANSI_BLUE}${message}${ANSI_RESET}`;
     console.log(`${time} ${header} ${text}`);
+    recordToBuffer(tag, message);
   },
 
   /**
@@ -51,6 +88,7 @@ export const logger = {
     const header = `${ANSI_GREEN}${ANSI_BRIGHT}[${tag}]${ANSI_RESET}`;
     const text = `${ANSI_GREEN}✓ ${message}${ANSI_RESET}`;
     console.log(`${time} ${header} ${text}`);
+    recordToBuffer(tag, `✓ ${message}`);
   },
 
   /**
@@ -65,6 +103,7 @@ export const logger = {
     const header = `${ANSI_RED}${ANSI_BRIGHT}[${tag}]${ANSI_RESET}`;
     const text = `${ANSI_RED}✗ ${message}${ANSI_RESET}`;
     console.error(`${time} ${header} ${text}`, ...optionalParams);
+    recordToBuffer(tag, `✗ ${message}`);
   },
 
   /**
@@ -78,6 +117,7 @@ export const logger = {
     const header = `${ANSI_YELLOW}${ANSI_BRIGHT}[${tag}]${ANSI_RESET}`;
     const text = `${ANSI_YELLOW}⚠ ${message}${ANSI_RESET}`;
     console.warn(`${time} ${header} ${text}`);
+    recordToBuffer(tag, `⚠ ${message}`);
   },
 
   /**
@@ -90,7 +130,11 @@ export const logger = {
     const time = `${ANSI_GRAY}[${getTimestamp()}]${ANSI_RESET}`;
     const header = `${ANSI_BRIGHT}[${tag}]${ANSI_RESET}`;
     console.log(`${time} ${header} ${message}`);
+    recordToBuffer(tag, message);
   },
+
+  drainJobLogs,
+  clearJobLogs,
 };
 
 export default logger;

@@ -808,10 +808,12 @@ export const streamJobProgress = async (req, res) => {
         steps: [...(job.steps || [])].reverse(),
         result: job.result || null,
         error: job.error || null,
+        logs: job.logs || [],
       };
       res.write(`data: ${JSON.stringify(payload)}\n\n`);
 
       if (["completed", "success", "failed"].includes(job.status)) {
+        res.write(`event: done\ndata: {}\n\n`);
         cleanup();
         return res.end();
       }
@@ -819,9 +821,14 @@ export const streamJobProgress = async (req, res) => {
 
     onProgress = (data) => {
       if (data.jobId === targetJobId || data.jobId === jobId) {
-        const out = data.steps ? { ...data, steps: [...data.steps].reverse() } : data;
+        const out = {
+          ...data,
+          logs: data.logs || [],
+          ...(data.steps ? { steps: [...data.steps].reverse() } : {}),
+        };
         res.write(`data: ${JSON.stringify(out)}\n\n`);
         if (["completed", "success", "failed"].includes(data.status)) {
+          res.write(`event: done\ndata: {}\n\n`);
           cleanup();
           res.end();
         }

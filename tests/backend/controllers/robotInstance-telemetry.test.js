@@ -86,6 +86,7 @@ describe("Telemetria ociosa - HTTP + SSE", () => {
       .expect(200);
     assert.strictEqual(res.body.instanceId, instId);
     assert.ok(res.body.logs.some((l) => l.includes("no_pending_jobs")));
+    assert.ok(res.body.telemetryLogs.some((l) => l.includes("no_pending_jobs")));
   });
 
   it("POST /instance/heartbeat sem telemetryLogs continua 200 (retrocompat)", async () => {
@@ -107,7 +108,7 @@ describe("Telemetria ociosa - HTTP + SSE", () => {
     assert.ok(res.body.error);
   });
 
-  it("GET /instances?includeLogs=true inclui logs; sem flag omite", async () => {
+  it("GET /instances?includeLogs=true inclui logs e telemetryLogs; sem flag omite", async () => {
     const instId = `inst-list-${Date.now()}`;
     pushLogs(instId, ["ping-ocioso"]);
     const docs = [{ instance_id: instId, status: "idle", last_heartbeat: new Date() }];
@@ -118,12 +119,14 @@ describe("Telemetria ociosa - HTTP + SSE", () => {
       .set("Authorization", `Bearer ${tokenAdmin}`)
       .expect(200);
     assert.ok(withLogs.body.instances[0].logs.includes("ping-ocioso"));
+    assert.ok(withLogs.body.instances[0].telemetryLogs.includes("ping-ocioso"));
 
     const without = await request(app)
       .get("/api/robot-docusign/instances")
       .set("Authorization", `Bearer ${tokenAdmin}`)
       .expect(200);
     assert.strictEqual(without.body.instances[0].logs, undefined);
+    assert.strictEqual(without.body.instances[0].telemetryLogs, undefined);
   });
 
   it("SSE stream: handshake com buffer + evento filtrado por instanceId", async () => {

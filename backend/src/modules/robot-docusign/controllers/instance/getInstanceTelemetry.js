@@ -25,11 +25,13 @@ export const getInstanceTelemetry = async (req, res) => {
         message: "Instância não encontrada.",
       });
     }
+    const instanceLogs = getLogs(instanceId);
     return res.status(200).json({
       instanceId: inst.instance_id,
       status: inst.status,
       lastHeartbeat: inst.last_heartbeat,
-      logs: getLogs(instanceId),
+      logs: instanceLogs,
+      telemetryLogs: instanceLogs,
     });
   } catch (error) {
     console.error("[getInstanceTelemetry] Erro ao buscar telemetria:", error);
