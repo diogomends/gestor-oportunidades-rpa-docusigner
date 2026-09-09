@@ -472,11 +472,19 @@
 - **Date**: 2026-09-09
 - **Status**: active
 
+### AD-074
+- **Decision**: Decomposição Modular do `statusSyncScheduler.js` em Submódulos Especializados Semânticos (SOLID SRP / PonyTail) — (1) Divisão do arquivo monolítico de 453 linhas em 5 módulos atômicos sob `backend/src/modules/robot-docusign/seletorApiRobot/`: `contractEnvelopeMatcher.js` (normalização de texto, mapeamento de status DocuSign ↔ Contract e cruzamento de envelopes), `statusSyncValidator.js` (validação de horário de expediente e pré-requisitos + delegação distribuída para robôs de consulta), `signedPdfDownloadService.js` (download de PDFs assinados, verificação em disco e atualização do contrato), `contractStatusSyncService.js` (motor de varredura periódica e trava de concorrência `isRunning`) e `statusSyncScheduler.js` (agendador de ciclo de vida com `start`/`stop` e fachada DIP de retrocompatibilidade); (2) Registro e re-exportação dos novos módulos no barrel `seletorApiRobot/index.js`; (3) Preservação de 100% de compatibilidade retroativa com `server.js`, controllers, suíte de testes e fachadas DIP existentes em `services/`.
+- **Reason**: Respeitar estritamente o Single Responsibility Principle (SRP), melhorar a compreensão semântica do código, facilitar manutenção cirúrgica sem poluição de contexto e permitir testes unitários isolados de domínio puro.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/seletorApiRobot/*`, `AGENTS.md`, `.specs/STATE.md`, `.specs/features/refatoracao-sincronizacao-status/*`
+- **Date**: 2026-09-09
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Refatoração de Sincronização e Modelos DocuSigner (AD-073)
+- **Feature**: Decomposição Modular do statusSyncScheduler (AD-074)
 - **Phase / Task**: Execução e Documentação Concluídas
-- **Completed**: Refatoração de `DocusignEnvelope.js`, `contractSyncService.js` e `statusSyncScheduler.js` com JSDoc completo, SRP e anti-phantom hardening + spec.md, tasks.md e AD-073 registrados.
+- **Completed**: Decomposição em 5 módulos especializados (`contractEnvelopeMatcher.js`, `statusSyncValidator.js`, `signedPdfDownloadService.js`, `contractStatusSyncService.js`, `statusSyncScheduler.js`), barrel `index.js`, JSDoc completo, atualização de `AGENTS.md`, `spec.md`, `tasks.md`, `validation.md` e `STATE.md`.
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none

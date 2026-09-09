@@ -34,7 +34,7 @@ Refatorar exclusivamente os componentes pertencentes a este repositório (`gesto
 - **EARS**: WHEN o status de um contrato for alterado THEN the `contractSyncService` SHALL orquestrar a chamada HTTP (`gestorApiClient`) com fallback robusto Mongoose em `DocusignEnvelope` e `Contract`, garantindo isolamento de falhas, anti-phantom success e JSDoc em 100% das funções.
 
 ### REQ-REF-03 — Decomposição e PonyTail no `statusSyncScheduler.js`
-- **EARS**: WHEN a sincronização periódica for executada THEN the `statusSyncScheduler` SHALL delegar etapas de validação de horário/permissões, busca de contratos ativos, conciliação/match e persistência a funções atômicas puras, mantendo o controle de lock (`isRunning`) e logs estruturados sem criar sobre-engenharia.
+- **EARS**: WHEN a sincronização periódica for executada THEN the `statusSyncScheduler` SHALL orquestrar a execução delegando responsabilidades para módulos especializados e atômicos (`contractEnvelopeMatcher.js`, `statusSyncValidator.js`, `signedPdfDownloadService.js`, `contractStatusSyncService.js` e `statusSyncScheduler.js`), mantendo o controle de lock (`isRunning`), JSDoc completo e compatibilidade retroativa absoluta via fachada DIP.
 
 ### REQ-REF-04 — Testes Exclusivos de Regressão
 - **EARS**: THE suíte de testes em `tests/backend/services/statusSyncScheduler.test.js` SHALL cobrir fluxos de ponta a ponta e regressão das rotinas refatoradas, sendo proibida a criação de testes unitários isolados.
