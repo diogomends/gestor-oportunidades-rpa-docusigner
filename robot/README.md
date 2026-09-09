@@ -15,15 +15,15 @@ Cada build gera um **executável autônomo e protegido**:
 | Arquivo | Função |
 |---------|--------|
 | `robot-docusigner-X.exe` | Binário Windows autônomo com runtime Node, código empacotado e ofuscado com a chave embutida. |
-| `run.bat` | Script auxiliar para inicialização com terminal persistente e visualização de logs. |
-| `setup.bat` | Script para instalação do navegador Chromium (Playwright) e configuração de inicialização automática no Windows. |
+| `exibir-tela.bat` | Script auxiliar headed (`HEADLESS=false`) para debug com navegador visível. |
+| `setup.bat` | Script para instalação do navegador Chromium (Playwright) e configuração de inicialização automática headless no Windows. |
 | `README.txt` | Guia completo de instalação e uso com quadro explicativo. |
 | `node_modules/` | Dependências locais do Playwright (`playwright` e `playwright-core`). |
 
 ## Instalação na Máquina do Agente
-1. Copie a pasta gerada em `dist/` (ex: `robot-docusigner-1`) para a máquina alvo.
-2. Execute `setup.bat` para baixar o navegador Chromium do Playwright e configurar a inicialização automática junto com o Windows.
-3. Execute `run.bat` ou o executável `robot-docusigner-X.exe` (ou reinicie o Windows).
+1. Copie a pasta gerada em `dist/` (ex: `robot-query-1`) para a máquina alvo.
+2. Execute `setup.bat` **uma única vez** para baixar o Chromium e registrar o `.exe` headless no auto-start do Windows (HKCU Run). Não é pré-requisito para rodar manualmente — só para iniciar junto com o computador.
+3. Produção: execute o `.exe` direto (headless, sem janela) ou reinicie o Windows. Debug: execute `exibir-tela.bat` para ver o navegador em ação.
 
 ## Como Gerar Novo Build do Executável (.exe)
 
@@ -42,15 +42,15 @@ make build-robot KEY="rf_sec_sua_chave" API_URL="https://crm.meudominio.com" HEA
 Os arquivos gerados estarão prontos para distribuição em `dist/`:
 ```
 dist/
-├── robot-docusigner-1/
-│   ├── robot-docusigner-1.exe
-│   ├── run.bat
+├── robot-query-1/
+│   ├── robot-query-1.exe      # headless (produção, auto-start)
+│   ├── exibir-tela.bat        # headed (debug visível)
 │   ├── setup.bat
 │   ├── README.txt
 │   └── node_modules/
-├── robot-docusigner-2/
-│   ├── robot-docusigner-2.exe
-│   ├── run.bat
+├── robot-enviar-1/
+│   ├── robot-enviar-1.exe
+│   ├── exibir-tela.bat
 │   ├── setup.bat
 │   ├── README.txt
 │   └── node_modules/

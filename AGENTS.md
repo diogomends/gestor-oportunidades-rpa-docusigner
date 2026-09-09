@@ -81,16 +81,16 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │               ├── utils/             # roleActions.js (ROLE_ENUM/ROLE_ACTIONS/isActionAllowedForRole AD-067), contractEligibility.js (GERADO_ELIGIBLE_FILTER / CONTRACT_ELIGIBLE_FILTER, isEligibleForSend/hasPdf/hasRecipientEmail — filtro não-rascunho + PDF + e-mail AD-038/AD-050), imapClient.js (MFA IMAP nativo UID SEARCH/FETCH/STORE + parseUidsFromSearch + clockDrift 60s AD-058/AD-059/AD-061)
 │               └── services/          # Fachadas DIP (re-export seletorApiRobot/* — canônico seletorApiRobot, services é barrel estável para server.js AD-054)
 ├── robot/
-│   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, bytenode, esbuild)
+│   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, esbuild — sem bytenode/.jsc)
 │   ├── src/               # Código-fonte da automação (main, job-runner, scheduler)
 │   │   ├── browser/       # docusign.js (facade), auth.js, envelopes.js, agreements.js, statusParser.js, imapClient.js, roundcube.js, selectors.js, steps/ (uploadStep, fillRecipientsStep, advancePrepareStep, submitEnvelopeStep, extractEnvelopeIdStep, stepUtils — pipeline 8 etapas AD-064)
 │   │   └── utils/         # logger.js (logs coloridos ANSI) + roleActions.js (ROLE_ACTIONS espelho backend AD-054/AD-067) + playwrightResolver.js (resolvePlaywright/getChromium/resolveChromiumExecutablePath/assertChromiumInstalled — fail-fast Chromium com hint setup.bat, fonte única main.js + job-runner.js AD-065)
-│   ├── build/             # Pipeline de compilação/ofuscação/empacotamento (.exe)
-│   ├── scripts/           # Scripts de instalação e inicialização do robô
-│   ├── dist/              # Saída do build: subpastas por chave (robot-docusigner-1/, robot-docusigner-2/, ...)
+│   ├── build/             # Pipeline esbuild → obfuscator → pkg (3 etapas, sem bytenode)
+│   ├── scripts/           # Scripts de instalação e inicialização do robô (setup.bat registra .exe headless no HKCU)
+│   ├── dist/              # Saída do build: subpastas por papel e chave (robot-query-1/, robot-enviar-1/, ...)
 │   ├── dist-bundle/       # Bundle temporário do esbuild (CJS)
 │   ├── dist-obf/          # Código ofuscado temporário
-│   └── dist-jsc/          # Bytecode V8 temporário (.jsc)
+│   └── dist-jsc/          # (legado, não usado)
 ├── tests/
 │   ├── backend/               # Testes backend (controllers, models, services)
 │   └── robot/                 # Testes robô (browser/)
@@ -178,13 +178,13 @@ Fora do prefixo:
 | `API_URL` / `URI_PROD`          | Não         | `http://localhost:3111`     |
 | `ROBOT_KEY`                     | Não         | —                           |
 | `ROBOT_ROLE`                    | Não         | `all`                       |
-| `HEADLESS`                      | Não         | `true`                      |
+| `HEADLESS`                      | Não         | `true`                      | `true`=headless (sem janela), `false`=headed (com janela); runtime via `--headless`/`HEADLESS` env ou `exibir-tela.bat` |
 | `POLL_INTERVAL_SECONDS`         | Não         | `15`                        |
 | `DEPLOY_HOST`                   | Não         | `root@165.227.212.57`       |
 | `DEPLOY_KEY` / `DEPLOY_KEY_PATH`| Não         | —                           |
 | `REMOTE_PROJECT_PATH`           | Não         | —                           |
 
-> Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. O robô standalone (`robot/src/config.js`) carrega automaticamente o arquivo `.env` da raiz e aceita `URI_PROD` como fallback para `API_URL`. A resolução de MFA (2FA) DocuSign consome as credenciais de `token_notification_email` (`email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), operando via socket IMAP direto (`UID SEARCH`/`UID FETCH`/`UID STORE` + `clockDrift 60s`) tanto no robô standalone quanto no backend Playwright (`backend/src/modules/robot-docusign/utils/imapClient.js` — AD-058/AD-059/AD-061), com fallback para Roundcube Webmail no executável. O robô detecta a tela de MFA pelo texto ("Get Code From Your Email"), por seletores de input (`name="security_code"`, `pattern="[0-9]{6}"`, `placeholder="Enter code"`) e submete pelo botão de confirmação (`data-qa="verify-code"`, texto "Verify" ou tecla Enter). A propriedade `mode` (`"robot"` ou `"api"`) é a fonte única da verdade para ativação (`enabled: mode === "robot"`), e o bloco `operations` (`send`, `statusCheck`, `download`, `reports`, `resend`) define de forma granular quais ações o robô tem permissão para processar. Respostas de erro da API contêm simultaneamente `error` e `message` para compatibilidade (AD-057). O download de PDFs do contrato (`GET /instance/contracts/:contractId/pdf`) opera com resolução multi-caminho via volume Docker compartilhado (`/app/uploads:ro`) com fallback resiliente para stream HTTP direto do Gestor de Oportunidades (AD-062).
+> Credenciais DocuSign e do robô podem vir do banco (`SystemConfig`) ou de variáveis de ambiente como fallback. O robô standalone (`robot/src/config.js`) carrega automaticamente o arquivo `.env` da raiz e aceita `URI_PROD` como fallback para `API_URL`. `HEADLESS` é runtime-overrideável: `argv --headless true|false` > `env HEADLESS` > `fileConfig` > `true`; `exibir-tela.bat` força `HEADLESS=false` (`--headless false`), `.exe` direto roda headless por padrão, `setup.bat` registra `.exe` headless no HKCU Run (não o bat). A resolução de MFA (2FA) DocuSign consome as credenciais de `token_notification_email` (`email`, `password`, `host`, `port`, `tls`) configuradas no `SystemConfig` (`key: "robot_docusign"`), operando via socket IMAP direto (`UID SEARCH`/`UID FETCH`/`UID STORE` + `clockDrift 60s`) tanto no robô standalone quanto no backend Playwright (`backend/src/modules/robot-docusign/utils/imapClient.js` — AD-058/AD-059/AD-061), com fallback para Roundcube Webmail no executável. O robô detecta a tela de MFA pelo texto ("Get Code From Your Email"), por seletores de input (`name="security_code"`, `pattern="[0-9]{6}"`, `placeholder="Enter code"`) e submete pelo botão de confirmação (`data-qa="verify-code"`, texto "Verify" ou tecla Enter). A propriedade `mode` (`"robot"` ou `"api"`) é a fonte única da verdade para ativação (`enabled: mode === "robot"`), e o bloco `operations` (`send`, `statusCheck`, `download`, `reports`, `resend`) define de forma granular quais ações o robô tem permissão para processar. Respostas de erro da API contêm simultaneamente `error` e `message` para compatibilidade (AD-057). O download de PDFs do contrato (`GET /instance/contracts/:contractId/pdf`) opera com resolução multi-caminho via volume Docker compartilhado (`/app/uploads:ro`) com fallback resiliente para stream HTTP direto do Gestor de Oportunidades (AD-062).
 
 ## Convenções de Código
 
