@@ -56,6 +56,10 @@ export async function syncContractStatus(contractId, status, extraPayload = {}) 
       const targetContractId = mongoose.Types.ObjectId.isValid(contractId)
         ? new mongoose.Types.ObjectId(contractId)
         : contractId;
+      const envelopeUpdate = {
+        status: mapContractStatusToEnvelopeStatus(status),
+        ...extraPayload,
+      };
       await DocusignEnvelope.findOneAndUpdate(
         { contractId: targetContractId },
         { $set: envelopeUpdate },

@@ -192,7 +192,11 @@ export const updateJobStatus = async (req, res) => {
     } else if (contractId) {
       if (effectiveStatus === "completed") {
         const targetStatus = updatedJob.action === "download" ? "assinado" : "enviado";
-        const extraPayload = updatedJob.action === "download" ? {} : { envelopeId: finalEnvelopeId || updatedJob.envelopeId };
+        const effectiveSignedDocPath = signedDocPath || updatedJob.signedDocPath || null;
+        const extraPayload =
+          updatedJob.action === "download"
+            ? { ...(effectiveSignedDocPath ? { signedDocPath: effectiveSignedDocPath } : {}) }
+            : { envelopeId: finalEnvelopeId || updatedJob.envelopeId };
 
         // Atualiza contrato localmente de imediato no MongoDB
         await Contract.findByIdAndUpdate(contractId, {
