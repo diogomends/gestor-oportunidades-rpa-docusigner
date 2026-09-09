@@ -66,9 +66,9 @@ Open questions: none.
 
 | Requirement ID | Story | Phase | Status |
 |---|---|---|---|
-| POLISH-01 | P1 T3 fix | Tasks | Pending |
-| POLISH-02 | P2 dedup | Tasks | Pending |
-| POLISH-03 | P3 cap logger | Tasks | Pending |
+| POLISH-01 | P1 T3 fix | Tasks | Verified |
+| POLISH-02 | P2 dedup | Tasks | Verified |
+| POLISH-03 | P3 cap logger | Tasks | Verified |
 
 ## Success Criteria
 - [ ] `node --env-file=.env.dev --test tests/robot/logger-buffer.test.js tests/robot/job-runner-logs.test.js tests/backend/controllers/updateJobStatus-logs.test.js tests/backend/controllers/streamJobProgress.test.js` 9/9 pass

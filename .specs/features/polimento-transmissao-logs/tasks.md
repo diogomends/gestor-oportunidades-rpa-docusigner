@@ -86,9 +86,9 @@ T1 → T2 → T3
 **Requirement**: POLISH-03
 **Tools**: MCP: filesystem — Skill: none
 **Done when**:
-- [ ] `const MAX_JOB_LOGS = 500;` e `if (jobLogsBuffer.length > MAX) jobLogsBuffer.shift()` em `recordToBuffer`
-- [ ] comentário `// ponytail: cap 500 FIFO, aumentar/buscar paginado se job >10k linhas`
-- [ ] `node --env-file=.env.dev --test tests/robot/logger-buffer.test.js` 3/3 pass + manual FIFO >500 mantém 500 recentes
+- [x] `const MAX_JOB_LOGS = 500;` e `if (jobLogsBuffer.length > MAX) jobLogsBuffer.shift()` em `recordToBuffer`
+- [x] comentário `// ponytail: cap 500 FIFO, aumentar/buscar paginado se job >10k linhas`
+- [x] `node --env-file=.env.dev --test tests/robot/logger-buffer.test.js` 3/3 pass + manual FIFO 600→500 PASS
 **Tests**: unit/regression — existente + 1 assert cap
 **Gate**: quick + build final (9/9)
 **Commit**: `refactor(robot): cap jobLogsBuffer FIFO 500 with ponytail note`
