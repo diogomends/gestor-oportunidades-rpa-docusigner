@@ -40,7 +40,7 @@
 ## Phase 2: Agendador & Scheduler
 
 - [x] `TASK-REF-03`: Refatorar e modularizar `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`
-  - **Description**: Modularizar e desacoplar responsabilidades em funções atômicas (checagem de lock, validação de regras de acesso/permissão, matching de contratos, persistência irreversível e download de PDFs assinados), mantendo JSDoc obrigatório e sem sobre-engenharia.
+  - **Description**: Decomposição em 5 módulos atômicos (`contractEnvelopeMatcher.js`, `statusSyncValidator.js`, `signedPdfDownloadService.js`, `contractStatusSyncService.js` e `statusSyncScheduler.js`) com nomes expressivos, responsabilidade única (SRP), PonyTail, JSDoc completo e compatibilidade DIP.
   - **Depends on**: `TASK-REF-02`
   - **Tests**: `npm run test:backend`
   - **Gate**: Cobertura de fluxo completo de sincronização de contratos sem regressões.

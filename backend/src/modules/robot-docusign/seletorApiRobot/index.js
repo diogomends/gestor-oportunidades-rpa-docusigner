@@ -17,6 +17,10 @@ import {
 import { robotEvents, emitProgress } from "./orchestratorEvents.js";
 import { syncContractStatus, buildDownloadPath } from "./contractSyncService.js";
 import statusSyncScheduler, { syncAllContractsStatus, isStatusSyncRunning } from "./statusSyncScheduler.js";
+import contractEnvelopeMatcher from "./contractEnvelopeMatcher.js";
+import statusSyncValidator from "./statusSyncValidator.js";
+import signedPdfDownloadService from "./signedPdfDownloadService.js";
+import contractStatusSyncService from "./contractStatusSyncService.js";
 
 export {
   DEFAULT_ROBOT_DOCUSIGN_CONFIG,
@@ -32,6 +36,10 @@ export {
   statusSyncScheduler,
   syncAllContractsStatus,
   isStatusSyncRunning,
+  contractEnvelopeMatcher,
+  statusSyncValidator,
+  signedPdfDownloadService,
+  contractStatusSyncService,
 };
 
 /**
@@ -311,4 +319,8 @@ export default {
   statusSyncScheduler,
   syncAllContractsStatus,
   isStatusSyncRunning,
+  contractEnvelopeMatcher,
+  statusSyncValidator,
+  signedPdfDownloadService,
+  contractStatusSyncService,
 };
