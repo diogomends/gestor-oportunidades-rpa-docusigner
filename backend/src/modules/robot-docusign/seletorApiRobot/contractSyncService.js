@@ -15,6 +15,7 @@ import gestorApiClient from "../../../services/gestorApiClient.js";
  * @returns {string} Status correspondente para DocusignEnvelope.
  */
 export function mapContractStatusToEnvelopeStatus(contractStatus) {
+  /** @type {Record<string, string>} */
   const map = {
     assinado: "completed",
     cancelado: "voided",
@@ -30,8 +31,9 @@ export function mapContractStatusToEnvelopeStatus(contractStatus) {
  *
  * @param {string} contractId - Identificador único do contrato.
  * @param {string} status - Novo status a ser atribuído ('enviado', 'assinado', etc.).
- * @param {Object} [extraPayload={}] - Dados adicionais para sincronização (ex: envelopeId).
+ * @param {Record<string, any>} [extraPayload={}] - Dados adicionais para sincronização (ex: envelopeId).
  * @returns {Promise<void>}
+ * @async
  */
 export async function syncContractStatus(contractId, status, extraPayload = {}) {
   if (!contractId) return;
@@ -93,6 +95,7 @@ export function buildDownloadPath(contractObj, envelopeId = "doc") {
 }
 
 export default {
+  mapContractStatusToEnvelopeStatus,
   syncContractStatus,
   buildDownloadPath,
 };

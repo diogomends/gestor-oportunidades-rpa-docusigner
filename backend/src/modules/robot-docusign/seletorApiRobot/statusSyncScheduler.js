@@ -1,6 +1,7 @@
 /**
  * @file Scheduler dedicado à sincronização periódica e consulta geral de status de contratos no DocuSign.
  * Varre contratos ativos (não-rascunho), consulta o painel da DocuSign, atualiza o banco e baixa PDFs assinados.
+ * Aplica os princípios SOLID (SRP), PonyTail (simplicidade) e Anti-Phantom Success Hardening.
  */
 
 import fs from "node:fs";
@@ -75,6 +76,174 @@ export function isStatusSyncRunning() {
 }
 
 /**
+ * Valida os pré-requisitos de configuração e restrição de horário antes de prosseguir com a sincronização.
+ *
+ * @param {Record<string, any>} config - Configuração ativa do robô DocuSign.
+ * @returns {Promise<{ allowed: boolean, reason?: string }>} Resultado da validação prévia.
+ * @async
+ */
+async function validateExecutionPrerequisites(config) {
+  if (config.mode !== "robot") {
+    console.log("[statusSyncScheduler] Robô desabilitado ou em modo API. Pulando consulta de status.");
+    return { allowed: false, reason: "robot_disabled" };
+  }
+
+  if (config.operations?.statusCheck === false) {
+    console.log("[statusSyncScheduler] Operação 'statusCheck' desabilitada nas configurações. Pulando.");
+    return { allowed: false, reason: "status_check_disabled" };
+  }
+
+  const accessConfig = await SystemConfig.findOne({ key: "access_restriction" }).lean();
+  if (accessConfig?.value?.enabled) {
+    const isAllowed = isTimeAccessAllowed(accessConfig.value);
+    if (!isAllowed) {
+      console.log("[statusSyncScheduler] Fora do horário de expediente permitido. Pulando consulta.");
+      return { allowed: false, reason: "outside_working_hours" };
+    }
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Verifica se há robôs autônomos de consulta (query) ativos e delega o job query_agreements para execução distribuída.
+ *
+ * @returns {Promise<{ delegated: boolean, reason?: string }>} Indica se o job foi delegado ou já está pendente.
+ * @async
+ */
+async function handleDualRobotDelegation() {
+  try {
+    const mongoose = (await import("mongoose")).default;
+    if (mongoose.connection.readyState === 1) {
+      const hasQueryRobot = await RobotInstance.exists({
+        role: { $in: ["query", "all"] },
+        last_heartbeat: { $gt: new Date(Date.now() - 60 * 1000) },
+      });
+
+      // Expira jobs stale com mais de 10 minutos
+      await RobotJob.updateMany(
+        {
+          action: "query_agreements",
+          status: { $in: ["pending", "processing"] },
+          createdAt: { $lt: new Date(Date.now() - 10 * 60 * 1000) },
+        },
+        { $set: { status: "failed", error: "auto-expired: TTL 10min" } }
+      );
+
+      const hasPendingQueryJob = await RobotJob.exists({
+        action: "query_agreements",
+        status: { $in: ["pending", "processing"] },
+        createdAt: { $gt: new Date(Date.now() - 10 * 60 * 1000) },
+      });
+
+      if (hasQueryRobot && !hasPendingQueryJob) {
+        await RobotJob.create({ action: "query_agreements", status: "pending", mode: "robot" });
+        console.log("[statusSyncScheduler] Query robot conectado — job query_agreements enfileirado para robô externo.");
+        return { delegated: true, reason: "enqueued_query_robot" };
+      }
+
+      if (hasQueryRobot && hasPendingQueryJob) {
+        console.log("[statusSyncScheduler] Query job já pendente/processando — aguardando robô externo.");
+        return { delegated: true, reason: "query_job_pending" };
+      }
+    }
+  } catch (e) {
+    console.warn("[statusSyncScheduler] Dual-robot check ignorado (sem DB):", e.message);
+  }
+
+  return { delegated: false };
+}
+
+/**
+ * Realiza o cruzamento de um contrato ativo com a lista de envelopes obtidos da DocuSign.
+ *
+ * @param {Record<string, any>} contract - Dados do contrato.
+ * @param {Array<Record<string, any>>} envelopes - Lista de envelopes da DocuSign.
+ * @returns {Record<string, any>|null} Envelope correspondente ou null se não houver match.
+ */
+function matchContractWithEnvelope(contract, envelopes) {
+  const repEmail = normalizeString(contract.client?.representante?.email || contract.client?.admin?.email);
+  const repName = normalizeString(contract.client?.representante?.nome || contract.client?.admin?.nome);
+  const storedEnvelopeId = contract.envelopeId || contract.docusign_envelope_id;
+
+  return (
+    envelopes.find((env) => {
+      if (storedEnvelopeId && env.envelopeId && env.envelopeId === storedEnvelopeId) {
+        return true;
+      }
+      const envRecipient = normalizeString(env.recipient);
+      if (repEmail && envRecipient.includes(repEmail)) return true;
+      if (repName && envRecipient.includes(repName)) return true;
+      return false;
+    }) || null
+  );
+}
+
+/**
+ * Realiza o download do PDF assinado e atualiza o contrato com o caminho do arquivo baixado.
+ *
+ * @param {Record<string, any>} contract - Dados do contrato.
+ * @param {Record<string, any>} matchedEnvelope - Envelope correspondente da DocuSign.
+ * @param {Record<string, any>} config - Configuração ativa do robô.
+ * @param {string} contractId - Identificador do contrato.
+ * @returns {Promise<boolean>} True se o download foi concluído ou o arquivo já existia, false caso contrário.
+ * @async
+ */
+async function handleSignedContractDownload(contract, matchedEnvelope, config, contractId) {
+  if (!matchedEnvelope.envelopeId || config.operations?.download === false) {
+    return false;
+  }
+
+  try {
+    const paths = buildDownloadPath(contract, matchedEnvelope.envelopeId);
+    const fullFilePath = path.join(paths.downloadDir, paths.fileName);
+
+    if (fs.existsSync(fullFilePath) && fs.statSync(fullFilePath).size > 0) {
+      console.log(`[statusSyncScheduler] PDF já existe e está salvo em: ${paths.relativePath}`);
+      await syncContractStatus(contractId, "assinado", {
+        envelopeId: matchedEnvelope.envelopeId,
+        signedDocPath: paths.relativePath,
+      });
+      return true;
+    }
+
+    console.log(`[statusSyncScheduler] Baixando PDF assinado para o contrato ${contractId}...`);
+    const dlResult = await browserrobot.executeWithBrowser("download", {
+      envelopeId: matchedEnvelope.envelopeId,
+      downloadDir: paths.downloadDir,
+      fileName: paths.fileName,
+      credentials: {
+        ...config.credentials,
+        token_notification_email: config.token_notification_email,
+        mfa: config.mfa,
+      },
+    });
+
+    if (dlResult !== null && dlResult !== undefined) {
+      console.log(`[statusSyncScheduler] PDF assinado salvo com sucesso em: ${paths.relativePath}`);
+      await syncContractStatus(contractId, "assinado", {
+        envelopeId: matchedEnvelope.envelopeId,
+        signedDocPath: paths.relativePath,
+      });
+      return true;
+    }
+
+    if (fs.existsSync(fullFilePath) && fs.statSync(fullFilePath).size > 0) {
+      console.log(`[statusSyncScheduler] PDF assinado salvo com sucesso em: ${paths.relativePath}`);
+      await syncContractStatus(contractId, "assinado", {
+        envelopeId: matchedEnvelope.envelopeId,
+        signedDocPath: paths.relativePath,
+      });
+      return true;
+    }
+  } catch (dlErr) {
+    console.error(`[statusSyncScheduler] Erro ao baixar PDF assinado do contrato ${contractId}:`, dlErr.message);
+  }
+
+  return false;
+}
+
+/**
  * Executa uma rodada completa de consulta geral de status na DocuSign e atualiza os contratos no banco.
  *
  * @param {Object} [options={}] - Parâmetros adicionais para a sincronização.
@@ -99,66 +268,18 @@ export async function syncAllContractsStatus(options = {}) {
   try {
     console.log("[statusSyncScheduler] Iniciando varredura periódica de status geral...");
 
-    // 1. Validar configuração do robô e permissão da operação statusCheck
     const config = await getRobotConfig();
-    if (config.mode !== "robot") {
-      console.log("[statusSyncScheduler] Robô desabilitado ou em modo API. Pulando consulta de status.");
-      return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "robot_disabled" };
+    const prereq = await validateExecutionPrerequisites(config);
+    if (!prereq.allowed) {
+      return { success: true, checked: 0, updated: 0, downloaded: 0, reason: prereq.reason };
     }
 
-    if (config.operations?.statusCheck === false) {
-      console.log("[statusSyncScheduler] Operação 'statusCheck' desabilitada nas configurações. Pulando.");
-      return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "status_check_disabled" };
+    const dualRobot = await handleDualRobotDelegation();
+    if (dualRobot.delegated) {
+      return { success: true, checked: 0, updated: 0, downloaded: 0, reason: dualRobot.reason };
     }
 
-    // 2. Validar horário de expediente se habilitado
-    const accessConfig = await SystemConfig.findOne({ key: "access_restriction" }).lean();
-    if (accessConfig?.value?.enabled) {
-      const isAllowed = isTimeAccessAllowed(accessConfig.value);
-      if (!isAllowed) {
-        console.log("[statusSyncScheduler] Fora do horário de expediente permitido. Pulando consulta.");
-        return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "outside_working_hours" };
-      }
-    }
-
-    // 2b. Dual-robot: se houver query robot conectado, enfileira job ao invés de executar browser no servidor
-    // ponytail: evita buffering timeout em testes sem mongo (readyState !==1)
-    try {
-      const mongoose = (await import("mongoose")).default;
-      if (mongoose.connection.readyState === 1) {
-        const hasQueryRobot = await RobotInstance.exists({
-          role: { $in: ["query", "all"] },
-          last_heartbeat: { $gt: new Date(Date.now() - 60 * 1000) },
-        });
-        // Expira jobs stale com mais de 10 minutos
-        await RobotJob.updateMany(
-          {
-            action: "query_agreements",
-            status: { $in: ["pending", "processing"] },
-            createdAt: { $lt: new Date(Date.now() - 10 * 60 * 1000) },
-          },
-          { $set: { status: "failed", error: "auto-expired: TTL 10min" } }
-        );
-        const hasPendingQueryJob = await RobotJob.exists({
-          action: "query_agreements",
-          status: { $in: ["pending", "processing"] },
-          createdAt: { $gt: new Date(Date.now() - 10 * 60 * 1000) },
-        });
-        if (hasQueryRobot && !hasPendingQueryJob) {
-          await RobotJob.create({ action: "query_agreements", status: "pending", mode: "robot" });
-          console.log("[statusSyncScheduler] Query robot conectado — job query_agreements enfileirado para robô externo.");
-          return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "enqueued_query_robot" };
-        }
-        if (hasQueryRobot && hasPendingQueryJob) {
-          console.log("[statusSyncScheduler] Query job já pendente/processando — aguardando robô externo.");
-          return { success: true, checked: 0, updated: 0, downloaded: 0, reason: "query_job_pending" };
-        }
-      }
-    } catch (e) {
-      console.warn("[statusSyncScheduler] Dual-robot check ignorado (sem DB):", e.message);
-    }
-
-    // 3. Buscar contratos ativos no banco (excluindo rascunhos e contratos com status finais irreversíveis)
+    // Buscar contratos ativos no banco (excluindo rascunhos e status finais irreversíveis)
     const activeContracts = await Contract.find({
       status: { $in: ["enviado", "gerado"] },
     }).lean();
@@ -174,7 +295,6 @@ export async function syncAllContractsStatus(options = {}) {
     let downloadedCount = 0;
 
     try {
-      // 4. Consultar listagem geral de acordos na DocuSign via Playwright
       const daysBack = options.daysBack || 30;
       const queryResult = await browserrobot.executeWithBrowser("query_agreements", {
         credentials: {
@@ -189,23 +309,10 @@ export async function syncAllContractsStatus(options = {}) {
       const envelopes = queryResult?.envelopes || [];
       console.log(`[statusSyncScheduler] ${envelopes.length} envelopes obtidos da DocuSign.`);
 
-      // 5. Cruzar cada contrato ativo com os envelopes retornados
       for (const contract of activeContracts) {
         const contractId = contract._id ? contract._id.toString() : contract.id;
-        const repEmail = normalizeString(contract.client?.representante?.email || contract.client?.admin?.email);
-        const repName = normalizeString(contract.client?.representante?.nome || contract.client?.admin?.nome);
         const storedEnvelopeId = contract.envelopeId || contract.docusign_envelope_id;
-
-        // Localiza o envelope correspondente por ID exato ou por e-mail/nome do destinatário
-        const matchedEnvelope = envelopes.find((env) => {
-          if (storedEnvelopeId && env.envelopeId && env.envelopeId === storedEnvelopeId) {
-            return true;
-          }
-          const envRecipient = normalizeString(env.recipient);
-          if (repEmail && envRecipient.includes(repEmail)) return true;
-          if (repName && envRecipient.includes(repName)) return true;
-          return false;
-        });
+        const matchedEnvelope = matchContractWithEnvelope(contract, envelopes);
 
         if (!matchedEnvelope) {
           continue;
@@ -214,7 +321,7 @@ export async function syncAllContractsStatus(options = {}) {
         const targetStatus = mapEnvelopeStatusToContractStatus(matchedEnvelope.status);
         if (!targetStatus) {
           console.warn(
-            `[statusSyncScheduler] Status de envelope não reconhecido ou rascunho ('${matchedEnvelope.status}') para o contrato ${contractId}. Nenhuma alteração de status realizada.`
+            `[statusSyncScheduler] Status de envelope não reconhecido ou rascunho ('${matchedEnvelope.status}') para o contrato ${contractId}. Nenhuma alteração realizada.`
           );
           if (matchedEnvelope.envelopeId && !storedEnvelopeId) {
             await Contract.findByIdAndUpdate(contractId, { envelopeId: matchedEnvelope.envelopeId });
@@ -232,56 +339,13 @@ export async function syncAllContractsStatus(options = {}) {
           await syncContractStatus(contractId, targetStatus, { envelopeId: matchedEnvelope.envelopeId });
           updatedCount++;
 
-          // 6. Se o contrato foi assinado/concluído e o download automático está ativo, baixa o PDF
-          if (targetStatus === "assinado" && matchedEnvelope.envelopeId && config.operations?.download !== false) {
-            try {
-              const paths = buildDownloadPath(contract, matchedEnvelope.envelopeId);
-              const fullFilePath = path.join(paths.downloadDir, paths.fileName);
-              
-              if (fs.existsSync(fullFilePath) && fs.statSync(fullFilePath).size > 0) {
-                console.log(`[statusSyncScheduler] PDF já existe e está salvo em: ${paths.relativePath}`);
-                downloadedCount++;
-                await syncContractStatus(contractId, "assinado", {
-                  envelopeId: matchedEnvelope.envelopeId,
-                  signedDocPath: paths.relativePath,
-                });
-                continue;
-              }
-
-              console.log(`[statusSyncScheduler] Baixando PDF assinado para o contrato ${contractId}...`);
-              const dlResult = await browserrobot.executeWithBrowser("download", {
-                envelopeId: matchedEnvelope.envelopeId,
-                downloadDir: paths.downloadDir,
-                fileName: paths.fileName,
-                credentials: {
-                  ...config.credentials,
-                  token_notification_email: config.token_notification_email,
-                  mfa: config.mfa,
-                },
-              });
-
-              // ponytail: conta como baixado se browser retornou sucesso OU arquivo existe no disco (test mock não cria arquivo)
-              if (dlResult !== null && dlResult !== undefined) {
-                downloadedCount++;
-                console.log(`[statusSyncScheduler] PDF assinado salvo com sucesso em: ${paths.relativePath}`);
-                await syncContractStatus(contractId, "assinado", {
-                  envelopeId: matchedEnvelope.envelopeId,
-                  signedDocPath: paths.relativePath,
-                });
-              } else if (fs.existsSync(fullFilePath) && fs.statSync(fullFilePath).size > 0) {
-                downloadedCount++;
-                console.log(`[statusSyncScheduler] PDF assinado salvo com sucesso em: ${paths.relativePath}`);
-                await syncContractStatus(contractId, "assinado", {
-                  envelopeId: matchedEnvelope.envelopeId,
-                  signedDocPath: paths.relativePath,
-                });
-              }
-            } catch (dlErr) {
-              console.error(`[statusSyncScheduler] Erro ao baixar PDF assinado do contrato ${contractId}:`, dlErr.message);
+          if (targetStatus === "assinado") {
+            const isDownloaded = await handleSignedContractDownload(contract, matchedEnvelope, config, contractId);
+            if (isDownloaded) {
+              downloadedCount++;
             }
           }
 
-          // 7. Notifica frontend em tempo real via evento de progresso SSE
           robotEvents.emit("job:progress", {
             jobId: contractId,
             contractId,
@@ -378,12 +442,6 @@ export function stop() {
     console.log("[statusSyncScheduler] Scheduler de consulta de status parado com sucesso.");
   }
 }
-
-/**
- * Exportação padrão do scheduler de sincronização de status.
- * @constant
- * @type {Object}
- */
 
 export default {
   syncAllContractsStatus,
