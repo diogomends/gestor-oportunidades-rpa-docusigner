@@ -53,11 +53,11 @@ export async function syncContractStatus(contractId, status, extraPayload = {}) 
     await Contract.findByIdAndUpdate(contractId, { status, ...extraPayload });
     const mongoose = (await import("mongoose")).default;
     if (mongoose.connection?.readyState === 1) {
-      const envelopeUpdate = { status: mapContractStatusToEnvelopeStatus(status) };
-      if (extraPayload.envelopeId) envelopeUpdate.envelopeId = extraPayload.envelopeId;
-      if (extraPayload.signedDocPath) envelopeUpdate.signedDocPath = extraPayload.signedDocPath;
+      const targetContractId = mongoose.Types.ObjectId.isValid(contractId)
+        ? new mongoose.Types.ObjectId(contractId)
+        : contractId;
       await DocusignEnvelope.findOneAndUpdate(
-        { contractId },
+        { contractId: targetContractId },
         { $set: envelopeUpdate },
         { upsert: true }
       );
