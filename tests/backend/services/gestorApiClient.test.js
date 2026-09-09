@@ -1,10 +1,14 @@
 import { describe, it, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert";
+import mongoose from "mongoose";
 import gestorApiClient, {
   validateApiKey,
   fetchPendingContracts,
   updateContractStatus,
 } from "../../../backend/src/services/gestorApiClient.js";
+import { syncContractStatus } from "../../../backend/src/modules/robot-docusign/seletorApiRobot/contractSyncService.js";
+import Contract from "../../../backend/src/models/Contract.js";
+import DocusignEnvelope from "../../../backend/src/models/DocusignEnvelope.js";
 
 describe("Unit Tests: gestorApiClient", () => {
   const originalEnv = { ...process.env };
@@ -176,6 +180,65 @@ describe("Unit Tests: gestorApiClient", () => {
         },
         /Erro ao atualizar contrato: HTTP 404/
       );
+    });
+  });
+
+  describe("contractSyncService - Fallback Mongoose", () => {
+    it("deve executar fallback Mongoose sem ReferenceError quando gestorApiClient falhar", async () => {
+      const contractId = new mongoose.Types.ObjectId().toString();
+      const status = "assinado";
+      const extraPayload = { signedDocPath: "uploads/test/contrato.pdf" };
+
+      // Simula falha na chamada HTTP do gestorApiClient para forçar o fallback
+      mock.method(gestorApiClient, "updateContractStatus", async () => {
+        throw new Error("HTTP connection refused");
+      });
+
+      let contractUpdated = null;
+      mock.method(Contract, "findByIdAndUpdate", async (id, update) => {
+        contractUpdated = { id, update };
+        return { _id: id, ...update };
+      });
+
+      let envelopeFilter = null;
+      let envelopeUpdateApplied = null;
+      let envelopeOptions = null;
+      mock.method(DocusignEnvelope, "findOneAndUpdate", async (filter, update, options) => {
+        envelopeFilter = filter;
+        envelopeUpdateApplied = update;
+        envelopeOptions = options;
+        return { _id: "env_1", ...update.$set };
+      });
+
+      // Garante que mongoose.connection.readyState esteja aberto (1)
+      const originalReadyState = mongoose.connection.readyState;
+      Object.defineProperty(mongoose.connection, "readyState", {
+        value: 1,
+        configurable: true,
+      });
+
+      try {
+        // Deve rodar sem lançar ReferenceError: envelopeUpdate is not defined
+        await syncContractStatus(contractId, status, extraPayload);
+
+        assert.ok(contractUpdated, "Contract.findByIdAndUpdate deveria ser invocado no fallback");
+        assert.strictEqual(contractUpdated.id, contractId);
+        assert.strictEqual(contractUpdated.update.status, "assinado");
+        assert.strictEqual(contractUpdated.update.signedDocPath, "uploads/test/contrato.pdf");
+
+        assert.ok(envelopeUpdateApplied, "DocusignEnvelope.findOneAndUpdate deveria ser invocado");
+        assert.deepStrictEqual(envelopeFilter, {
+          contractId: new mongoose.Types.ObjectId(contractId),
+        });
+        assert.strictEqual(envelopeUpdateApplied.$set.status, "completed");
+        assert.strictEqual(envelopeUpdateApplied.$set.signedDocPath, "uploads/test/contrato.pdf");
+        assert.deepStrictEqual(envelopeOptions, { upsert: true });
+      } finally {
+        Object.defineProperty(mongoose.connection, "readyState", {
+          value: originalReadyState,
+          configurable: true,
+        });
+      }
     });
   });
 });

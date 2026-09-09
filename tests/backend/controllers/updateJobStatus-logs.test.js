@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 
 import app from "../../../backend/src/app.js";
 import User from "../../../backend/src/models/User.js";
+import Contract from "../../../backend/src/models/Contract.js";
 import RobotJob from "../../../backend/src/modules/robot-docusign/models/RobotJob.js";
 import RobotInstance from "../../../backend/src/modules/robot-docusign/models/RobotInstance.js";
 import { robotEvents } from "../../../backend/src/modules/robot-docusign/seletorApiRobot/orchestratorEvents.js";
@@ -126,5 +127,52 @@ describe("updateJobStatus - Propagação de Logs SSE (T3 Regression)", () => {
     } finally {
       robotEvents.off("job:progress", onProgress);
     }
+  });
+
+  it("deve propagar signedDocPath para o Contrato e payload quando action for download e job completed", async () => {
+    const fakeContractId = new mongoose.Types.ObjectId().toString();
+    const fakeJob = {
+      _id: mockJobId,
+      status: "processing",
+      action: "download",
+      contract_id: fakeContractId,
+      steps: [],
+    };
+
+    mock.method(RobotJob, "findById", () => ({ lean: async () => fakeJob }));
+    mock.method(RobotJob, "findByIdAndUpdate", async () => ({
+      _id: mockJobId,
+      status: "completed",
+      contract_id: fakeContractId,
+      action: "download",
+      signedDocPath: "uploads/test/contrato_assinado.pdf",
+    }));
+    mock.method(RobotInstance, "findOneAndUpdate", async () => ({}));
+
+    let contractUpdatedArgs = null;
+    mock.method(Contract, "findByIdAndUpdate", async (id, update) => {
+      contractUpdatedArgs = { id, update };
+      return { _id: id, ...update };
+    });
+
+    const res = await request(app)
+      .patch(`/api/robot-docusign/instance/job/${mockJobId}/status`)
+      .set("Authorization", `Bearer ${tokenAdmin}`)
+      .send({
+        instance_id: "instance-test-1",
+        status: "completed",
+        signedDocPath: "uploads/test/contrato_assinado.pdf",
+      })
+      .expect(200);
+
+    assert.strictEqual(res.body.success, true);
+    assert.ok(contractUpdatedArgs, "Contract.findByIdAndUpdate deveria ser chamado");
+    assert.strictEqual(contractUpdatedArgs.id, fakeContractId);
+    assert.strictEqual(contractUpdatedArgs.update.status, "assinado");
+    assert.strictEqual(
+      contractUpdatedArgs.update.signedDocPath,
+      "uploads/test/contrato_assinado.pdf",
+      "signedDocPath deve ser propagado para o Contrato na conclusão do download"
+    );
   });
 });
