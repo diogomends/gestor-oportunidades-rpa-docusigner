@@ -464,15 +464,24 @@
 - **Date**: 2026-09-09
 - **Status**: active
 
+### AD-073
+- **Decision**: Refatoração Modular e Tipagem de Sincronização e Modelos DocuSigner — (1) Tipagem formal `@typedef` e Mongoose em `backend/src/models/DocusignEnvelope.js`; (2) Isolamento de responsabilidade única (SRP) e caminhos de download em `backend/src/modules/robot-docusign/seletorApiRobot/contractSyncService.js`; (3) Decomposição do `statusSyncScheduler.js` em funções atômicas puras (`validateExecutionPrerequisites`, `handleDualRobotDelegation`, `matchContractWithEnvelope`, `handleSignedContractDownload`, `syncAllContractsStatus`, `start`, `stop`), mantendo 100% de retrocompatibilidade com fachadas em `services/` e JSDoc obrigatório em todas as funções.
+- **Reason**: Garantir conformidade com os princípios SOLID, PonyTail (sem sobre-engenharia) e Anti-Phantom Hardening em componentes do repositório local, descartando dependências de arquivos do repositório externo.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/models/DocusignEnvelope.js`, `backend/src/modules/robot-docusign/seletorApiRobot/contractSyncService.js`, `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncScheduler.js`, `.specs/features/refatoracao-sincronizacao-status/*`
+- **Date**: 2026-09-09
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Refatoração Modular do robotDocusignController (SOLID & Atomic Handlers) (AD-072)
-- **Phase / Task**: Execução, Validação e Documentação Concluídas
-- **Completed**: Decomposição em 13 handlers atômicos semânticos sob `controllers/docusign/` + Fachada Barrel em `robotDocusignController.js` + inventário de rotas 100% validado (24 endpoints) + spec.md, tasks.md, validation.md e AD-072 registrados.
+- **Feature**: Refatoração de Sincronização e Modelos DocuSigner (AD-073)
+- **Phase / Task**: Execução e Documentação Concluídas
+- **Completed**: Refatoração de `DocusignEnvelope.js`, `contractSyncService.js` e `statusSyncScheduler.js` com JSDoc completo, SRP e anti-phantom hardening + spec.md, tasks.md e AD-073 registrados.
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
 - **Branch**: main
+
 
 
 
