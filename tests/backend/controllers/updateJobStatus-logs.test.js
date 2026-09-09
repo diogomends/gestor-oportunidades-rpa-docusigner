@@ -46,8 +46,13 @@ describe("updateJobStatus - Propagação de Logs SSE (T3 Regression)", () => {
       steps: [{ name: "launch_browser", status: "running" }],
     };
 
-    mock.method(RobotJob, "findById", async () => fakeJob);
-    mock.method(RobotJob, "findByIdAndUpdate", async () => fakeJob);
+    mock.method(RobotJob, "findById", () => ({ lean: async () => fakeJob }));
+    mock.method(RobotJob, "findByIdAndUpdate", async () => ({
+      _id: mockJobId,
+      status: "processing",
+      contract_id: null,
+      action: "send",
+    }));
     mock.method(RobotInstance, "findOneAndUpdate", async () => ({}));
 
     let emittedEvent = null;
@@ -90,8 +95,13 @@ describe("updateJobStatus - Propagação de Logs SSE (T3 Regression)", () => {
       steps: [],
     };
 
-    mock.method(RobotJob, "findById", async () => fakeJob);
-    mock.method(RobotJob, "findByIdAndUpdate", async () => fakeJob);
+    mock.method(RobotJob, "findById", () => ({ lean: async () => fakeJob }));
+    mock.method(RobotJob, "findByIdAndUpdate", async () => ({
+      _id: mockJobId,
+      status: "processing",
+      contract_id: null,
+      action: "send",
+    }));
     mock.method(RobotInstance, "findOneAndUpdate", async () => ({}));
 
     let emittedEvent = null;

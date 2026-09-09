@@ -38,7 +38,7 @@ export const streamInstanceTelemetry = async (req, res) => {
     }
   };
   req.on("close", cleanup);
-  res.on("close", cleanup);
+  if (typeof res.on === "function") res.on("close", cleanup);
 
   try {
     const inst = await RobotInstance.findOne({ instance_id: instanceId }).lean().catch(() => null);

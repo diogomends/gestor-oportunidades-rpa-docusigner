@@ -15,8 +15,12 @@ const ANSI_RED = "\x1b[91m";
 const ANSI_YELLOW = "\x1b[93m";
 const ANSI_GRAY = "\x1b[90m";
 
+/** @constant {number} Tamanho máximo do buffer de logs por job (FIFO). */
+const MAX_JOB_LOGS = 500;
+
 /**
  * Buffer em memória para retenção temporária dos logs de execução do job atual.
+ * // ponytail: cap 500 FIFO unbounded OOM guard — aumentar ou paginar se job >10k linhas, por ora descarta mais antigo
  * @type {string[]}
  */
 let jobLogsBuffer = [];
@@ -39,6 +43,7 @@ function getTimestamp() {
 function recordToBuffer(tag, message) {
   const line = `[${getTimestamp()}] [${tag}] ${message}`;
   jobLogsBuffer.push(line);
+  if (jobLogsBuffer.length > MAX_JOB_LOGS) jobLogsBuffer.shift();
 }
 
 /**
