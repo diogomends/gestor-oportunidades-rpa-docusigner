@@ -45,7 +45,12 @@ export const getAllInstances = async (req, res) => {
           current_job_id: inst.current_job_id || null,
           jobs_processed_today: inst.jobs_processed_today || 0,
           machine_info: inst.machine_info || {},
-          ...(includeLogs ? { logs: getLogs(inst.instance_id) } : {}),
+          ...(includeLogs
+            ? {
+                logs: getLogs(inst.instance_id),
+                telemetryLogs: getLogs(inst.instance_id),
+              }
+            : {}),
           createdAt: inst.createdAt,
           updatedAt: inst.updatedAt,
         };

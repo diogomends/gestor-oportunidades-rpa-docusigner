@@ -111,9 +111,10 @@ export class ApiClient {
   }
 
   /**
-   * Atualiza o status e os steps do job na API central.
+   * Atualiza o status, steps e logs do job na API central.
    * @param {string} jobId - Identificador do job.
-   * @param {Object} statusPayload - Payload de status ({ status, step, result, error, envelopeId }).
+   * @param {Object} statusPayload - Payload de status ({ status, step, result, error, envelopeId, logs }).
+   * @param {string[]} [statusPayload.logs] - Lista de logs de execução acumulados no buffer.
    * @returns {Promise<Object>} Resposta da API após atualização.
    */
   async updateJobStatus(jobId, statusPayload) {

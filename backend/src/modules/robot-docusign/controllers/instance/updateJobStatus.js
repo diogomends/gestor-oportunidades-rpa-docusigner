@@ -27,6 +27,7 @@ const updateStatusSchema = z.object({
   signedDocPath: z.string().optional().nullable(),
   result: z.any().optional(),
   error: z.string().optional().nullable(),
+  logs: z.array(z.string()).optional(),
 });
 
 /**
@@ -235,7 +236,7 @@ export const updateJobStatus = async (req, res) => {
       await RobotInstance.findOneAndUpdate({ instance_id }, { $set: instanceUpdate });
     }
 
-    emitProgress(updatedJob);
+    emitProgress(updatedJob, parse.data.logs || []);
 
     return res.status(200).json({
       success: true,

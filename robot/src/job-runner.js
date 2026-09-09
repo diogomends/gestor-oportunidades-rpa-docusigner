@@ -82,6 +82,7 @@ export class JobRunner {
       }
     };
 
+    logger.clearJobLogs();
     logger.step("JobRunner", `Iniciando execução do job ${jobId} (Contrato: ${contractId}, Ação: ${action})...`);
 
     try {
@@ -102,6 +103,7 @@ export class JobRunner {
         await this.api.updateJobStatus(jobId, {
           status: "processing",
           step: { name: "download_temp_pdf", status: "running" },
+          logs: logger.drainJobLogs(),
         });
 
         tempPdfPath = await this.api.downloadPdfToTemp(pdfUrl);
@@ -111,6 +113,7 @@ export class JobRunner {
         await this.api.updateJobStatus(jobId, {
           status: "processing",
           step: { name: "download_temp_pdf", status: "success" },
+          logs: logger.drainJobLogs(),
         });
       }
 
@@ -120,6 +123,7 @@ export class JobRunner {
       await this.api.updateJobStatus(jobId, {
         status: "processing",
         step: { name: "launch_browser", status: "running" },
+        logs: logger.drainJobLogs(),
       });
 
       const chromium = this._getChromium();
@@ -177,6 +181,7 @@ export class JobRunner {
       await this.api.updateJobStatus(jobId, {
         status: "processing",
         step: { name: "launch_browser", status: "success" },
+        logs: logger.drainJobLogs(),
       });
 
       // 3. Execução da automação
@@ -187,6 +192,7 @@ export class JobRunner {
         await this.api.updateJobStatus(jobId, {
           status: "processing",
           step: { name: "docusign_send", status: "running" },
+          logs: logger.drainJobLogs(),
         });
 
         result = await sendEnvelope(page, {
@@ -207,6 +213,7 @@ export class JobRunner {
           envelopeId: result.envelopeId,
           result,
           step: { name: "docusign_send", status: "success" },
+          logs: logger.drainJobLogs(),
         });
       } else if (action === "status") {
         logger.step("JobRunner", `Consultando status do envelope ${job.envelopeId}...`);
@@ -219,6 +226,7 @@ export class JobRunner {
           status: "completed",
           result,
           step: { name: "docusign_status_check", status: "success" },
+          logs: logger.drainJobLogs(),
         });
       } else if (action === "query_agreements") {
         logger.step("JobRunner", `Consultando acordos para representante: ${job.repName || job.representativeName || "Todos"}...`);
@@ -226,6 +234,7 @@ export class JobRunner {
         await this.api.updateJobStatus(jobId, {
           status: "processing",
           step: { name: "query_agreements", status: "running" },
+          logs: logger.drainJobLogs(),
         });
 
         result = await fetchAgreementsByRepresentative(page, {
@@ -240,6 +249,7 @@ export class JobRunner {
           status: "completed",
           result,
           step: { name: "query_agreements", status: "success" },
+          logs: logger.drainJobLogs(),
         });
       }
 
@@ -259,6 +269,7 @@ export class JobRunner {
           status: "failed",
           error: error.message,
           step: { name: "execution_error", status: "failed", error: error.message },
+          logs: logger.drainJobLogs(),
         })
         .catch((e) => logger.warn("JobRunner", `Falha ao reportar erro do job: ${e.message}`));
 
