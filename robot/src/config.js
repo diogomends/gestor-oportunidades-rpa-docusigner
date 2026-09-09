@@ -44,17 +44,37 @@ export function loadConfig() {
   }
   robotRole = normalizeRole(robotRole) || "all";
 
+  // Resolver HEADLESS: argv --headless > env HEADLESS > fileConfig > true (ponytail: runtime override libera exibir-tela.bat)
+  let headlessArg = null;
+  for (let i = 0; i < process.argv.length; i++) {
+    const a = process.argv[i];
+    if (a.startsWith("--headless=")) {
+      const v = a.split("=")[1].toLowerCase().trim();
+      headlessArg = !(v === "false" || v === "0" || v === "no" || v === "off");
+    } else if (a === "--headless" && process.argv[i + 1] !== undefined && !process.argv[i + 1].startsWith("--")) {
+      const v = process.argv[++i].toLowerCase().trim();
+      headlessArg = !(v === "false" || v === "0" || v === "no" || v === "off");
+    } else if (a === "--headless") {
+      headlessArg = true;
+    }
+  }
+
   const sessionByRole = {
     query: path.resolve(process.cwd(), "session-query.json"),
     update: path.resolve(process.cwd(), "session-update.json"),
     all: process.env.DOCUSIGN_SESSION_PATH || fileConfig.DOCUSIGN_SESSION_PATH || path.resolve(process.cwd(), "session-docusign.json"),
   };
 
+  const parseHeadlessEnv = (v) => {
+    if (v === true) return true;
+    const s = String(v).toLowerCase().trim();
+    return !(s === "false" || s === "0" || s === "no" || s === "off");
+  };
   const config = {
     API_URL: (process.env.API_URL || fileConfig.API_URL || "http://localhost:3111").replace(/\/$/, ""),
     ROBOT_KEY: process.env.ROBOT_KEY || fileConfig.ROBOT_KEY || "",
     ROBOT_ROLE: robotRole,
-    HEADLESS: process.env.HEADLESS !== undefined ? (process.env.HEADLESS === "true" || process.env.HEADLESS === true) : (fileConfig.HEADLESS !== false),
+    HEADLESS: headlessArg !== null ? headlessArg : (process.env.HEADLESS !== undefined ? parseHeadlessEnv(process.env.HEADLESS) : (fileConfig.HEADLESS !== false)),
     POLL_INTERVAL_SECONDS: parseInt(process.env.POLL_INTERVAL_SECONDS || fileConfig.POLL_INTERVAL_SECONDS || "15", 10),
     DOCUSIGN_SESSION_PATH: process.env.DOCUSIGN_SESSION_PATH || fileConfig.DOCUSIGN_SESSION_PATH || sessionByRole[robotRole],
   };

@@ -65,26 +65,30 @@ echo.
 echo [3/3] Configurando inicializacao automatica com o Windows...
 echo [INFO] Configurando chave de inicializacao no Registro HKCU... >> "!LOG_FILE!"
 
-set "RUN_BAT=%~dp0run.bat"
-if exist "!RUN_BAT!" (
-    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "DocuSignerRobot" /t REG_SZ /d "\"!RUN_BAT!\"" /f >> "!LOG_FILE!" 2>&1
+REM Auto-start headless: registra o .exe direto (sem janela). Para debug visivel use exibir-tela.bat manualmente.
+set "EXE_PATH="
+for %%F in ("%~dp0*.exe") do set "EXE_PATH=%%F"
+if defined EXE_PATH (
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "DocuSignerRobot" /t REG_SZ /d "\"!EXE_PATH!\"" /f >> "!LOG_FILE!" 2>&1
     if !ERRORLEVEL! EQU 0 (
-        echo [SUCESSO] Inicializacao automatica com o Windows configurada com sucesso.
-        echo [SUCESSO] Registro HKCU atualizado com "!RUN_BAT!" >> "!LOG_FILE!"
+        echo [SUCESSO] Inicializacao automatica (headless) configurada com sucesso: !EXE_PATH!
+        echo [SUCESSO] Registro HKCU atualizado com "!EXE_PATH!" (headless) >> "!LOG_FILE!"
+        echo [INFO] Para debug com tela visivel, execute manualmente: exibir-tela.bat >> "!LOG_FILE!"
     ) else (
         echo [ALERTA] Nao foi possivel registrar a inicializacao automatica no Registro - Codigo: !ERRORLEVEL!.
         echo [ALERTA] Falha ao registrar chave no Registro >> "!LOG_FILE!"
     )
 ) else (
-    echo [ALERTA] Arquivo run.bat nao encontrado em %~dp0. Pulando registro de inicializacao automatica.
-    echo [ALERTA] Arquivo run.bat nao encontrado >> "!LOG_FILE!"
+    echo [ALERTA] Nenhum .exe encontrado em %~dp0. Pulando registro de inicializacao automatica.
+    echo [ALERTA] Nenhum .exe encontrado >> "!LOG_FILE!"
 )
 
 :finalizar
 echo.
 echo ================================================================
 echo   [SUCESSO] O robo esta pronto e configurado para inicializar com o Windows!
-echo   Para iniciar agora manualmente, execute: run.bat
+echo   Para iniciar headless (producao): execute o .exe direto
+echo   Para debug com tela visivel:      execute exibir-tela.bat
 echo ================================================================
 echo.
 echo [FIM] Processo de setup concluido com sucesso. >> "!LOG_FILE!"

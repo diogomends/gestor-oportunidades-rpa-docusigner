@@ -96,7 +96,7 @@ O repositório está integrado com **GitHub Actions**:
 | `API_URL` / `URI_PROD`          | Não         | `http://localhost:3111`     | URL do backend central consumida pelo robô standalone               |
 | `ROBOT_KEY`                     | Não         | —                           | Chave de API do robô standalone para autenticação na API            |
 | `ROBOT_ROLE`                    | Não         | `all`                       | Papel do robô (`query` para consulta/download, `update` para envio/reenvio, `all` para ambos) |
-| `HEADLESS`                      | Não         | `true`                      | `true` para rodar em segundo plano, `false` para exibir o navegador |
+| `HEADLESS`                      | Não         | `true`                      | `true` = headless (sem janela), `false` = headed (com janela). Runtime-overrideável via `--headless` ou `exibir-tela.bat` |
 | `POLL_INTERVAL_SECONDS`         | Não         | `15`                        | Intervalo em segundos para consulta de jobs na fila                 |
 
 > **Armazenamento de Uploads & PDFs (AD-062):** O container Docker `app_docusigner` compartilha o volume externo `gestor-oportunidades_uploads_data` mapeado em `/app/uploads:ro` (somente leitura). O download de PDFs do contrato (`GET /api/robot-docusign/instance/contracts/:contractId/pdf`) tenta primeiro a leitura multi-caminho em disco (`/app/uploads`, `process.cwd()`, etc.) e conta com fallback resiliente para stream HTTP direto do Gestor de Oportunidades antes de emitir erro.
@@ -156,10 +156,10 @@ O repositório está integrado com **GitHub Actions**:
 
 ## Componentes do Projeto
 
-| Diretório      | Descrição                                                                                                                                                                                                                   | Gera Executável                  |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| **`backend/`** | Servidor central (Express + MongoDB). API REST para orquestração de jobs, autenticação JWT, agendamento de tarefas e monitoramento.                                                                                         | Não                              |
-| **`robot/`**   | Robô autônomo para instalar nas máquinas dos vendedores/agentes. Comunica com o servidor via HTTP, faz polling na fila de jobs do MongoDB e executa automação Playwright de forma isolada. Pode ser empacotado como `.exe`. | **Sim** — `robot-docusigner.exe` |
+| Diretório      | Descrição                                                                                                                                                                                                                   | Gera Executável                        |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **`backend/`** | Servidor central (Express + MongoDB). API REST para orquestração de jobs, autenticação JWT, agendamento de tarefas e monitoramento.                                                                                         | Não                                    |
+| **`robot/`**   | Robô autônomo para instalar nas máquinas dos vendedores/agentes. Comunica com o servidor via HTTP, faz polling na fila de jobs do MongoDB e executa automação Playwright de forma isolada. Pode ser empacotado como `.exe`. | **Sim** — `robot-query-1.exe` / `robot-enviar-1.exe` |
 
 ## Arquitetura
 
@@ -245,30 +245,29 @@ npm install
 npm run build
 ```
 
-O executável protegido será gerado em `robot/dist/robot-docusigner-X/robot-docusigner-X.exe` (onde X é o índice da chave).
+O executável protegido será gerado em `robot/dist/robot-query-1/robot-query-1.exe` e `robot/dist/robot-enviar-1/robot-enviar-1.exe` (matriz `ROBOT_API_KEY_N × role`).
 
 #### Parâmetros de Build
 
 | Parâmetro  | Obrigatório | Padrão                    | Descrição                                         |
 | ---------- | ----------- | ------------------------- | ------------------------------------------------- |
 | `KEY`      | Não\*       | (lê do `.env.dev`/`.env`) | Chave de API do robô (`ROBOT_KEY`)                |
-| `HEADLESS` | Não         | `true`                    | `true` = sem janela, `false` = com janela visível |
+| `HEADLESS` | Não         | `true`                    | `true` = headless (sem janela), `false` = headed (com janela). Valor apenas sugere padrão de `exibir-tela.bat`; `.exe` é runtime-overrideável via `HEADLESS` env ou `--headless` |
 | `API_URL`  | Não         | (lê do `.env.dev`/`.env`) | URL do servidor central                           |
 
 > \*`KEY` é obrigatória se não houver `ROBOT_KEY` no `.env.dev` ou `.env`.
 
-**Resultado:** Um `.exe` + `.jsc` com a chave, HEADLESS e API_URL embutidos no bytecode (sem `config.json` em texto plano). Cada chave gera uma subpasta em `robot/dist/` (ex: `robot-docusigner-1/`, `robot-docusigner-2/`).
+**Resultado:** Um `.exe` por papel com `ROBOT_KEY`/`ROBOT_ROLE`/`API_URL` embutidos via `esbuild --define` (sem `config.json` em texto plano; `HEADLESS` é runtime, não congelado). Cada chave gera subpastas `robot-query-N/` e `robot-enviar-N/` em `robot/dist/`.
 
-**Pipeline de Build:**
+**Pipeline de Build (3 etapas, sem bytenode/.jsc):**
 
-| Etapa | Ferramenta                | O que faz                                 |
-| ----- | ------------------------- | ----------------------------------------- |
-| 1     | **esbuild**               | Bundling ESM → CJS, externo do Playwright |
-| 2     | **javascript-obfuscator** | Ofuscação do código-fonte                 |
-| 3     | **bytenode**              | Compilação para bytecode V8 (`.jsc`)      |
-| 4     | **@yao-pkg/pkg**          | Empacotamento como binário Windows `.exe` |
+| Etapa | Ferramenta                | O que faz                                         |
+| ----- | ------------------------- | ------------------------------------------------- |
+| 1     | **esbuild**               | Bundling ESM → CJS, externo `playwright`/`playwright-core`, `--define ROBOT_KEY/ROBOT_ROLE/API_URL` |
+| 2     | **javascript-obfuscator** | Ofuscação do código-fonte                         |
+| 3     | **@yao-pkg/pkg**          | Empacotamento como binário Windows `.exe`         |
 
-**Distribuição:** Copie a pasta gerada em `dist/` (ex: `robot-docusigner-1/`) para a máquina alvo. Execute `setup.bat` para instalar o Chromium do Playwright e configurar automaticamente a inicialização do robô junto ao Windows (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
+**Distribuição:** Copie a pasta gerada em `dist/` (ex: `robot-query-1/`) para a máquina alvo. `.exe` direto roda **headless** (produção, sem janela). Para debug com navegador visível, execute `exibir-tela.bat` (`HEADLESS=false`). Execute `setup.bat` **uma única vez** para instalar o Chromium e registrar o `.exe` headless no auto-start do Windows (`HKCU\...\Run`); não é pré-requisito para execução manual.
 
 ## API REST
 

@@ -201,7 +201,6 @@ async function buildForOneKey({ buildKey, index, total, role = "all" }) {
     `--define:process.env.API_URL='"${targetApiUrl}"'`,
     `--define:process.env.ROBOT_KEY='"${buildKey}"'`,
     `--define:process.env.ROBOT_ROLE='"${role}"'`,
-    `--define:process.env.HEADLESS="${isHeadless}"`,
   ].join(" ");
 
   execSync(
@@ -260,10 +259,10 @@ async function buildForOneKey({ buildKey, index, total, role = "all" }) {
     fs.copyFileSync(setupBatSrc, path.join(outDir, "setup.bat"));
   }
 
-  // Script auxiliar run.bat para facilitar execução com logs visíveis
+  // Script auxiliar exibir-tela.bat para debug visível (HEADLESS=false) — .exe direto é headless (silencioso)
   const roleLabel = role === "query" ? "Consulta" : role === "update" ? "Envio" : "All";
-  const batContent = `@echo off\r\ntitle [DocuSign RPA] - ${roleLabel} #${index} - ${bundleBase}\r\necho ==================================================\r\necho Iniciando ${bundleBase} (${roleLabel})...\r\necho ==================================================\r\n"${bundleBase}.exe"\r\npause\r\n`;
-  fs.writeFileSync(path.join(outDir, "run.bat"), batContent, "utf-8");
+  const batContent = `@echo off\r\ntitle [DocuSign RPA] - ${roleLabel} #${index} - ${bundleBase} (com tela)\r\necho ==================================================\r\necho Iniciando ${bundleBase} (${roleLabel}) com tela visivel...\r\necho ==================================================\r\nset HEADLESS=false\r\n"${bundleBase}.exe" --headless false\r\npause\r\n`;
+  fs.writeFileSync(path.join(outDir, "exibir-tela.bat"), batContent, "utf-8");
 
   // Documentação README.txt com instruções e quadro explicativo
   const readmeContent = [
@@ -281,9 +280,10 @@ async function buildForOneKey({ buildKey, index, total, role = "all" }) {
     "-----------------------    -----------------------------------------------------",
     `${bundleBase}.exe`.padEnd(27) + "Binario Windows autonomo com runtime Node.js, codigo",
     "                           ofuscado e chave de autenticacao embutida.",
+    "                           Executado direto = modo headless (sem janela).",
     "",
-    "run.bat                    Script auxiliar para inicializacao com janela de",
-    "                           terminal visivel e logs em tempo real (Recomendado).",
+    "exibir-tela.bat            Script auxiliar para debug com navegador visivel",
+    "                           (HEADLESS=false). Use para ver o robô em ação.",
     "",
     "setup.bat                  Script para instalacao do navegador Chromium e",
     "                           configuracao de inicializacao automatica com Windows.",
@@ -304,7 +304,10 @@ async function buildForOneKey({ buildKey, index, total, role = "all" }) {
     "   e registrar a inicializacao automatica do robo com o Windows (Registro HKCU).",
     "",
     "3. INICIAR O ROBO:",
-    `   De dois cliques no arquivo "run.bat" (ou execute "${bundleBase}.exe").`,
+    `   - Producao (headless, sem janela): de dois cliques em "${bundleBase}.exe"`,
+    `     ou deixe o setup.bat registrar a inicializacao automatica.`,
+    `   - Debug (com tela): de dois cliques em "exibir-tela.bat" para ver o`,
+    "     navegador em tempo real.",
     "",
     "   O robo se conectara automaticamente ao servidor central via API Key,",
     "   registrara a sessao da maquina e comecara a consumir e processar as",

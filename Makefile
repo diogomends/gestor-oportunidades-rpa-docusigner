@@ -122,13 +122,13 @@ build-robot:
 	cd robot && node build/build.js --key "$(KEY)" --headless "$(HEADLESS)" --api-url "$(API_URL)" --role "$(or $(ROLE),all)"
 
 execute-robot:
-	powershell -Command "Start-Process cmd.exe -ArgumentList '/c', 'run.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-query-1'); Start-Process cmd.exe -ArgumentList '/c', 'run.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-enviar-1')"
+	powershell -Command "Start-Process cmd.exe -ArgumentList '/c', 'exibir-tela.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-query-1'); Start-Process cmd.exe -ArgumentList '/c', 'exibir-tela.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-enviar-1')"
 
 execute-robot-query:
-	powershell -Command "Start-Process cmd.exe -ArgumentList '/c', 'run.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-query-1')"
+	powershell -Command "Start-Process cmd.exe -ArgumentList '/c', 'exibir-tela.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-query-1')"
 
 execute-robot-enviar:
-	powershell -Command "Start-Process cmd.exe -ArgumentList '/c', 'run.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-enviar-1')"
+	powershell -Command "Start-Process cmd.exe -ArgumentList '/c', 'exibir-tela.bat' -WorkingDirectory (Join-Path (Get-Location) 'robot\dist\robot-enviar-1')"
 
 execute-robot-update: execute-robot-enviar
 
