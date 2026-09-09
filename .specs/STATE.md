@@ -456,15 +456,24 @@
 - **Date**: 2026-09-08
 - **Status**: active
 
+### AD-072
+- **Decision**: Refatoração e Decomposição Modular do `robotDocusignController.js` em Handlers Atômicos Semânticos (1 arquivo por função / SOLID SRP) — (1) Decomposição do arquivo monolítico de 869 linhas em 13 handlers atômicos dedicados com nomes altamente descritivos e autoexplicativos sob `backend/src/modules/robot-docusign/controllers/docusign/` (`enqueueSingleJob.js`, `enqueueBatchJobs.js`, `getJobStatusById.js`, `listFilteredJobs.js`, `getExecutionMetrics.js`, `getJobExecutionLogs.js`, `getRobotConfiguration.js`, `updateRobotConfiguration.js`, `testDocusignLogin.js`, `getPendingJobQueue.js`, `processPendingJobs.js`, `syncAllContractsStatus.js`, `streamJobProgressSSE.js`); (2) `robotDocusignController.js` passa a atuar como Fachada / Barrel DIP estável re-exportando todas as 13 funções (nomes semânticos + legados) e o export default, garantindo 100% de retrocompatibilidade com `routes.js` e a suíte de testes; (3) Isolamento de schemas Zod (`triggerSchema`, `triggerBatchSchema`, `updateConfigSchema`, `testLoginSchema`) no escopo exclusivo de cada handler; (4) JSDoc completo em 100% dos novos handlers e validação de 100% de conformidade no inventário de rotas (`tools/generate-routes-inventory.js`).
+- **Reason**: Eliminar violação do Single Responsibility Principle (SRP), organizar arquivos com nomes semânticos e concisos (20 a 85 linhas) facilitando manutenção cirúrgica e manipulação por IAs sem poluição de contexto, e eliminar risco de regressões.
+- **Trade-off**: Criação de pasta `controllers/docusign/` com 13 arquivos modulares.
+- **Scope**: `backend/src/modules/robot-docusign/controllers/robotDocusignController.js`, `backend/src/modules/robot-docusign/controllers/docusign/*`, `.specs/features/servidor-robot/refactor-robot-docusign-controller/*`, `.specs/routes-inventory.md`
+- **Date**: 2026-09-09
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Refatoração Modular do robotInstanceController (SOLID & Atomic Handlers) (AD-071)
+- **Feature**: Refatoração Modular do robotDocusignController (SOLID & Atomic Handlers) (AD-072)
 - **Phase / Task**: Execução, Validação e Documentação Concluídas
-- **Completed**: Decomposição em 9 handlers atômicos sob `controllers/instance/` + Fachada Barrel em `robotInstanceController.js` + inventário de rotas 100% validado + testes de regressão de telemetria/SSE executados com 100% de sucesso + spec.md, tasks.md, validation.md e AD-071 registrados.
+- **Completed**: Decomposição em 13 handlers atômicos semânticos sob `controllers/docusign/` + Fachada Barrel em `robotDocusignController.js` + inventário de rotas 100% validado (24 endpoints) + spec.md, tasks.md, validation.md e AD-072 registrados.
 - **In-progress**: nenhum
 - **Next step**: Fluxo de commit, PR e merge
 - **Blockers**: none
 - **Branch**: main
+
 
 
 
