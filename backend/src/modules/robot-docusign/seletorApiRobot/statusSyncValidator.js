@@ -39,10 +39,15 @@ export async function validateExecutionPrerequisites(config) {
   return { allowed: true };
 }
 
+/** Cache indicando se o log de frota offline já foi emitido (log apenas na transição de estado, evitando ruído por ciclo). @type {boolean} */
+let lastFleetOfflineLogged = false;
+
 /**
- * Verifica se há robôs autônomos de consulta (query) ativos e delega o job query_agreements para execução distribuída.
+ * Verifica o estado da frota de robôs de consulta (query) e trata a rodada de sincronização por delegação distribuída:
+ * enfileira o job query_agreements para robô externo, aguarda job já pendente ou aborta com segurança quando nenhum
+ * robô de consulta está ativo — sem criar jobs órfãos e sem invocar navegador no servidor.
  *
- * @returns {Promise<{ delegated: boolean, reason?: string }>} Indica se o job foi delegado ou já está pendente.
+ * @returns {Promise<{ handled: boolean, reason?: string }>} `handled: true` encerra a rodada sem varredura local (`enqueued_query_robot`, `query_job_pending` ou `fleet_offline`); `handled: false` indica impossibilidade de delegar (ex.: DB indisponível).
  * @async
  */
 export async function handleDualRobotDelegation() {
@@ -70,22 +75,32 @@ export async function handleDualRobotDelegation() {
         createdAt: { $gt: new Date(Date.now() - 10 * 60 * 1000) },
       });
 
-      if (hasQueryRobot && !hasPendingQueryJob) {
-        await RobotJob.create({ action: "query_agreements", status: "pending", mode: "robot" });
-        console.log("[statusSyncScheduler] Query robot conectado — job query_agreements enfileirado para robô externo.");
-        return { delegated: true, reason: "enqueued_query_robot" };
+      // Frota offline: aborta com segurança (log apenas na transição de estado)
+      if (!hasQueryRobot) {
+        if (!lastFleetOfflineLogged) {
+          console.log("[statusSyncScheduler] Nenhum robô de consulta ('query' ou 'all') ativo na frota. Sincronização automática ignorada.");
+          lastFleetOfflineLogged = true;
+        }
+        return { handled: true, reason: "fleet_offline" };
       }
 
-      if (hasQueryRobot && hasPendingQueryJob) {
+      // Frota de consulta ativa novamente: reabilita o log de transição
+      lastFleetOfflineLogged = false;
+
+      if (hasPendingQueryJob) {
         console.log("[statusSyncScheduler] Query job já pendente/processando — aguardando robô externo.");
-        return { delegated: true, reason: "query_job_pending" };
+        return { handled: true, reason: "query_job_pending" };
       }
+
+      await RobotJob.create({ action: "query_agreements", status: "pending", mode: "robot" });
+      console.log("[statusSyncScheduler] Query robot conectado — job query_agreements enfileirado para robô externo.");
+      return { handled: true, reason: "enqueued_query_robot" };
     }
   } catch (e) {
     console.warn("[statusSyncScheduler] Dual-robot check ignorado (sem DB):", e.message);
   }
 
-  return { delegated: false };
+  return { handled: false };
 }
 
 export default {
