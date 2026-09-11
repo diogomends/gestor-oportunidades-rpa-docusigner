@@ -496,13 +496,21 @@
 - **Date**: 2026-09-11
 - **Status**: active
 
+### AD-077
+- **Decision**: Decomposição Modular em Funções Atômicas Semânticas (SOLID SRP & DIP) — (1) Decomposição de `agreementsService.js` em 7 arquivos atômicos sob `browserrobot/agreements/` (`normalizeSearchText.js`, `cleanSignerNameNoise.js`, `extractPendingSignerName.js`, `normalizeDocusignEnvelopeStatus.js`, `buildAgreementsFilterUrl.js`, `extractPageEnvelopeRows.js`, `queryRepresentativeAgreementsPaginated.js`); (2) Isolamento de `reconcileCompletedQueryAgreements.js` em módulo atômico sob `controllers/instance/updateJobStatus/`; (3) Decomposição de `contractEnvelopeMatcher.js` em 3 arquivos atômicos sob `seletorApiRobot/envelopeMatcher/` (`normalizeComparisonText.js`, `convertDocusignStatusToContractStatus.js`, `matchContractWithDocusignEnvelope.js`); (4) Decomposição de `contractStatusSyncService.js` em 2 arquivos atômicos sob `seletorApiRobot/statusSync/` (`getStatusSyncRunningState.js`, `orchestrateAllContractsStatusSync.js`); (5) Decomposição de `agreements.js` e `statusParser.js` do robô standalone sob `robot/src/browser/agreements/` e `robot/src/browser/statusParser/`; (6) Manutenção de todos os arquivos originais como Fachadas / Barrels DIP estáveis re-exportando named, default e aliases legados com JSDoc completo em 100% dos novos arquivos.
+- **Reason**: Respeitar estritamente o princípio de responsabilidade única (SRP), eliminar arquivos monolíticos, adotar nomes semânticos e autoexplicativos alinhados ao domínio de negócio e permitir leitura e manutenção cirúrgica sem poluição de contexto para desenvolvedores e IAs.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/browserrobot/*`, `backend/src/modules/robot-docusign/controllers/instance/*`, `backend/src/modules/robot-docusign/seletorApiRobot/*`, `robot/src/browser/*`, `.specs/features/refatoracao-funcoes-atomicas/*`
+- **Date**: 2026-09-11
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Desativação do Fallback de Navegador no Servidor (AD-076)
-- **Phase / Task**: Fases 1–3 concluídas (T1–T3)
-- **Completed**: `statusSyncValidator.js`, `contractStatusSyncService.js` e `robotScheduler.js` ajustados para abortar execuções de browser em segundo plano quando a frota estiver offline; testes de regressão atualizados em `tests/backend/services/robotScheduler.test.js` e `tests/backend/services/statusSyncScheduler.test.js`; spec, tasks e validation criados em `.specs/features/desativacao-fallback-servidor-browser/`.
+- **Feature**: Refatoração e Decomposição Modular em Funções Atômicas (AD-077)
+- **Phase / Task**: Fases 1–5 concluídas (T1–T7)
+- **Completed**: 6 módulos decompostos em 18 funções atômicas em subpastas semânticas (`browserrobot/agreements/`, `controllers/instance/updateJobStatus/`, `seletorApiRobot/envelopeMatcher/`, `seletorApiRobot/statusSync/`, `robot/src/browser/agreements/`, `robot/src/browser/statusParser/`); Barrels DIP com JSDoc completo; `spec.md`, `tasks.md`, `validation.md` e `STATE.md` atualizados.
 - **In-progress**: Nenhum
-- **Next step**: Gerar comandos de commit conforme regras de commit do projeto.
+- **Next step**: Executar comandos de commit conforme regras do projeto.
 - **Blockers**: none
 - **Branch**: main
 
