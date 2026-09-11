@@ -111,14 +111,24 @@ export async function syncAllContractsStatus(options = {}) {
           continue;
         }
 
-        const isStatusChanged = targetStatus !== contract.status;
+        const extraUpdate = {
+          envelopeId: matchedEnvelope.envelopeId,
+          pendingSigner: matchedEnvelope.pendingSigner || null,
+          docusignStatusDetail: matchedEnvelope.statusDetail || matchedEnvelope.rawStatus || null,
+          rawDocusignStatus: matchedEnvelope.rawStatus || null,
+        };
 
-        if (isStatusChanged || (matchedEnvelope.envelopeId && !storedEnvelopeId)) {
+        const isStatusChanged = targetStatus !== contract.status;
+        const isSignerChanged = (matchedEnvelope.pendingSigner && matchedEnvelope.pendingSigner !== contract.pendingSigner);
+        const isDetailChanged = (matchedEnvelope.statusDetail && matchedEnvelope.statusDetail !== contract.docusignStatusDetail);
+        const isEnvelopeNew = (matchedEnvelope.envelopeId && !storedEnvelopeId);
+
+        if (isStatusChanged || isSignerChanged || isDetailChanged || isEnvelopeNew) {
           console.log(
-            `[statusSyncScheduler] Atualizando contrato ${contractId}: status '${contract.status}' -> '${targetStatus}' (Envelope: ${matchedEnvelope.envelopeId || "N/A"})`
+            `[statusSyncScheduler] Atualizando contrato ${contractId}: status '${contract.status}' -> '${targetStatus}' (Signatário: ${matchedEnvelope.pendingSigner || "N/A"}, Detalhe: ${matchedEnvelope.statusDetail || "N/A"})`
           );
 
-          await syncContractStatus(contractId, targetStatus, { envelopeId: matchedEnvelope.envelopeId });
+          await syncContractStatus(contractId, targetStatus, extraUpdate);
           updatedCount++;
 
           if (targetStatus === "assinado") {
@@ -132,8 +142,13 @@ export async function syncAllContractsStatus(options = {}) {
             jobId: contractId,
             contractId,
             status: targetStatus,
+            pendingSigner: extraUpdate.pendingSigner,
+            docusignStatusDetail: extraUpdate.docusignStatusDetail,
+            rawDocusignStatus: extraUpdate.rawDocusignStatus,
             action: "status",
-            message: `Status do contrato atualizado para: ${targetStatus.toUpperCase()}`,
+            message: extraUpdate.docusignStatusDetail
+              ? `Status do contrato atualizado: ${extraUpdate.docusignStatusDetail}`
+              : `Status do contrato atualizado para: ${targetStatus.toUpperCase()}`,
             envelopeId: matchedEnvelope.envelopeId,
             timestamp: new Date().toISOString(),
           });

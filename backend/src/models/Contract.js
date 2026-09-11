@@ -8,9 +8,12 @@ import { getContractsConnection } from "../config/database.js";
  * @property {Object} [client]
  * @property {Array} [negotiation]
  * @property {Array} [documents]
- * @property {"rascunho"|"gerado"|"enviado"|"assinado"|"cancelado"} [status]
+ * @property {"rascunho"|"gerado"|"em_processamento_robot"|"enviado"|"assinado"|"cancelado"} [status]
  * @property {string|null} [envelopeId]
  * @property {string|null} [docusign_envelope_id]
+ * @property {string|null} [pendingSigner]
+ * @property {string|null} [docusignStatusDetail]
+ * @property {string|null} [rawDocusignStatus]
  * @property {Object|null} [tokenInfo]
  * @property {Date} [createdAt]
  * @property {Date} [updatedAt]
@@ -140,6 +143,18 @@ const contractSchema = new mongoose.Schema(
       default: null,
     },
     docusign_envelope_id: {
+      type: String,
+      default: null,
+    },
+    pendingSigner: {
+      type: String,
+      default: null,
+    },
+    docusignStatusDetail: {
+      type: String,
+      default: null,
+    },
+    rawDocusignStatus: {
       type: String,
       default: null,
     },

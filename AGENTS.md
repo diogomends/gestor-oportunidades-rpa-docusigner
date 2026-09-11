@@ -76,14 +76,14 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
 │               ├── models/            # RobotJob.js, RobotSession.js, RobotInstance.js
 │               ├── selectors/         # Selectors CSS para automação do DocuSign
 │               ├── routes/            # robotInstanceRoutes.js
-│               ├── browserrobot/      # Submódulo Playwright (index.js barrel, browserRobot.js [send+executeWithBrowser], robotSession.js, agreementsService.js, robotSelectors.js, steps/)
+│               ├── browserrobot/      # Submódulo Playwright (index.js barrel, browserRobot.js [send+executeWithBrowser], robotSession.js, agreementsService.js [+ extractPendingSigner/statusDetail AD-075], robotSelectors.js, steps/)
 │               ├── seletorApiRobot/   # Submódulo de Seleção & Orquestração (index.js, orchestratorConfig.js, orchestratorEvents.js, apiActionService.js, contractSyncService.js, robotScheduler.js, statusSyncScheduler.js, contractEnvelopeMatcher.js, statusSyncValidator.js, signedPdfDownloadService.js, contractStatusSyncService.js)
 │               ├── utils/             # roleActions.js (ROLE_ENUM/ROLE_ACTIONS/isActionAllowedForRole AD-067), contractEligibility.js (GERADO_ELIGIBLE_FILTER / CONTRACT_ELIGIBLE_FILTER, isEligibleForSend/hasPdf/hasRecipientEmail — filtro não-rascunho + PDF + e-mail AD-038/AD-050), imapClient.js (MFA IMAP nativo UID SEARCH/FETCH/STORE + parseUidsFromSearch + clockDrift 60s AD-058/AD-059/AD-061)
 │               └── services/          # Fachadas DIP (re-export seletorApiRobot/* — canônico seletorApiRobot, services é barrel estável para server.js AD-054)
 ├── robot/
 │   ├── package.json       # Dependências e scripts do robô (Playwright, pkg, esbuild — sem bytenode/.jsc)
 │   ├── src/               # Código-fonte da automação (main, job-runner, scheduler)
-│   │   ├── browser/       # docusign.js (facade), auth.js, envelopes.js, agreements.js, statusParser.js, imapClient.js, roundcube.js, selectors.js, steps/ (uploadStep, fillRecipientsStep, advancePrepareStep, submitEnvelopeStep, extractEnvelopeIdStep, stepUtils — pipeline 8 etapas AD-064)
+│   │   ├── browser/       # docusign.js (facade — inclui re-export extractPendingSigner AD-075), auth.js, envelopes.js, agreements.js, statusParser.js (extractPendingSigner/stripPendingSignerNoise AD-075), imapClient.js, roundcube.js, selectors.js, steps/ (uploadStep, fillRecipientsStep, advancePrepareStep, submitEnvelopeStep, extractEnvelopeIdStep, stepUtils — pipeline 8 etapas AD-064)
 │   │   └── utils/         # logger.js (logs coloridos ANSI) + roleActions.js (ROLE_ACTIONS espelho backend AD-054/AD-067) + playwrightResolver.js (resolvePlaywright/getChromium/resolveChromiumExecutablePath/assertChromiumInstalled — fail-fast Chromium com hint setup.bat, fonte única main.js + job-runner.js AD-065)
 │   ├── build/             # Pipeline esbuild → obfuscator → pkg (3 etapas, sem bytenode)
 │   ├── scripts/           # Scripts de instalação e inicialização do robô (setup.bat registra .exe headless no HKCU)

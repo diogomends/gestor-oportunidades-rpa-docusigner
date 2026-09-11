@@ -74,6 +74,8 @@ export async function extractEnvelopesFromCurrentPage(page, repName = "") {
       envelopeId,
       status: normalizedStatusObj.status,
       rawStatus: normalizedStatusObj.rawStatus,
+      statusDetail: normalizedStatusObj.statusDetail,
+      pendingSigner: normalizedStatusObj.pendingSigner,
       unknown_status: normalizedStatusObj.unknown_status,
       extractedAt: new Date().toISOString(),
     });

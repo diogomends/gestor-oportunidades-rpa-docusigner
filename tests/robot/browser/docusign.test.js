@@ -9,6 +9,7 @@ import {
   sendEnvelope,
   checkEnvelopeStatus,
   normalizeEnvelopeStatus,
+  extractPendingSigner,
   extractEnvelopesFromCurrentPage,
   fetchAgreementsByRepresentative,
 } from "../../../robot/src/browser/docusign.js";
@@ -202,46 +203,60 @@ describe("Robot Standalone - DocuSign Browser & Session Hardening Tests", () => 
   });
 
   describe("normalizeEnvelopeStatus", () => {
-    it("deve normalizar corretamente todos os status conhecidos", () => {
+    it("deve normalizar corretamente todos os status conhecidos (contrato com statusDetail e pendingSigner)", () => {
       assert.deepEqual(normalizeEnvelopeStatus("Concluído"), {
         status: "completed",
         rawStatus: "Concluído",
+        statusDetail: "Concluído",
+        pendingSigner: null,
         unknown_status: false,
       });
 
       assert.deepEqual(normalizeEnvelopeStatus("concluido"), {
         status: "completed",
         rawStatus: "concluido",
+        statusDetail: "concluido",
+        pendingSigner: null,
         unknown_status: false,
       });
 
       assert.deepEqual(normalizeEnvelopeStatus("completed"), {
         status: "completed",
         rawStatus: "completed",
+        statusDetail: "Concluído",
+        pendingSigner: null,
         unknown_status: false,
       });
 
       assert.deepEqual(normalizeEnvelopeStatus("Aguardando outros"), {
         status: "waiting_others",
         rawStatus: "Aguardando outros",
+        statusDetail: "Aguardando outros",
+        pendingSigner: null,
         unknown_status: false,
       });
 
       assert.deepEqual(normalizeEnvelopeStatus("Aguardando"), {
         status: "waiting_others",
         rawStatus: "Aguardando",
+        statusDetail: "Aguardando",
+        pendingSigner: null,
         unknown_status: false,
       });
 
       assert.deepEqual(normalizeEnvelopeStatus("Anulado"), {
         status: "voided",
         rawStatus: "Anulado",
+        statusDetail: "Anulado",
+        pendingSigner: null,
         unknown_status: false,
       });
 
       assert.deepEqual(normalizeEnvelopeStatus("Falha na entrega"), {
         status: "delivery_failed",
         rawStatus: "Falha na entrega",
+        statusDetail: "Falha na entrega",
+        pendingSigner: null,
         unknown_status: false,
       });
     });
@@ -250,6 +265,7 @@ describe("Robot Standalone - DocuSign Browser & Session Hardening Tests", () => 
       const unknown = normalizeEnvelopeStatus("Em Revisão Jurídica Especial");
       assert.equal(unknown.status, "unknown");
       assert.equal(unknown.rawStatus, "Em Revisão Jurídica Especial");
+      assert.equal(unknown.statusDetail, "Em Revisão Jurídica Especial");
       assert.equal(unknown.unknown_status, true);
     });
 
@@ -261,6 +277,27 @@ describe("Robot Standalone - DocuSign Browser & Session Hardening Tests", () => 
       const nullInput = normalizeEnvelopeStatus(null);
       assert.equal(nullInput.status, "unknown");
       assert.equal(nullInput.unknown_status, true);
+    });
+  });
+
+  describe("extractPendingSigner", () => {
+    it("deve extrair o nome do signatário pendente de rótulos pt-BR e en-US", () => {
+      assert.equal(extractPendingSigner("Aguardando ZE CEDENTE"), "ZE CEDENTE");
+      assert.equal(extractPendingSigner("Waiting for John Doe"), "John Doe");
+      assert.equal(extractPendingSigner("Needs to sign: Maria Oliveira"), "Maria Oliveira");
+      assert.equal(extractPendingSigner("  aguardando   joão da silva  "), "joão da silva");
+    });
+
+    it("deve manter paridade de chaves com o backend para rótulos genéricos e não-pendência (null)", () => {
+      assert.equal(extractPendingSigner("Aguardando outros"), null);
+      assert.equal(extractPendingSigner("Aguardando 2 outros"), null);
+      assert.equal(extractPendingSigner("Aguardando terceiros"), null);
+      assert.equal(extractPendingSigner("Aguardando assinatura de ZE CEDENTE"), "ZE CEDENTE");
+      assert.equal(extractPendingSigner("Aguardando assinatura de ZE e 2 outros"), "ZE");
+      assert.equal(extractPendingSigner("Anulado"), null);
+      assert.equal(extractPendingSigner("Concluído"), null);
+      assert.equal(extractPendingSigner(""), null);
+      assert.equal(extractPendingSigner(null), null);
     });
   });
 
