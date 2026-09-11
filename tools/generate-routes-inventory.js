@@ -80,7 +80,7 @@ const ROUTE_METADATA = {
   },
   "POST /api/robot-docusign/process-pending": {
     desc: "Processa até 1 contrato pendente",
-    obs: "Scheduler manual, respeita enabled/horário",
+    obs: "Scheduler manual: sem envio inline — mantém fila para pull da frota (fleet_active/fleet_offline)",
   },
   "GET /api/robot-docusign/instances": {
     desc: "Lista instâncias do robô (fleet monitoring)",

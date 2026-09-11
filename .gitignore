@@ -71,3 +71,7 @@ ehthumbs.db
 *.swo
 acesso email e docusigner.txt
 
+# Cline (junction p/ .agents/rules - evitar commit duplicado)
+.clinerules/
+
+

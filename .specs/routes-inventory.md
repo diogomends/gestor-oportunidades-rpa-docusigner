@@ -1,7 +1,7 @@
 # Inventário de Rotas HTTP (REST) — gestor-oportunidades-rpa-docusigner
 
 > **Fonte da verdade:** `backend/src/app.js`, `backend/src/modules/robot-docusign/routes.js`, `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js`
-> Atualizado em: 2026-09-09
+> Atualizado em: 2026-09-11
 
 ## Registros
 
@@ -22,7 +22,7 @@
 | PUT | `/api/robot-docusign/config` | Atualizar config do robô | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:52` | body: enabled, mode, credentials, token_notification_email, limits, retry |
 | POST | `/api/robot-docusign/test-login` | Testa login no DocuSign | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:53` | body opcional: email, password, otpCode (6 dígitos) |
 | GET | `/api/robot-docusign/queue` | Fila de jobs pendentes/em processamento | protect | `backend/src/modules/robot-docusign/routes.js:54` | status in [pending, processing, running, retrying] |
-| POST | `/api/robot-docusign/process-pending` | Processa até 1 contrato pendente | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:55` | Scheduler manual, respeita enabled/horário |
+| POST | `/api/robot-docusign/process-pending` | Processa até 1 contrato pendente | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:55` | Scheduler manual: sem envio inline — mantém fila para pull da frota (fleet_active/fleet_offline) |
 | POST | `/api/robot-docusign/sync-status` | — | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes.js:56` | — |
 | POST | `/api/robot-docusign/instance/auth` | Autenticação da instância | Público | `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js:22` | X-Robot-Key ou email/senha → JWT 30d + instance_id |
 | GET | `/api/robot-docusign/instance/instances` | Lista instâncias (via sub-router) | protect + authorize("admin") | `backend/src/modules/robot-docusign/routes/robotInstanceRoutes.js:27` | Duplicata de /instances |
