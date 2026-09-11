@@ -480,15 +480,24 @@
 - **Date**: 2026-09-09
 - **Status**: active
 
+### AD-075
+- **Decision**: Sincronização e Exibição de Status "Aguardando Assinatura de [Nome]" e Detalhe DocuSign — (1) Extensão dos schemas Mongoose `Contract.js` e `DocusignEnvelope.js` com os campos `pendingSigner: String`, `docusignStatusDetail: String` e `rawDocusignStatus: String`, preservando histórico sem limpeza indevida em estados finais; (2) Robô Playwright (`statusParser.js` e `agreements.js`) passa a capturar `rawStatus`, extrair o nome limpo do signatário pendente ou o texto integral presente no DocuSign ("Aguardando ZE CEDENTE", "Aguardando 2 outros", "Anulado", etc.); (3) `contractStatusSyncService.js` persiste os novos campos e transmite via SSE (`job:progress`) para o CRM Funil; (4) Frontend do CRM Funil (`contract-status.js`) renderiza badges dinâmicos formatados (`AGUARDANDO [NOME]` / `ANULADO`) com truncamento em 25 caracteres, tooltip no hover e suporte a filtro no dashboard; (5) Estratégia de testes exclusivamente de regressão garantindo conformidade com `.agents/rules/global.md`.
+- **Reason**: Proporcionar visibilidade imediata ao operador sobre qual destinatário está pendente de assinar no DocuSign e preservar termos oficiais da interface como "Anulado".
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/models/*`, `robot/src/browser/*`, `backend/src/modules/robot-docusign/seletorApiRobot/*`, `gestor-oportunidades/public/modules/contratos/*`, `.specs/features/status-aguardando-assinatura/*`
+- **Date**: 2026-09-10
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Decomposição Modular do statusSyncScheduler (AD-074)
-- **Phase / Task**: Execução e Documentação Concluídas
-- **Completed**: Decomposição em 5 módulos especializados (`contractEnvelopeMatcher.js`, `statusSyncValidator.js`, `signedPdfDownloadService.js`, `contractStatusSyncService.js`, `statusSyncScheduler.js`), barrel `index.js`, JSDoc completo, atualização de `AGENTS.md`, `spec.md`, `tasks.md`, `validation.md` e `STATE.md`.
-- **In-progress**: nenhum
-- **Next step**: Fluxo de commit, PR e merge
+- **Feature**: Sincronização e Exibição de Status Aguardando Assinatura (AD-075)
+- **Phase / Task**: Fases 1–2 concluídas (T1–T4) + Code Review com correções aplicadas
+- **Completed**: T1–T4 implementados e documentados; parser do robô com `extractPendingSigner`/`stripPendingSignerNoise` (paridade pt-BR/en), matcher delegado no `updateJobStatus` (F3), braço-morto eliminado (F2), barrel `docusign.js` re-exporta `extractPendingSigner`; regressão direcionada verde (`tests/robot/browser/docusign.test.js`, `statusSyncScheduler.test.js`, `updateJobStatus-logs.test.js` 3/3, `Contract.test.js`); `validation.md` criado; higiene de commit aplicada (restaurado `.rtk/filters.toml`, revertido `.vscode/settings.json`).
+- **In-progress**: T5 (frontend cross-repo em `gestor-oportunidades/public/modules/contratos/dashboard/utils/contract-status.js`) não iniciado.
+- **Next step**: Executar T5 (badges `AGUARDANDO [NOME]`/`ANULADO` + truncamento 25 chars + filtros) e validação F4 (aceitação dos campos pelo backend do CRM); depois gate final `npm test` e commit conforme `.agents/rules/commit.md`.
 - **Blockers**: none
 - **Branch**: main
+
 
 
 

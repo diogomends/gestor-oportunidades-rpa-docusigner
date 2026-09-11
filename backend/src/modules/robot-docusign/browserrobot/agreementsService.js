@@ -22,13 +22,66 @@ function normalizeText(text = "") {
 }
 
 /**
+ * Remove ruído de rótulos de pendência que não representam um signatário nominal
+ * (ex: "outros", "terceiros", "assinatura de", contadores como "2 outros").
+ *
+ * @param {string} signerText - Texto bruto extraído após o prefixo de pendência.
+ * @returns {string} Texto limpo; string vazia se não houver signatário nominal.
+ */
+function stripPendingSignerNoise(signerText) {
+  const cleaned = signerText
+    .replace(/^(?:assinatura\s+de|signature\s+of)\s+/i, "")
+    .replace(/\s+(?:e|and)\s+\d+\s+(?:outros?|others?)$/i, "")
+    .trim();
+  if (/^(?:\d+\s+)?(?:outros?|others?|terceiros|third\s+parties?|partes?)$/i.test(cleaned)) {
+    return "";
+  }
+  return cleaned;
+}
+
+/**
+ * Extrai o nome do signatário pendente a partir do texto bruto de status do DocuSign.
+ * Rótulos genéricos ("Aguardando outros", "Aguardando 2 outros", "Aguardando terceiros")
+ * retornam null — o texto integral permanece preservado em `statusDetail` para exibição.
+ *
+ * @param {string} [rawText=""] - Texto bruto capturado.
+ * @returns {string|null} Nome do signatário limpo ou null.
+ */
+function extractPendingSigner(rawText = "") {
+  if (!rawText || typeof rawText !== "string") return null;
+  const trimmed = rawText.trim();
+
+  // Padrões comuns: "Aguardando [Nome]", "Waiting for [Nome]", "Needs to sign: [Nome]"
+  const match =
+    trimmed.match(/^aguardando\s+(.+)$/i) ||
+    trimmed.match(/^waiting\s+for\s+(.+)$/i) ||
+    trimmed.match(/^needs\s+to\s+sign:?\s*(.+)$/i);
+  if (!match) return null;
+
+  const signer = stripPendingSignerNoise(match[1]);
+  return signer || null;
+}
+
+/**
  * Normaliza o status bruto extraído da interface DocuSign para status canônico da aplicação.
  *
  * @param {string} [rawStatus=""] - Texto bruto do status obtido da UI.
- * @returns {{ status: string, rawStatus: string, unknown_status: boolean }} Objeto com status normalizado e indicação de desconhecido.
+ * @returns {{ status: string, rawStatus: string, statusDetail: string, pendingSigner: string|null, unknown_status: boolean }} Objeto com status normalizado e indicação de desconhecido.
  */
 function normalizeEnvelopeStatus(rawStatus = "") {
   const clean = normalizeText(rawStatus);
+  const pendingSigner = extractPendingSigner(rawStatus);
+
+  if (clean.includes("aguardando") || clean.includes("waiting")) {
+    return {
+      status: "sent",
+      rawStatus: String(rawStatus || "").trim(),
+      statusDetail: String(rawStatus || "").trim(),
+      pendingSigner,
+      unknown_status: false,
+    };
+  }
+
   const statusMap = {
     assinado: "completed",
     concluido: "completed",
@@ -51,9 +104,20 @@ function normalizeEnvelopeStatus(rawStatus = "") {
   };
 
   const status = statusMap[clean] || "unknown";
+  let statusDetail = String(rawStatus || "").trim();
+  // Rótulos oficiais pt-BR quando a interface exibe apenas o termo técnico em inglês.
+  // statusDetail sempre é truthy neste ponto (rawStatus não-vazio garantido pelo early-return implícito do statusMap).
+  if (status === "voided" && clean.includes("voided")) {
+    statusDetail = "Anulado";
+  } else if (status === "completed" && clean.includes("completed")) {
+    statusDetail = "Concluído";
+  }
+
   return {
     status,
     rawStatus: String(rawStatus || "").trim(),
+    statusDetail,
+    pendingSigner,
     unknown_status: status === "unknown" && Boolean(clean),
   };
 }
@@ -144,6 +208,8 @@ export async function extractEnvelopesFromCurrentPage(page, repName = "") {
       envelopeId,
       status: normalizedStatusObj.status,
       rawStatus: normalizedStatusObj.rawStatus,
+      statusDetail: normalizedStatusObj.statusDetail,
+      pendingSigner: normalizedStatusObj.pendingSigner,
       unknown_status: normalizedStatusObj.unknown_status,
       extractedAt: new Date().toISOString(),
     });

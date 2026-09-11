@@ -7,7 +7,7 @@
 import { randomDelay, isAuthenticationUrl, saveSessionState, ensureAuthenticated } from "./auth.js";
 import { sendEnvelope, checkEnvelopeStatus } from "./envelopes.js";
 import { extractEnvelopesFromCurrentPage, fetchAgreementsByRepresentative } from "./agreements.js";
-import { normalizeText, normalizeEnvelopeStatus } from "./statusParser.js";
+import { normalizeText, normalizeEnvelopeStatus, extractPendingSigner } from "./statusParser.js";
 
 export {
   randomDelay,
@@ -20,6 +20,7 @@ export {
   fetchAgreementsByRepresentative,
   normalizeText,
   normalizeEnvelopeStatus,
+  extractPendingSigner,
 };
 
 /**
@@ -38,6 +39,7 @@ const docusignFacade = {
   fetchAgreementsByRepresentative,
   normalizeText,
   normalizeEnvelopeStatus,
+  extractPendingSigner,
 };
 
 export default docusignFacade;

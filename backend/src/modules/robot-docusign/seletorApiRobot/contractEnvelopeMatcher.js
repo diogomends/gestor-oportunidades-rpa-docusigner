@@ -45,8 +45,13 @@ export function mapEnvelopeStatusToContractStatus(envelopeStatus = "") {
     case "processing":
     case "enviado":
     case "entregue":
+    case "waiting_others":
+    case "aguardando":
       return "enviado";
     default:
+      if (normalized.startsWith("aguardando") || normalized.startsWith("waiting")) {
+        return "enviado";
+      }
       return null;
   }
 }

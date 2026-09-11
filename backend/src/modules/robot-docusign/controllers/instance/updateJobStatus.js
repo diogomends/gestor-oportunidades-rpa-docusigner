@@ -6,6 +6,7 @@ import RobotInstance from "../../models/RobotInstance.js";
 import { emitProgress } from "../../seletorApiRobot/orchestratorEvents.js";
 import { syncContractStatus } from "../../seletorApiRobot/contractSyncService.js";
 import { mapEnvelopeStatusToContractStatus } from "../../seletorApiRobot/statusSyncScheduler.js";
+import { matchContractWithEnvelope } from "../../seletorApiRobot/contractEnvelopeMatcher.js";
 
 /**
  * Zod Schema para atualização de status de job.
@@ -50,6 +51,9 @@ async function reconcileAgreementsBatch(rawEnvelopes) {
         envelopeId: z.string().optional(),
         status: z.string().optional(),
         recipient: z.string().optional(),
+        statusDetail: z.string().optional(),
+        pendingSigner: z.string().optional(),
+        rawStatus: z.string().optional(),
       }).passthrough()
     );
     const parsed = envelopesSchema.safeParse(rawEnvelopes);
@@ -57,21 +61,12 @@ async function reconcileAgreementsBatch(rawEnvelopes) {
 
     const envelopes = parsed.data;
     const activeContracts = await Contract.find({ status: { $in: ["enviado", "gerado"] } }).lean();
-    const normalizeString = (s = "") =>
-      String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
     for (const contract of activeContracts) {
       const cId = contract._id.toString();
-      const repEmail = normalizeString(contract.client?.representante?.email || contract.client?.admin?.email);
-      const repName = normalizeString(contract.client?.representante?.nome || contract.client?.admin?.nome);
       const storedEnvelopeId = contract.envelopeId || contract.docusign_envelope_id;
-      const matched = envelopes.find((env) => {
-        if (storedEnvelopeId && env.envelopeId && env.envelopeId === storedEnvelopeId) return true;
-        const envRecipient = normalizeString(env.recipient);
-        if (repEmail && envRecipient.includes(repEmail)) return true;
-        if (repName && envRecipient.includes(repName)) return true;
-        return false;
-      });
+      // Delega o cruzamento contrato↔envelope ao matcher canônico (DRY — paridade com a varredura)
+      const matched = matchContractWithEnvelope(contract, envelopes);
       if (!matched) continue;
       const targetStatus = mapEnvelopeStatusToContractStatus(matched.status || "");
       if (!targetStatus) {
@@ -80,8 +75,19 @@ async function reconcileAgreementsBatch(rawEnvelopes) {
         }
         continue;
       }
-      if (targetStatus !== contract.status || (matched.envelopeId && !storedEnvelopeId)) {
-        await syncContractStatus(cId, targetStatus, { envelopeId: matched.envelopeId }).catch(() => {});
+      const extraUpdate = {
+        envelopeId: matched.envelopeId,
+        pendingSigner: matched.pendingSigner || null,
+        docusignStatusDetail: matched.statusDetail || matched.rawStatus || null,
+        rawDocusignStatus: matched.rawStatus || null,
+      };
+      const isStatusChanged = targetStatus !== contract.status;
+      const isSignerChanged = (matched.pendingSigner && matched.pendingSigner !== contract.pendingSigner);
+      const isDetailChanged = (matched.statusDetail && matched.statusDetail !== contract.docusignStatusDetail);
+      const isEnvelopeNew = (matched.envelopeId && !storedEnvelopeId);
+
+      if (isStatusChanged || isSignerChanged || isDetailChanged || isEnvelopeNew) {
+        await syncContractStatus(cId, targetStatus, extraUpdate).catch(() => {});
       }
     }
   } catch (e) {

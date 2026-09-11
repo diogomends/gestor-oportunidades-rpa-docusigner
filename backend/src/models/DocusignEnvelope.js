@@ -25,6 +25,9 @@ import { getContractsConnection } from "../config/database.js";
  * @property {import('mongoose').Types.ObjectId} contractId - Referência ao contrato associado.
  * @property {string} [envelopeId] - Identificador único do envelope na DocuSign.
  * @property {'rascunho'|'created'|'sent'|'delivered'|'completed'|'declined'|'voided'} [status] - Status do envelope.
+ * @property {string} [statusDetail] - Detalhe textual do status DocuSign (ex: "Aguardando ZE CEDENTE", "Anulado").
+ * @property {string} [rawStatus] - Status bruto capturado na interface DocuSign.
+ * @property {string} [pendingSigner] - Nome ou rótulo do signatário pendente de assinatura.
  * @property {DocusignEnvelopeSigner} [signer] - Dados do signatário principal.
  * @property {Date} [sentAt] - Data de envio do envelope.
  * @property {Date} [completedAt] - Data de conclusão das assinaturas.
@@ -44,6 +47,9 @@ const docusignEnvelopeSchema = new mongoose.Schema(
       type: String,
       enum: ["rascunho", "created", "sent", "delivered", "completed", "declined", "voided"],
     },
+    statusDetail: { type: String, default: null },
+    rawStatus: { type: String, default: null },
+    pendingSigner: { type: String, default: null },
     signer: {
       nome: String,
       email: String,
