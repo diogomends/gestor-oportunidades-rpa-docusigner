@@ -6,7 +6,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 ---
 
-**Spec**: `.specs/features/desativacao-fallback-servidor-browser/spec.md`
+**Spec**: `.specs/features/servidor-robot/desativacao-fallback-servidor-browser/spec.md`
 **Status**: Ready for Approval
 
 ---

@@ -1,7 +1,7 @@
 # Validation Report — Desativação do Fallback de Navegador no Servidor
 
 **Feature**: `desativacao-fallback-servidor-browser`
-**Spec**: `.specs/features/desativacao-fallback-servidor-browser/spec.md`
+**Spec**: `.specs/features/servidor-robot/desativacao-fallback-servidor-browser/spec.md`
 **Verdict**: PASS
 
 ---

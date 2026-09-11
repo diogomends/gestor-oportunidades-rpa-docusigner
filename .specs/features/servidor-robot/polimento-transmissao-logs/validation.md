@@ -1,8 +1,8 @@
 # Validation — Polimento Transmissão de Logs
 
 **Feature**: `polimento-transmissao-logs`
-**Spec**: `.specs/features/polimento-transmissao-logs/spec.md`
-**Tasks**: `.specs/features/polimento-transmissao-logs/tasks.md`
+**Spec**: `.specs/features/servidor-robot/polimento-transmissao-logs/spec.md`
+**Tasks**: `.specs/features/servidor-robot/polimento-transmissao-logs/tasks.md`
 **Date**: 2026-09-09
 **Verifier**: Muse Spark (fresh-eyes, author≠verifier)
 **Verdict**: **PASS**

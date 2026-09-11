@@ -6,7 +6,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 ---
 
-**Spec**: `.specs/features/refatoracao-funcoes-atomicas/spec.md`
+**Spec**: `.specs/features/servidor-robot/refatoracao-funcoes-atomicas/spec.md`
 **Status**: Completed
 
 ---

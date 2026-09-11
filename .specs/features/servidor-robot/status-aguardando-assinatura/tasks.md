@@ -6,7 +6,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 ---
 
-**Spec**: `.specs/features/status-aguardando-assinatura/spec.md`
+**Spec**: `.specs/features/servidor-robot/status-aguardando-assinatura/spec.md`
 **Status**: Em Execução — Fases 1–2 concluídas (T1–T4 ✅ + code review/correções); T5 (frontend cross-repo) e gate final pendentes
 
 ---
