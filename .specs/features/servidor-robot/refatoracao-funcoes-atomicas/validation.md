@@ -1,7 +1,7 @@
 # Validation Report — Refatoração e Decomposição Modular em Funções Atômicas
 
 **Feature**: `refatoracao-funcoes-atomicas`
-**Spec**: `.specs/features/refatoracao-funcoes-atomicas/spec.md`
+**Spec**: `.specs/features/servidor-robot/refatoracao-funcoes-atomicas/spec.md`
 **Verdict**: PASS
 
 ---

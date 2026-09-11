@@ -12,4 +12,6 @@ Executável standalone `.exe` que roda nas máquinas dos agentes. Polling autent
 | `dois-robos-consulta-atualizacao` | novo | Segregação do executável standalone em 2 robôs especializados: Consulta e Atualização/Envio |
 | `envio-envelope-8-etapas` | AD-064 | Pipeline de envio em 8 etapas: steps modulares `robot/src/browser/steps/` orquestrados por `envelopes.js` |
 
+> Decomposição atômica das funções do robô standalone (`robot/src/browser/agreements/` + `robot/src/browser/statusParser/`) é detalhada canonicamente em `servidor-robot/refatoracao-funcoes-atomicas` (AD-077).
+
 > Consumo da fila: validado em `servidor-robot/envio-sob-demanda` mas executado aqui via `robot/src/job-runner.js`.
