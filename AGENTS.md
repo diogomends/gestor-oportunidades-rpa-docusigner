@@ -107,7 +107,7 @@ Este projeto interage com `gestor-oportunidades` em `C:\www\producao\servidor-un
   - `robot-query-N`: papel `query` (somente leitura: consulta de acordos `query_agreements`, verificação de status, relatórios e download de assinados).
   - `robot-enviar-N`: papel canônico `update` (escrita: envio e reenvio de envelopes). `enviar` é alias aceito na CLI/build.
 - **Distribuição por Pull**: Os executáveis standalone realizam polling seguro e atômico via `GET /instance/next-job`.
-- **Desacoplamento do Servidor**: `POST /trigger` enfileira `RobotJob pending` e responde HTTP 202 com o `jobId` real para a UI acompanhar via SSE (`/jobs/:jobId/stream`). O `robotScheduler` do backend atua exclusivamente como fallback se não houver robô `update`/`all` vivo (heartbeat < 90s).
+- **Desacoplamento do Servidor**: `POST /trigger` enfileira `RobotJob pending` e responde HTTP 202 com o `jobId` real para a UI acompanhar via SSE (`/jobs/:jobId/stream`). O `robotScheduler` e o `statusSyncScheduler` do backend nunca executam automações via navegador inline no servidor: sem robô `update`/`all` vivo (heartbeat < 90s) ou `query`/`all` vivo (heartbeat < 60s), apenas mantêm a fila e retornam `reason: "fleet_offline"` (AD-076); jobs são consumidos exclusivamente via pull (`GET /instance/next-job`).
 
 ## Rotas
 

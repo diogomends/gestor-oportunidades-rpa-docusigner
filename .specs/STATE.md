@@ -488,13 +488,21 @@
 - **Date**: 2026-09-10
 - **Status**: active
 
+### AD-076
+- **Decision**: Desativação de Fallback de Navegador no Backend quando a Frota Estiver Offline — (1) `statusSyncValidator.js` e `contractStatusSyncService.js` passam a encerrar com `reason: "fleet_offline"` quando nenhum robô com role `query` ou `all` estiver ativo (< 60s), evitando invocar `browserrobot.executeWithBrowser("query_agreements")` no servidor; (2) `robotScheduler.js` passa a retornar `reason: "fleet_offline"` sem tentar processar contratos/jobs inline via Playwright quando nenhum robô com role `update` ou `all` estiver ativo (< 90s); (3) Manutenção do Playwright no backend exclusivamente para acionamentos manuais administrativos (`POST /test-login`); (4) Atualização e garantia de 100% de cobertura nos testes de regressão dos agendadores.
+- **Reason**: Eliminar disparos indesejados e repetitivos de e-mails com códigos de verificação (MFA/2FA) do DocuSign causados por tentativas automáticas de login via navegador headless dentro do container/servidor, consolidando a arquitetura em que o servidor central atua estritamente como orquestrador e fila, e a execução RPA ocorre nos robôs standalone da frota.
+- **Trade-off**: N/A.
+- **Scope**: `backend/src/modules/robot-docusign/seletorApiRobot/statusSyncValidator.js`, `backend/src/modules/robot-docusign/seletorApiRobot/contractStatusSyncService.js`, `backend/src/modules/robot-docusign/seletorApiRobot/robotScheduler.js`, `tests/backend/services/*`, `.specs/features/desativacao-fallback-servidor-browser/*`
+- **Date**: 2026-09-11
+- **Status**: active
+
 ## Handoff
 
-- **Feature**: Sincronização e Exibição de Status Aguardando Assinatura (AD-075)
-- **Phase / Task**: Fases 1–2 concluídas (T1–T4) + Code Review com correções aplicadas
-- **Completed**: T1–T4 implementados e documentados; parser do robô com `extractPendingSigner`/`stripPendingSignerNoise` (paridade pt-BR/en), matcher delegado no `updateJobStatus` (F3), braço-morto eliminado (F2), barrel `docusign.js` re-exporta `extractPendingSigner`; regressão direcionada verde (`tests/robot/browser/docusign.test.js`, `statusSyncScheduler.test.js`, `updateJobStatus-logs.test.js` 3/3, `Contract.test.js`); `validation.md` criado; higiene de commit aplicada (restaurado `.rtk/filters.toml`, revertido `.vscode/settings.json`).
-- **In-progress**: T5 (frontend cross-repo em `gestor-oportunidades/public/modules/contratos/dashboard/utils/contract-status.js`) não iniciado.
-- **Next step**: Executar T5 (badges `AGUARDANDO [NOME]`/`ANULADO` + truncamento 25 chars + filtros) e validação F4 (aceitação dos campos pelo backend do CRM); depois gate final `npm test` e commit conforme `.agents/rules/commit.md`.
+- **Feature**: Desativação do Fallback de Navegador no Servidor (AD-076)
+- **Phase / Task**: Fases 1–3 concluídas (T1–T3)
+- **Completed**: `statusSyncValidator.js`, `contractStatusSyncService.js` e `robotScheduler.js` ajustados para abortar execuções de browser em segundo plano quando a frota estiver offline; testes de regressão atualizados em `tests/backend/services/robotScheduler.test.js` e `tests/backend/services/statusSyncScheduler.test.js`; spec, tasks e validation criados em `.specs/features/desativacao-fallback-servidor-browser/`.
+- **In-progress**: Nenhum
+- **Next step**: Gerar comandos de commit conforme regras de commit do projeto.
 - **Blockers**: none
 - **Branch**: main
 

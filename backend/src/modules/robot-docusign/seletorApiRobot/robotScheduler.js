@@ -9,12 +9,15 @@ import SystemConfig from "../../../models/SystemConfig.js";
 import robotOrchestrator from "./index.js";
 import { isTimeAccessAllowed } from "../../../utils/timeRestrictionService.js";
 
+/** Cache do último motivo de skip de frota emitido em log (evita ruído a cada tick — log apenas na transição de estado). @type {string|null} */
+let lastFleetLogReason = null;
+
 /**
  * Processa até 1 contrato pendente na fila do Robô DocuSign.
  * Respeita as flags de ativação, limite de concorrência e horário de funcionamento.
  *
- * @param {Object} [options={}] - Opções adicionais para a execução do scheduler.
- * @returns {Promise<Object>} Resultado do processamento do job.
+ * @param {Object} [options={}] - Mantido por compatibilidade de chamadas (ex.: `triggeredByUserId` do controller `/process-pending`); atualmente ignorado — o scheduler não executa jobs inline.
+ * @returns {Promise<Object>} Resultado do processamento (`reason`: `robot_disabled`, `outside_working_hours`, `max_concurrent_reached`, `fleet_active` ou `fleet_offline`).
  */
 export async function processPendingJobs(options = {}) {
   console.log("[robotScheduler] Iniciando verificação de jobs pendentes...");
@@ -73,7 +76,10 @@ export async function processPendingJobs(options = {}) {
   }).lean();
 
   if (activeFleetRobot) {
-    console.log(`[robotScheduler] Frota de robôs ativa detectada (${activeFleetRobot.instance_id}, role: ${activeFleetRobot.role || "all"}). O servidor não executará envio inline.`);
+    if (lastFleetLogReason !== "fleet_active") {
+      console.log(`[robotScheduler] Frota de robôs ativa detectada (${activeFleetRobot.instance_id}, role: ${activeFleetRobot.role || "all"}). Jobs são atendidos via pull pela frota.`);
+      lastFleetLogReason = "fleet_active";
+    }
     return {
       success: true,
       processed: 0,
@@ -83,67 +89,16 @@ export async function processPendingJobs(options = {}) {
     };
   }
 
-  // 4. Buscar exatamente 1 contrato/job pendente na fila (status: 'pending' ou 'retrying' elegível)
-  // ponytail: ignora jobs de leitura global (query_agreements/reports) — são do robô query
-  const now = new Date();
-  const job = await RobotJob.findOne({
-    action: { $nin: ["query_agreements", "reports"] },
-    $or: [
-      { status: "pending" },
-      {
-        status: "retrying",
-        $or: [
-          { next_retry_at: { $lte: now } },
-          { next_retry_at: { $exists: false } },
-          { next_retry_at: null },
-        ],
-      },
-    ],
-  })
-    .sort({ createdAt: 1 })
-    .lean();
-
-  if (!job) {
-    console.log("[robotScheduler] Nenhum job pendente ou em retentativa na fila.");
-    return {
-      success: true,
-      processed: 0,
-      status: "idle",
-      reason: "no_pending_jobs",
-    };
+  if (lastFleetLogReason !== "fleet_offline") {
+    console.log("[robotScheduler] Nenhum robô de envio ('update' ou 'all') ativo na frota. Jobs permanecem na fila aguardando robôs externos.");
+    lastFleetLogReason = "fleet_offline";
   }
-
-  const contractId = job.contract_id || job.contractId;
-  const action = job.action || "send";
-
-  console.log(`[robotScheduler] Processando job ${job._id} para o contrato ${contractId} (Ação: ${action})...`);
-
-  // 5. Executar o job via robotOrchestrator
-  try {
-    const result = await robotOrchestrator.trigger(contractId, action, {
-      ...options,
-      jobId: job._id,
-      scheduledRun: true,
-    });
-
-    console.log(`[robotScheduler] Job ${job._id} finalizado com sucesso.`);
-    return {
-      success: true,
-      processed: 1,
-      jobId: job._id,
-      contractId,
-      result,
-    };
-  } catch (error) {
-    console.error(`[robotScheduler] Erro ao executar job ${job._id}:`, error);
-    return {
-      success: false,
-      processed: 1,
-      jobId: job._id,
-      contractId,
-      error: error.message,
-    };
-  }
+  return {
+    success: true,
+    processed: 0,
+    status: "skipped",
+    reason: "fleet_offline",
+  };
 }
 
 /** Timer do timeout inicial de boot. @type {NodeJS.Timeout|null} */
